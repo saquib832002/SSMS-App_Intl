@@ -1,0 +1,114 @@
+<svg viewBox="0 0 820 312" xmlns="http://www.w3.org/2000/svg" width="820" height="312">
+  <title>Manage My Academy — Facebook Cover</title>
+
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a"/>
+      <stop offset="55%" style="stop-color:#1e3a8a"/>
+      <stop offset="100%" style="stop-color:#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:rgba(255,255,255,0.08)"/>
+      <stop offset="100%" style="stop-color:rgba(255,255,255,0.03)"/>
+    </linearGradient>
+    <linearGradient id="accentLine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#facc15"/>
+      <stop offset="100%" style="stop-color:#fb923c"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="820" height="312" fill="url(#bgGrad)"/>
+
+  <!-- Decorative circles -->
+  <circle cx="680" cy="-30" r="180" fill="rgba(255,255,255,0.03)"/>
+  <circle cx="760" cy="280" r="140" fill="rgba(59,130,246,0.08)"/>
+  <circle cx="50" cy="280" r="100" fill="rgba(255,255,255,0.03)"/>
+
+  <!-- Dot grid -->
+  <g opacity="0.07">
+    <circle cx="550" cy="30" r="2" fill="#fff"/><circle cx="575" cy="30" r="2" fill="#fff"/><circle cx="600" cy="30" r="2" fill="#fff"/><circle cx="625" cy="30" r="2" fill="#fff"/><circle cx="650" cy="30" r="2" fill="#fff"/><circle cx="675" cy="30" r="2" fill="#fff"/><circle cx="700" cy="30" r="2" fill="#fff"/><circle cx="725" cy="30" r="2" fill="#fff"/><circle cx="750" cy="30" r="2" fill="#fff"/><circle cx="775" cy="30" r="2" fill="#fff"/><circle cx="800" cy="30" r="2" fill="#fff"/>
+    <circle cx="550" cy="55" r="2" fill="#fff"/><circle cx="575" cy="55" r="2" fill="#fff"/><circle cx="600" cy="55" r="2" fill="#fff"/><circle cx="625" cy="55" r="2" fill="#fff"/><circle cx="650" cy="55" r="2" fill="#fff"/><circle cx="675" cy="55" r="2" fill="#fff"/><circle cx="700" cy="55" r="2" fill="#fff"/><circle cx="725" cy="55" r="2" fill="#fff"/><circle cx="750" cy="55" r="2" fill="#fff"/><circle cx="775" cy="55" r="2" fill="#fff"/><circle cx="800" cy="55" r="2" fill="#fff"/>
+    <circle cx="550" cy="80" r="2" fill="#fff"/><circle cx="575" cy="80" r="2" fill="#fff"/><circle cx="600" cy="80" r="2" fill="#fff"/><circle cx="625" cy="80" r="2" fill="#fff"/><circle cx="650" cy="80" r="2" fill="#fff"/><circle cx="675" cy="80" r="2" fill="#fff"/><circle cx="700" cy="80" r="2" fill="#fff"/><circle cx="725" cy="80" r="2" fill="#fff"/><circle cx="750" cy="80" r="2" fill="#fff"/><circle cx="775" cy="80" r="2" fill="#fff"/><circle cx="800" cy="80" r="2" fill="#fff"/>
+    <circle cx="550" cy="105" r="2" fill="#fff"/><circle cx="575" cy="105" r="2" fill="#fff"/><circle cx="600" cy="105" r="2" fill="#fff"/><circle cx="625" cy="105" r="2" fill="#fff"/><circle cx="650" cy="105" r="2" fill="#fff"/><circle cx="675" cy="105" r="2" fill="#fff"/><circle cx="700" cy="105" r="2" fill="#fff"/><circle cx="725" cy="105" r="2" fill="#fff"/><circle cx="750" cy="105" r="2" fill="#fff"/><circle cx="775" cy="105" r="2" fill="#fff"/><circle cx="800" cy="105" r="2" fill="#fff"/>
+    <circle cx="550" cy="130" r="2" fill="#fff"/><circle cx="575" cy="130" r="2" fill="#fff"/><circle cx="600" cy="130" r="2" fill="#fff"/><circle cx="625" cy="130" r="2" fill="#fff"/><circle cx="650" cy="130" r="2" fill="#fff"/><circle cx="675" cy="130" r="2" fill="#fff"/><circle cx="700" cy="130" r="2" fill="#fff"/><circle cx="725" cy="130" r="2" fill="#fff"/><circle cx="750" cy="130" r="2" fill="#fff"/><circle cx="775" cy="130" r="2" fill="#fff"/><circle cx="800" cy="130" r="2" fill="#fff"/>
+  </g>
+
+  <!-- Left accent bar -->
+  <rect x="48" y="52" width="4" height="60" rx="2" fill="url(#accentLine)"/>
+
+  <!-- Headline -->
+  <text x="66" y="82" font-family="Arial, sans-serif" font-size="36" font-weight="900" fill="#ffffff" letter-spacing="-0.5">Manage My Academy</text>
+  <text x="67" y="108" font-family="Arial, sans-serif" font-size="15" font-weight="400" fill="rgba(255,255,255,0.72)" letter-spacing="0.3">The Complete School Management Platform</text>
+  <rect x="66" y="118" width="220" height="3" rx="2" fill="url(#accentLine)"/>
+
+  <!-- Tagline -->
+  <text x="66" y="152" font-family="Arial, sans-serif" font-size="13.5" fill="rgba(255,255,255,0.6)">Fees · Attendance · Exams · Timetable · Events · Hostel · Transport</text>
+
+  <!-- Feature pills -->
+  <rect x="66" y="170" width="88" height="26" rx="13" fill="rgba(255,255,255,0.1)"/>
+  <text x="110" y="187" font-family="Arial, sans-serif" font-size="11" font-weight="600" fill="#ffffff" text-anchor="middle">📚 Students</text>
+  <rect x="162" y="170" width="96" height="26" rx="13" fill="rgba(255,255,255,0.1)"/>
+  <text x="210" y="187" font-family="Arial, sans-serif" font-size="11" font-weight="600" fill="#ffffff" text-anchor="middle">✅ Attendance</text>
+  <rect x="266" y="170" width="72" height="26" rx="13" fill="rgba(255,255,255,0.1)"/>
+  <text x="302" y="187" font-family="Arial, sans-serif" font-size="11" font-weight="600" fill="#ffffff" text-anchor="middle">💰 Fees</text>
+  <rect x="346" y="170" width="76" height="26" rx="13" fill="rgba(255,255,255,0.1)"/>
+  <text x="384" y="187" font-family="Arial, sans-serif" font-size="11" font-weight="600" fill="#ffffff" text-anchor="middle">📝 Exams</text>
+  <rect x="430" y="170" width="96" height="26" rx="13" fill="rgba(250,204,21,0.18)"/>
+  <text x="478" y="187" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#facc15" text-anchor="middle">📱 Mobile App</text>
+
+  <!-- CTA -->
+  <rect x="66" y="212" width="160" height="36" rx="8" fill="#facc15"/>
+  <text x="146" y="234" font-family="Arial, sans-serif" font-size="13" font-weight="800" fill="#0f172a" text-anchor="middle">1 Year FREE Trial</text>
+  <text x="242" y="228" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="rgba(255,255,255,0.5)">🌐</text>
+  <text x="260" y="228" font-family="Arial, sans-serif" font-size="12.5" font-weight="700" fill="rgba(255,255,255,0.9)">managemyacademy.com</text>
+  <text x="242" y="248" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="rgba(255,255,255,0.5)">📲</text>
+  <text x="260" y="248" font-family="Arial, sans-serif" font-size="12" fill="rgba(255,255,255,0.65)">Available on Google Play &amp; App Store</text>
+
+  <!-- Contact details -->
+  <text x="66" y="274" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="rgba(255,255,255,0.5)">✉</text>
+  <text x="82" y="274" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="rgba(255,255,255,0.85)">admin@managemyacademy.com</text>
+  <text x="296" y="274" font-family="Arial, sans-serif" font-size="12" fill="rgba(255,255,255,0.3)">  |  </text>
+  <text x="316" y="274" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="rgba(255,255,255,0.5)">💬</text>
+  <text x="332" y="274" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="rgba(255,255,255,0.85)">WhatsApp: +91 98011 98648</text>
+
+  <!-- Dashboard card (right) -->
+  <g transform="translate(548, 28)">
+    <rect x="4" y="4" width="224" height="256" rx="14" fill="rgba(0,0,0,0.25)"/>
+    <rect width="224" height="256" rx="14" fill="rgba(255,255,255,0.1)"/>
+    <rect width="224" height="256" rx="14" fill="url(#cardGrad)"/>
+    <rect width="224" height="44" rx="14" fill="rgba(255,255,255,0.12)"/>
+    <rect y="30" width="224" height="14" fill="rgba(255,255,255,0.12)"/>
+    <text x="14" y="27" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#fff">📊 Live Dashboard</text>
+    <rect x="12" y="54" width="92" height="46" rx="8" fill="rgba(99,102,241,0.35)"/>
+    <text x="58" y="72" font-family="Arial, sans-serif" font-size="17" font-weight="900" fill="#fff" text-anchor="middle">1,248</text>
+    <text x="58" y="86" font-family="Arial, sans-serif" font-size="9" fill="rgba(255,255,255,0.7)" text-anchor="middle">Students</text>
+    <rect x="120" y="54" width="92" height="46" rx="8" fill="rgba(16,185,129,0.35)"/>
+    <text x="166" y="72" font-family="Arial, sans-serif" font-size="17" font-weight="900" fill="#fff" text-anchor="middle">87</text>
+    <text x="166" y="86" font-family="Arial, sans-serif" font-size="9" fill="rgba(255,255,255,0.7)" text-anchor="middle">Teachers</text>
+    <rect x="12" y="108" width="92" height="46" rx="8" fill="rgba(245,158,11,0.35)"/>
+    <text x="58" y="126" font-family="Arial, sans-serif" font-size="17" font-weight="900" fill="#fff" text-anchor="middle">96%</text>
+    <text x="58" y="140" font-family="Arial, sans-serif" font-size="9" fill="rgba(255,255,255,0.7)" text-anchor="middle">Attendance</text>
+    <rect x="120" y="108" width="92" height="46" rx="8" fill="rgba(239,68,68,0.35)"/>
+    <text x="166" y="126" font-family="Arial, sans-serif" font-size="17" font-weight="900" fill="#fff" text-anchor="middle">3</text>
+    <text x="166" y="140" font-family="Arial, sans-serif" font-size="9" fill="rgba(255,255,255,0.7)" text-anchor="middle">Branches</text>
+    <text x="12" y="170" font-family="Arial, sans-serif" font-size="9" fill="rgba(255,255,255,0.6)">Fees Collected This Month</text>
+    <rect x="12" y="176" width="200" height="8" rx="4" fill="rgba(255,255,255,0.12)"/>
+    <rect x="12" y="176" width="148" height="8" rx="4" fill="url(#accentLine)"/>
+    <text x="166" y="185" font-family="Arial, sans-serif" font-size="8.5" fill="#facc15">74%</text>
+    <text x="12" y="202" font-family="Arial, sans-serif" font-size="9" fill="rgba(255,255,255,0.6)">Quick Actions</text>
+    <rect x="12" y="208" width="60" height="22" rx="6" fill="rgba(255,255,255,0.14)"/>
+    <text x="42" y="222" font-family="Arial, sans-serif" font-size="8.5" fill="#fff" text-anchor="middle">+ Student</text>
+    <rect x="82" y="208" width="60" height="22" rx="6" fill="rgba(255,255,255,0.14)"/>
+    <text x="112" y="222" font-family="Arial, sans-serif" font-size="8.5" fill="#fff" text-anchor="middle">Attendance</text>
+    <rect x="152" y="208" width="60" height="22" rx="6" fill="rgba(255,255,255,0.14)"/>
+    <text x="182" y="222" font-family="Arial, sans-serif" font-size="8.5" fill="#fff" text-anchor="middle">Timetable</text>
+    <rect x="12" y="238" width="200" height="10" rx="3" fill="rgba(255,255,255,0.07)"/>
+    <rect x="12" y="238" width="4" height="10" rx="2" fill="#facc15"/>
+    <text x="22" y="247" font-family="Arial, sans-serif" font-size="8" fill="rgba(255,255,255,0.6)">📅 Sports Day — In 3 days</text>
+  </g>
+
+  <!-- Bottom strip -->
+  <rect x="0" y="292" width="820" height="20" fill="rgba(0,0,0,0.2)"/>
+  <text x="410" y="305" font-family="Arial, sans-serif" font-size="10" fill="rgba(255,255,255,0.4)" text-anchor="middle">🌐 managemyacademy.com  ·  Android &amp; iOS App  ·  1 Year Free Trial — No Credit Card Required</text>
+</svg>

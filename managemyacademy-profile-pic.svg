@@ -1,0 +1,59 @@
+<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" width="400" height="400">
+  <title>Manage My Academy — Profile Picture</title>
+
+  <defs>
+    <linearGradient id="bgG" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a"/>
+      <stop offset="60%" style="stop-color:#1e3a8a"/>
+      <stop offset="100%" style="stop-color:#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#facc15"/>
+      <stop offset="100%" style="stop-color:#fb923c"/>
+    </linearGradient>
+    <clipPath id="circle">
+      <circle cx="200" cy="200" r="200"/>
+    </clipPath>
+  </defs>
+
+  <!-- Circle background -->
+  <circle cx="200" cy="200" r="200" fill="url(#bgG)"/>
+
+  <!-- Subtle glow rings -->
+  <circle cx="200" cy="200" r="160" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="40"/>
+  <circle cx="200" cy="200" r="120" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+
+  <!-- Decorative arc -->
+  <circle cx="310" cy="90" r="90" fill="rgba(255,255,255,0.04)"/>
+
+  <!-- Graduation cap — board top -->
+  <polygon points="200,108 268,142 200,176 132,142" fill="url(#gold)"/>
+  <!-- Shine layer -->
+  <polygon points="200,108 268,142 234,159 200,142 166,159 132,142" fill="rgba(255,255,255,0.15)"/>
+
+  <!-- Stem -->
+  <rect x="194" y="142" width="12" height="44" rx="4" fill="rgba(255,255,255,0.85)"/>
+
+  <!-- Top tassel circle -->
+  <circle cx="200" cy="192" r="9" fill="url(#gold)"/>
+
+  <!-- Left tassel arm -->
+  <path d="M132,142 L132,172 Q132,184 144,188 L156,192" stroke="rgba(255,255,255,0.6)" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <line x1="132" x2="132" y1="172" y2="195" stroke="url(#gold)" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="132" cy="199" r="5" fill="url(#gold)"/>
+
+  <!-- MMA monogram -->
+  <text x="200" y="252" font-family="Arial, sans-serif" font-size="44" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="4">MMA</text>
+
+  <!-- Gold divider -->
+  <rect x="110" y="262" width="180" height="2" rx="1" fill="url(#gold)" opacity="0.7"/>
+
+  <!-- Full name -->
+  <text x="200" y="286" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="rgba(255,255,255,0.65)" text-anchor="middle" letter-spacing="1.5">MANAGE MY ACADEMY</text>
+
+  <!-- Website -->
+  <text x="200" y="310" font-family="Arial, sans-serif" font-size="11" fill="rgba(255,255,255,0.35)" text-anchor="middle">managemyacademy.com</text>
+
+  <!-- Gold border ring -->
+  <circle cx="200" cy="200" r="196" fill="none" stroke="url(#gold)" stroke-width="4" opacity="0.5"/>
+</svg>

@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SSMS – Smart School Management System</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --primary:   #1e40af;
+    --primary-light: #3b82f6;
+    --accent:    #7c3aed;
+    --accent-light: #a78bfa;
+    --gold:      #d97706;
+    --green:     #059669;
+    --dark:      #0f172a;
+    --mid:       #334155;
+    --muted:     #64748b;
+    --border:    #e2e8f0;
+    --surface:   #f8fafc;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #fff;
+    color: var(--dark);
+    line-height: 1.6;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #4c1d95 100%);
+    color: #fff;
+    padding: 70px 60px 60px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 400px; height: 400px;
+    border-radius: 50%;
+    background: rgba(167,139,250,0.12);
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -60px; left: -60px;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: rgba(59,130,246,0.10);
+  }
+  .hero-badge {
+    display: inline-block;
+    background: rgba(167,139,250,0.25);
+    border: 1px solid rgba(167,139,250,0.4);
+    color: #c4b5fd;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 6px 16px;
+    border-radius: 20px;
+    margin-bottom: 22px;
+  }
+  .hero h1 {
+    font-size: 48px;
+    font-weight: 900;
+    line-height: 1.1;
+    margin-bottom: 10px;
+    letter-spacing: -1px;
+  }
+  .hero h1 span { color: #a78bfa; }
+  .hero .tagline {
+    font-size: 18px;
+    color: #94a3b8;
+    font-weight: 400;
+    margin-bottom: 32px;
+    max-width: 560px;
+  }
+  .hero-stats {
+    display: flex;
+    gap: 40px;
+    flex-wrap: wrap;
+  }
+  .hero-stat { text-align: center; }
+  .hero-stat .num {
+    font-size: 32px;
+    font-weight: 800;
+    color: #fff;
+    display: block;
+  }
+  .hero-stat .lbl {
+    font-size: 11px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+  }
+
+  /* ── SECTION WRAPPER ── */
+  .section { padding: 60px; }
+  .section-alt { background: var(--surface); }
+  .section-title {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+  .section-heading {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--dark);
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+  }
+  .section-sub {
+    font-size: 15px;
+    color: var(--muted);
+    max-width: 600px;
+    margin-bottom: 40px;
+  }
+
+  /* ── FEATURE GRID ── */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .feature-card {
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    transition: box-shadow 0.2s;
+  }
+  .feature-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+  .feature-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    margin-bottom: 14px;
+  }
+  .feature-card h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--dark);
+    margin-bottom: 6px;
+  }
+  .feature-card p {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+  .feature-card ul {
+    list-style: none;
+    margin-top: 10px;
+  }
+  .feature-card ul li {
+    font-size: 12.5px;
+    color: var(--mid);
+    padding: 3px 0;
+    padding-left: 16px;
+    position: relative;
+  }
+  .feature-card ul li::before {
+    content: '✓';
+    position: absolute; left: 0;
+    color: var(--green);
+    font-weight: 700;
+    font-size: 11px;
+  }
+
+  /* icon bg colours */
+  .ic-blue    { background: #dbeafe; }
+  .ic-purple  { background: #ede9fe; }
+  .ic-green   { background: #d1fae5; }
+  .ic-amber   { background: #fef3c7; }
+  .ic-rose    { background: #ffe4e6; }
+  .ic-sky     { background: #e0f2fe; }
+  .ic-indigo  { background: #e0e7ff; }
+  .ic-teal    { background: #ccfbf1; }
+  .ic-orange  { background: #ffedd5; }
+
+  /* ── HIGHLIGHT STRIP ── */
+  .highlight-strip {
+    background: linear-gradient(135deg, #1e3a8a, #4c1d95);
+    color: #fff;
+    padding: 50px 60px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 30px;
+    text-align: center;
+  }
+  .hs-item .hs-num {
+    font-size: 36px;
+    font-weight: 900;
+    color: #a78bfa;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .hs-item .hs-lbl {
+    font-size: 13px;
+    color: #cbd5e1;
+    font-weight: 500;
+  }
+
+  /* ── PRICING ── */
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-top: 10px;
+  }
+  .plan {
+    border: 2px solid var(--border);
+    border-radius: 20px;
+    padding: 32px 28px 28px;
+    background: #fff;
+    position: relative;
+  }
+  .plan-popular {
+    border-color: var(--accent);
+    background: linear-gradient(160deg, #faf5ff 0%, #f0f9ff 100%);
+    transform: scale(1.03);
+  }
+  .popular-badge {
+    position: absolute;
+    top: -14px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 5px 18px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .plan-name {
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .plan-name-popular { color: var(--accent); }
+  .plan-headcount {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 20px;
+    font-weight: 500;
+  }
+  .plan-price {
+    margin-bottom: 6px;
+  }
+  .plan-price .currency {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--primary);
+    vertical-align: top;
+    margin-top: 8px;
+    display: inline-block;
+  }
+  .plan-price .amount {
+    font-size: 52px;
+    font-weight: 900;
+    color: var(--dark);
+    line-height: 1;
+    letter-spacing: -2px;
+  }
+  .plan-price-popular .currency,
+  .plan-price-popular .amount { color: var(--accent); }
+  .plan-period {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .plan-note {
+    font-size: 11.5px;
+    color: var(--green);
+    font-weight: 600;
+    margin-bottom: 24px;
+    background: #d1fae5;
+    padding: 5px 10px;
+    border-radius: 8px;
+    display: inline-block;
+  }
+  .plan-divider {
+    height: 1.5px;
+    background: var(--border);
+    margin: 20px 0;
+  }
+  .plan-features { list-style: none; }
+  .plan-features li {
+    font-size: 13px;
+    color: var(--mid);
+    padding: 7px 0;
+    padding-left: 22px;
+    position: relative;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .plan-features li:last-child { border-bottom: none; }
+  .plan-features li::before {
+    content: '✓';
+    position: absolute; left: 0;
+    color: var(--green);
+    font-weight: 800;
+    font-size: 12px;
+  }
+  .plan-features li.cross::before { content: '✗'; color: #f87171; }
+
+  /* ── COMMUNICATION SECTION ── */
+  .comm-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .comm-card {
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    background: #fff;
+  }
+  .comm-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; color: var(--dark); }
+  .comm-card p  { font-size: 13px; color: var(--muted); }
+
+  /* ── FOOTER ── */
+  .footer {
+    background: var(--dark);
+    color: #94a3b8;
+    padding: 40px 60px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+  .footer-brand { font-size: 20px; font-weight: 800; color: #fff; }
+  .footer-brand span { color: #a78bfa; }
+  .footer p { font-size: 13px; margin-top: 4px; }
+  .footer-contact { text-align: right; }
+  .footer-contact p { font-size: 13px; }
+  .footer-contact strong { color: #fff; }
+
+  /* ── COMPARISON TABLE ── */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  .compare-table th {
+    padding: 14px 16px;
+    text-align: left;
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    background: var(--dark);
+    color: #fff;
+  }
+  .compare-table th:first-child { border-radius: 12px 0 0 0; }
+  .compare-table th:last-child  { border-radius: 0 12px 0 0; }
+  .compare-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--mid);
+  }
+  .compare-table tr:last-child td { border-bottom: none; }
+  .compare-table tr:nth-child(even) td { background: #f8fafc; }
+  .compare-table td:first-child { font-weight: 600; color: var(--dark); }
+  .check { color: var(--green); font-weight: 700; font-size: 16px; }
+  .cross { color: #f87171; font-weight: 700; font-size: 16px; }
+  .col-pop { background: #faf5ff !important; }
+
+  /* ── CTA ── */
+  .cta {
+    background: linear-gradient(135deg, #4c1d95, #1e3a8a);
+    color: #fff;
+    padding: 60px;
+    text-align: center;
+  }
+  .cta h2 { font-size: 34px; font-weight: 800; margin-bottom: 12px; }
+  .cta p  { font-size: 16px; color: #94a3b8; max-width: 500px; margin: 0 auto 30px; }
+  .cta-btn {
+    display: inline-block;
+    background: #fff;
+    color: var(--accent);
+    font-weight: 800;
+    font-size: 15px;
+    padding: 14px 36px;
+    border-radius: 50px;
+    text-decoration: none;
+    letter-spacing: 0.3px;
+  }
+
+  /* Print */
+  @media print {
+    body { font-size: 12px; }
+    .hero { padding: 40px; }
+    .section { padding: 40px; }
+    .plan-popular { transform: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════ HERO ══════════ -->
+<div class="hero">
+  <div class="hero-badge">School Management Solution</div>
+  <h1>Smart School<br><span>Management System</span></h1>
+  <p class="tagline">A complete digital platform to manage students, attendance, exams, fees, homework, and more — all from one app.</p>
+  <div class="hero-stats">
+    <div class="hero-stat"><span class="num">13+</span><span class="lbl">Core Modules</span></div>
+    <div class="hero-stat"><span class="num">100%</span><span class="lbl">Mobile App</span></div>
+    <div class="hero-stat"><span class="num">Real-Time</span><span class="lbl">WhatsApp Alerts</span></div>
+    <div class="hero-stat"><span class="num">PDF</span><span class="lbl">Report Generation</span></div>
+  </div>
+</div>
+
+<!-- ══════════ HIGHLIGHT NUMBERS ══════════ -->
+<div class="highlight-strip">
+  <div class="hs-item"><span class="hs-num">∞</span><span class="hs-lbl">Students Supported</span></div>
+  <div class="hs-item"><span class="hs-num">6</span><span class="hs-lbl">Exam Types</span></div>
+  <div class="hs-item"><span class="hs-num">Auto</span><span class="hs-lbl">WhatsApp to Parents</span></div>
+  <div class="hs-item"><span class="hs-num">Cloud</span><span class="hs-lbl">Hosted &amp; Secure</span></div>
+</div>
+
+<!-- ══════════ FEATURES ══════════ -->
+<div class="section">
+  <p class="section-title">What's Included</p>
+  <h2 class="section-heading">Every Feature Your School Needs</h2>
+  <p class="section-sub">From day-to-day attendance to annual marksheets — everything is built in, connected, and ready to use.</p>
+
+  <div class="feature-grid">
+
+    <!-- Student Management -->
+    <div class="feature-card">
+      <div class="feature-icon ic-blue">🎓</div>
+      <h3>Student Management</h3>
+      <p>Complete student lifecycle from registration to graduation.</p>
+      <ul>
+        <li>Online student registration</li>
+        <li>Bulk enrollment support</li>
+        <li>Parent account creation</li>
+        <li>Class promotion with roll numbers</li>
+        <li>Student login portal</li>
+        <li>Active / inactive account toggle</li>
+      </ul>
+    </div>
+
+    <!-- Attendance -->
+    <div class="feature-card">
+      <div class="feature-icon ic-green">📋</div>
+      <h3>Attendance Tracking</h3>
+      <p>Daily attendance with instant parent notifications.</p>
+      <ul>
+        <li>One-tap daily attendance</li>
+        <li>Monthly attendance reports</li>
+        <li>Section &amp; class-wise views</li>
+        <li>WhatsApp alert to parents on absence</li>
+        <li>Attendance summary per student</li>
+      </ul>
+    </div>
+
+    <!-- Exams & Marks -->
+    <div class="feature-card">
+      <div class="feature-icon ic-purple">📝</div>
+      <h3>Exams &amp; Marks</h3>
+      <p>Full exam management with detailed marksheets.</p>
+      <ul>
+        <li>Annual, Term, Major, Minor, Weekly, Monthly exams</li>
+        <li>Theory / Internal / Practical mark entry</li>
+        <li>Quick test setup with max marks</li>
+        <li>Class-wise marks matrix</li>
+        <li>Student rankings with grades</li>
+        <li>PDF marksheet generation</li>
+      </ul>
+    </div>
+
+    <!-- Fee Management -->
+    <div class="feature-card">
+      <div class="feature-icon ic-amber">💰</div>
+      <h3>Fee Management</h3>
+      <p>Track dues, payments, and generate receipts.</p>
+      <ul>
+        <li>Fee structure per class</li>
+        <li>Student fee due tracking</li>
+        <li>Full payment history</li>
+        <li>Receipt number management</li>
+        <li>Multi-category fee support</li>
+      </ul>
+    </div>
+
+    <!-- Homework -->
+    <div class="feature-card">
+      <div class="feature-icon ic-sky">📚</div>
+      <h3>Homework Management</h3>
+      <p>Assign, track, and mark homework digitally.</p>
+      <ul>
+        <li>Create &amp; assign homework by class</li>
+        <li>Due date tracking</li>
+        <li>Mark homework as complete per student</li>
+        <li>Student homework portal</li>
+        <li>Subject-wise organisation</li>
+      </ul>
+    </div>
+
+    <!-- Notice Board -->
+    <div class="feature-card">
+      <div class="feature-icon ic-rose">📢</div>
+      <h3>Notice Board</h3>
+      <p>Publish school announcements and notices digitally.</p>
+      <ul>
+        <li>Create &amp; publish notices instantly</li>
+        <li>Visible on student &amp; staff dashboards</li>
+        <li>Date-stamped announcements</li>
+        <li>Priority notice support</li>
+      </ul>
+    </div>
+
+    <!-- Staff Management -->
+    <div class="feature-card">
+      <div class="feature-icon ic-indigo">👨‍🏫</div>
+      <h3>Staff Management</h3>
+      <p>Maintain complete records of all school staff.</p>
+      <ul>
+        <li>Staff registration &amp; profiles</li>
+        <li>Role-based access control</li>
+        <li>Admin, Teacher, Accountant roles</li>
+        <li>Secure login per staff member</li>
+      </ul>
+    </div>
+
+    <!-- Hostel -->
+    <div class="feature-card">
+      <div class="feature-icon ic-teal">🏠</div>
+      <h3>Hostel Management</h3>
+      <p>Manage on-campus boarding facilities effortlessly.</p>
+      <ul>
+        <li>Hostel room allocation</li>
+        <li>Student boarding records</li>
+        <li>Hostel fee tracking</li>
+      </ul>
+    </div>
+
+    <!-- Transport -->
+    <div class="feature-card">
+      <div class="feature-icon ic-orange">🚌</div>
+      <h3>Transport &amp; Timetable</h3>
+      <p>Manage routes, schedules and class timetables.</p>
+      <ul>
+        <li>Transport route management</li>
+        <li>Class timetable creation</li>
+        <li>School events calendar</li>
+        <li>Branch &amp; session management</li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════ COMMUNICATION ══════════ -->
+<div class="section section-alt">
+  <p class="section-title">Parent Communication</p>
+  <h2 class="section-heading">Stay Connected with Parents — Automatically</h2>
+  <p class="section-sub">The system sends real-time updates to parents via WhatsApp and Email, keeping them informed without any manual effort.</p>
+  <div class="comm-grid">
+    <div class="comm-card">
+      <div style="font-size:28px;margin-bottom:10px;">💬</div>
+      <h3>WhatsApp Notifications</h3>
+      <p>Automatic WhatsApp messages to parents when their child is absent, a new registration is completed, or a payment is received. No extra app needed — messages go directly to their phone.</p>
+    </div>
+    <div class="comm-card">
+      <div style="font-size:28px;margin-bottom:10px;">📧</div>
+      <h3>Email Confirmations</h3>
+      <p>Registration confirmation emails are sent automatically when a student or parent account is created. Keeps a professional digital record for every family.</p>
+    </div>
+    <div class="comm-card">
+      <div style="font-size:28px;margin-bottom:10px;">📱</div>
+      <h3>Student &amp; Parent Portal</h3>
+      <p>Parents and students can log in to view attendance, marks, fee status, homework, notices, and marksheets — all from their smartphone.</p>
+    </div>
+    <div class="comm-card">
+      <div style="font-size:28px;margin-bottom:10px;">🔐</div>
+      <h3>Role-Based Access</h3>
+      <p>Separate logins for Owner, Admin, Teacher, Accountant, Student, and Parent roles. Each user sees only what is relevant to them — secure and clean.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ PRICING ══════════ -->
+<div class="section">
+  <p class="section-title">Subscription Plans</p>
+  <h2 class="section-heading">Simple, Transparent Pricing</h2>
+  <p class="section-sub">Choose a plan that fits your school size. No hidden charges. All features included in every plan.</p>
+
+  <div class="pricing-grid">
+
+    <!-- Plan 1 -->
+    <div class="plan">
+      <p class="plan-name">Starter</p>
+      <p class="plan-headcount">👤 Up to 100 Students</p>
+      <div class="plan-price">
+        <span class="currency">₹</span><span class="amount">6,000</span>
+      </div>
+      <p class="plan-period">per year &nbsp;·&nbsp; Flat rate</p>
+      <span class="plan-note">Best for small schools &amp; coaching centres</span>
+      <div class="plan-divider"></div>
+      <ul class="plan-features">
+        <li>All 13+ modules included</li>
+        <li>Up to 100 student accounts</li>
+        <li>Staff &amp; parent logins</li>
+        <li>WhatsApp &amp; email notifications</li>
+        <li>PDF marksheet generation</li>
+        <li>Cloud hosted &amp; secure</li>
+        <li class="cross">Priority support</li>
+        <li class="cross">Custom branding</li>
+      </ul>
+    </div>
+
+    <!-- Plan 2 (Popular) -->
+    <div class="plan plan-popular">
+      <div class="popular-badge">⭐ Most Popular</div>
+      <p class="plan-name plan-name-popular">Standard</p>
+      <p class="plan-headcount">👥 100 – 300 Students</p>
+      <div class="plan-price plan-price-popular">
+        <span class="currency">₹</span><span class="amount">60</span>
+      </div>
+      <p class="plan-period">per student · per year</p>
+      <span class="plan-note">≈ ₹18,000/year for 300 students</span>
+      <div class="plan-divider"></div>
+      <ul class="plan-features">
+        <li>All 13+ modules included</li>
+        <li>100–300 student accounts</li>
+        <li>Staff &amp; parent logins</li>
+        <li>WhatsApp &amp; email notifications</li>
+        <li>PDF marksheet generation</li>
+        <li>Cloud hosted &amp; secure</li>
+        <li>Priority support</li>
+        <li class="cross">Custom branding</li>
+      </ul>
+    </div>
+
+    <!-- Plan 3 -->
+    <div class="plan">
+      <p class="plan-name">Premium</p>
+      <p class="plan-headcount">🏫 300+ Students</p>
+      <div class="plan-price">
+        <span class="currency">₹</span><span class="amount">25,000</span>
+      </div>
+      <p class="plan-period">per year &nbsp;·&nbsp; Flat rate</p>
+      <span class="plan-note">Unlimited students, best value at scale</span>
+      <div class="plan-divider"></div>
+      <ul class="plan-features">
+        <li>All 13+ modules included</li>
+        <li>Unlimited student accounts</li>
+        <li>Staff &amp; parent logins</li>
+        <li>WhatsApp &amp; email notifications</li>
+        <li>PDF marksheet generation</li>
+        <li>Cloud hosted &amp; secure</li>
+        <li>Priority support</li>
+        <li>Custom school branding</li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════ COMPARISON TABLE ══════════ -->
+<div class="section section-alt">
+  <p class="section-title">Plan Comparison</p>
+  <h2 class="section-heading">What's in Each Plan</h2>
+  <p class="section-sub" style="margin-bottom:30px;">Every plan includes the full feature set. The difference is scale and support level.</p>
+
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Feature</th>
+        <th>Starter &nbsp;·&nbsp; ₹6,000/yr</th>
+        <th style="background:#4c1d95;">Standard &nbsp;·&nbsp; ₹60/student/yr</th>
+        <th>Premium &nbsp;·&nbsp; ₹25,000/yr</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Student Capacity</td><td>Up to 100</td><td class="col-pop">100 – 300</td><td>Unlimited</td></tr>
+      <tr><td>Student &amp; Parent Portal</td><td><span class="check">✓</span></td><td class="col-pop"><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
+      <tr><td>Attendance + WhatsApp Alerts</td><td><span class="check">✓</span></td><td class="col-pop"><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
+      <tr><td>Exam &amp; Marks Management</td><td><span class="check">✓</span></td><td class="col-pop"><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
+      <tr><td>PDF Marksheet Generation</td><td><span class="check">✓</span></td><td class="col-pop"><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
+      <tr><td>Fee Management</td><td><span class="check">✓</span></td><td class="col-pop"><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
+      <tr><td>Homework Module</td><td><span class="check">✓</span></td><td class="col-pop"><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
+      <tr><td>Notice Board</td><td><span class="check">✓</span></td><td class="col-pop"><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
+      <tr><td>Hostel &amp; Transport</td><td><span class="check">✓</span></td><td class="col-pop"><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
+      <tr><td>Email Confirmations</td><td><span class="check">✓</span></td><td class="col-pop"><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
+      <tr><td>Priority Support</td><td><span class="cross">✗</span></td><td class="col-pop"><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
+      <tr><td>Custom School Branding</td><td><span class="cross">✗</span></td><td class="col-pop"><span class="cross">✗</span></td><td><span class="check">✓</span></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════ CTA ══════════ -->
+<div class="cta">
+  <h2>Ready to Transform Your School?</h2>
+  <p>Join schools already using SSMS to save time, reduce paperwork, and keep parents informed.</p>
+  <a href="#" class="cta-btn">Get Started Today →</a>
+</div>
+
+<!-- ══════════ FOOTER ══════════ -->
+<div class="footer">
+  <div>
+    <div class="footer-brand">SS<span>MS</span></div>
+    <p>Smart School Management System</p>
+    <p style="margin-top:8px;font-size:12px;">All plans include free onboarding &amp; setup assistance.</p>
+  </div>
+  <div class="footer-contact">
+    <p><strong>Contact Us</strong></p>
+    <p>📧 saquib832002@gmail.com</p>
+    <p style="margin-top:6px;font-size:12px;color:#64748b;">© 2026 SSMS. All rights reserved.</p>
+  </div>
+</div>
+
+</body>
+</html>
