@@ -1,1 +1,5 @@
-node_modules
+node_modules/
+
+# Ignore generated screen files
+screens/**/*.js
+screens/*.js
