@@ -11,11 +11,33 @@
  */
 
 let _handleExpired = null;
+let _handleLocked  = null;
 let _isLoggedOut   = false;
 
 /** Called by AuthProvider on mount to register the expiry handler */
 export function setExpiredHandler(fn) {
   _handleExpired = fn;
+}
+
+/**
+ * Called by AuthProvider to register the "module locked" (HTTP 402) handler.
+ * The backend returns 402 { code: 'MODULE_LOCKED', module, message } when an
+ * international (subscription) school calls a module it has not paid for.
+ */
+export function setLockedHandler(fn) {
+  _handleLocked = fn;
+}
+
+/** 402 → tell AuthContext (reads a clone so the caller can still read the body). */
+export function checkLocked(response) {
+  if (_isLoggedOut || response?.status !== 402 || !_handleLocked) return;
+  try {
+    response.clone().json()
+      .then(body => _handleLocked(body || {}))
+      .catch(() => _handleLocked({}));
+  } catch {
+    _handleLocked({});
+  }
 }
 
 /**
@@ -61,5 +83,6 @@ export async function safeFetch(url, options = {}) {
   }
   const res = await fetch(url, options);
   checkExpired(res);
+  checkLocked(res);
   return res;
 }

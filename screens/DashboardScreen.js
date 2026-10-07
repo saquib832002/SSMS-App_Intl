@@ -515,6 +515,8 @@ export default function DashboardScreen({ navigation }) {
   const loadEvents = useCallback(async () => {
     if (!user) return;
     if (!user?.token) return;
+    // Subscription schools without the Notice Board & Events module: skip
+    if (!hasModule("notices")) { setEvents([]); setEvLoading(false); return; }
     try {
       setEvLoading(true);
       setEvError("");
@@ -524,17 +526,25 @@ export default function DashboardScreen({ navigation }) {
       console.log("Events error:", e);
       setEvError(e.message || "Failed to load events");
     } finally { setEvLoading(false); }
-  }, [user]);
+  }, [user, hasModule]);
 
   const loadNotices = useCallback(async () => {
     if (!user) return;
     if (!user?.token) return;
-    try {
-      const data = await fetchNotices(user, { limit: 5 });
-      setNotices(data);
-    } catch (e) { console.log("Notices error:", e); }
+    if (hasModule("notices")) {
+      try {
+        const data = await fetchNotices(user, { limit: 5 });
+        setNotices(data);
+      } catch (e) { console.log("Notices error:", e); }
+    } else {
+      setNotices([]);
+    }
     // Gallery preview (non-critical — silent fail)
-    fetchGalleryPhotos(user).then(({ photos }) => setGallery(photos.slice(0, 6))).catch(() => {});
+    if (hasModule("communication")) {
+      fetchGalleryPhotos(user).then(({ photos }) => setGallery(photos.slice(0, 6))).catch(() => {});
+    } else {
+      setGallery([]);
+    }
     // WhatsApp community + channel links (non-critical — silent fail)
     fetchInstituteDetails(user)
       .then(d => {
@@ -542,7 +552,7 @@ export default function DashboardScreen({ navigation }) {
         setChannelLink(d?.whatsapp_channel_link || null);
       })
       .catch(() => {});
-  }, [user]);
+  }, [user, hasModule]);
 
   useEffect(() => { loadDashboard(); loadEvents(); loadNotices(); }, [loadDashboard, loadEvents, loadNotices]);
 

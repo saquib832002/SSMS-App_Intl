@@ -28,6 +28,18 @@ function t(val) {
 }
 
 
+// ── Entitlements (billing model + active modules) ────────────────────────────
+// Returns { billingModel, activeModules, moduleExpiries } or null on failure.
+export const fetchEntitlements = async (user) => {
+  const response = await safeFetch(`${BASE_URL}/UserServiceApi/getEntitlements`, {
+    method: "GET",
+    headers: buildHeaders(user),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.status === false) return null;
+  return data.data ?? null;
+};
+
 // ── User Profile ─────────────────────────────────────────────────────────────
 export const fetchUserProfile = async (user) => {
   const response = await safeFetch(`${BASE_URL}/UserServiceApi/getUserProfile`, {

@@ -24,6 +24,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 //const BASE = "http://192.168.4.90/ssms5/UserServiceApi";
 import { BASE_URL } from "../Environment/EnvironmentConfig";
+import { COUNTRIES, findCountry, guessCountryCode, deviceTimeZone } from "../constants/Countries";
 
 // Email format validator
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -554,7 +555,11 @@ export default function TrialRegistrationScreen({ navigation, route }) {
     ssms_client_phone:       "",
     ssms_client_header_text: "",
     logo_name:               "",
-    currency:                "INR",
+    currency:                guessCountryCode() === "IN" ? "INR" : "",
+    // Country decides billing on the server: IN → current Indian flow,
+    // anything else → subscription (14-day trial, then monthly plan).
+    country_code:            guessCountryCode(),
+    timezone:                deviceTimeZone(),
     ssms_client_status:      "active",
     ssms_client_expiry_date: defaultExpiry,
     enroll_prefix:           "E",
@@ -579,6 +584,14 @@ export default function TrialRegistrationScreen({ navigation, route }) {
   const setS = useCallback((key, val) => setSchool(p => ({ ...p, [key]: val })), []);
   const setA = useCallback((key, val) => setAdmin(p => ({ ...p, [key]: val })),  []);
 
+  // Country → also sets the school's currency
+  const country   = findCountry(school.country_code);
+  const isIndia   = school.country_code === "IN";
+  const setCountry = useCallback((code) => {
+    const c = findCountry(code);
+    setSchool(p => ({ ...p, country_code: code, currency: c?.currency ?? p.currency }));
+  }, []);
+
   // ── Validate step ───────────────────────────────────────────────────────
   const validateStep = useCallback(() => {
     if (step === 0) {
@@ -590,10 +603,12 @@ export default function TrialRegistrationScreen({ navigation, route }) {
       if (!school.ssms_client_name.trim())        return "School owner name is required";
       if (!school.ssms_client_header_text.trim()) return "School display name is required";
       // Address fields — now mandatory
+      if (!school.country_code)                   return "Please select your country";
       if (!school.ssms_client_address.trim())     return "School address is required";
       if (!school.ssms_client_city.trim())        return "City is required";
-      if (!school.ssms_client_state.trim())       return "State is required";
-      if (!school.ssms_client_zip.trim())         return "ZIP / PIN Code is required";
+      // Some countries have no states / postcodes – only required for India
+      if (school.country_code === "IN" && !school.ssms_client_state.trim()) return "State is required";
+      if (school.country_code === "IN" && !school.ssms_client_zip.trim())   return "ZIP / PIN Code is required";
       // Email — mandatory + format
       if (!school.ssms_client_email.trim())       return "School email is required";
       if (!EMAIL_RE.test(school.ssms_client_email.trim()))
@@ -940,6 +955,23 @@ export default function TrialRegistrationScreen({ navigation, route }) {
               </SectionCard>
 
               <SectionCard title="📍 School Address">
+                <Text style={ts.fieldLabel}>Country<Text style={{ color: C.error }}> *</Text></Text>
+                <Dropdown
+                  label="Select country"
+                  value={school.country_code}
+                  options={COUNTRIES.map(c => ({ value: c.code, label: c.name }))}
+                  onChange={setCountry}
+                />
+                {!!school.country_code && !isIndia && (
+                  <View style={ts.trialNote}>
+                    <Feather name="gift" size={14} color="#1d4ed8" />
+                    <Text style={ts.trialNoteTxt}>
+                      Includes a 14-day free trial of all features. After the trial,
+                      student registration and setup stay free; other modules need a
+                      monthly subscription.
+                    </Text>
+                  </View>
+                )}
                 <InputField
                   label="Address" required icon="map-pin"
                   placeholder="Street address"
@@ -957,19 +989,19 @@ export default function TrialRegistrationScreen({ navigation, route }) {
                   </View>
                   <View style={{ flex: 1 }}>
                     <InputField
-                      label="State" required icon="map"
-                      placeholder="State"
+                      label={isIndia ? "State" : "State / Region"} required={isIndia} icon="map"
+                      placeholder={isIndia ? "State" : "State / Region"}
                       value={school.ssms_client_state}
                       onChangeText={v => setS("ssms_client_state", v)}
                     />
                   </View>
                 </View>
                 <InputField
-                  label="ZIP / PIN Code" required icon="archive"
-                  placeholder="ZIP code"
+                  label={isIndia ? "PIN Code" : "ZIP / Postal Code"} required={isIndia} icon="archive"
+                  placeholder={isIndia ? "PIN code" : "ZIP / Postal code"}
                   value={school.ssms_client_zip}
                   onChangeText={v => setS("ssms_client_zip", v)}
-                  keyboardType="number-pad"
+                  keyboardType={isIndia ? "number-pad" : "default"}
                 />
               </SectionCard>
 
@@ -983,7 +1015,7 @@ export default function TrialRegistrationScreen({ navigation, route }) {
                 />
                 <InputField
                   label="School Phone" required icon="phone"
-                  placeholder="+91 98765 43210"
+                  placeholder={country?.dial ? `${country.dial} phone number` : "+91 98765 43210"}
                   value={school.ssms_client_phone}
                   onChangeText={v => setS("ssms_client_phone", v)}
                   keyboardType="phone-pad"
@@ -1171,6 +1203,7 @@ export default function TrialRegistrationScreen({ navigation, route }) {
                 <ReviewRow label="Owner Name"         value={school.ssms_client_name} />
                 <ReviewRow label="Address"            value={[school.ssms_client_address, school.ssms_client_city, school.ssms_client_state, school.ssms_client_zip].filter(Boolean).join(", ")} />
                 <ReviewRow label="Email"              value={school.ssms_client_email} />
+                <ReviewRow label="Country"            value={country?.name ?? ""} />
                 <ReviewRow label="Phone"              value={school.ssms_client_phone} />
                 <ReviewRow label="Currency"           value={school.currency} />
                 <ReviewRow label="Enroll Prefix"      value={school.enroll_prefix} />
@@ -1377,6 +1410,8 @@ const ts = StyleSheet.create({
   input:       { flex: 1, fontSize: 14, color: C.text, paddingVertical: 10 },
 
   row:         { flexDirection: "row" },
+  trialNote:   { flexDirection: "row", gap: 8, alignItems: "flex-start", backgroundColor: "#eff6ff", borderRadius: 10, padding: 10, marginBottom: 12 },
+  trialNoteTxt:{ flex: 1, fontSize: 12, color: "#1e3a8a", lineHeight: 17 },
 
   photoBtn:         { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: C.primary, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, marginBottom: 12 },
   photoBtnText:     { color: "#fff", fontWeight: "700", fontSize: 14 },

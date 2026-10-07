@@ -1,1 +1,12 @@
 node_modules/
+
+# Secrets and server-generated files
+config/.env
+config/app_local.php
+vendor/
+tmp/
+logs/
+_backup_phase1/
+_to_delete/
+*.jks
+android/app/debug.keystore

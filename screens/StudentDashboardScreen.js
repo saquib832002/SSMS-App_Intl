@@ -81,7 +81,7 @@ function SectionCard({ icon, title, accent = "#1e40af", onViewAll, children }) {
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function StudentDashboardScreen({ navigation }) {
   const {
-    user,
+    user, hasModule,
     activeEnrollmentId, setActiveEnrollmentId,
     linkedStudents, setLinkedStudents,
   } = useContext(AuthContext);
@@ -126,8 +126,11 @@ export default function StudentDashboardScreen({ navigation }) {
   const [channelLink,   setChannelLink]   = useState(null); // WhatsApp channel link
 
   // ── Loaders ────────────────────────────────────────────────────────────────
+  // Subscription schools only load the modules they have; legacy schools
+  // always pass these hasModule() checks (unchanged behaviour).
   const loadAttendance = useCallback(async () => {
     if (!effectiveUser?.token) return;
+    if (!hasModule("attendance")) { setAttendance(null); setAttLoading(false); return; }
     try {
       setAttLoading(true);
       const res = await fetchMyAttendance(effectiveUser);
@@ -148,10 +151,11 @@ export default function StudentDashboardScreen({ navigation }) {
       setAttendance({ present, total, pct });
     } catch { setAttendance(null); }
     finally { setAttLoading(false); }
-  }, [effectiveUser]);
+  }, [effectiveUser, hasModule]);
 
   const loadFees = useCallback(async () => {
     if (!effectiveUser?.token || !enrollmentId) return;
+    if (!hasModule("fees")) { setFees([]); setFeeLoading(false); return; }
     try {
       setFeeLoading(true);
       // Use the same endpoint as MyFeeScreen so dashboard and detail view are consistent
@@ -164,10 +168,11 @@ export default function StudentDashboardScreen({ navigation }) {
       }
     } catch { setFees([]); }
     finally { setFeeLoading(false); }
-  }, [effectiveUser, enrollmentId]);
+  }, [effectiveUser, enrollmentId, hasModule]);
 
   const loadHomework = useCallback(async () => {
     if (!effectiveUser?.token || !enrollmentId) return;
+    if (!hasModule("academics")) { setHomework([]); setHwLoading(false); return; }
     try {
       setHwLoading(true);
       const res = await getStudentHomework(effectiveUser, enrollmentId, null);
@@ -175,31 +180,40 @@ export default function StudentDashboardScreen({ navigation }) {
       setHomework(rows.slice(0, 3));
     } catch { setHomework([]); }
     finally { setHwLoading(false); }
-  }, [effectiveUser, enrollmentId]);
+  }, [effectiveUser, enrollmentId, hasModule]);
 
   const loadNotices = useCallback(async () => {
     if (!effectiveUser?.token) return;
-    try {
-      setNotLoading(true);
-      const data = await fetchNotices(effectiveUser, { limit: 4 });
-      setNotices(data);
-    } catch { setNotices([]); }
-    finally { setNotLoading(false); }
+    if (hasModule("notices")) {
+      try {
+        setNotLoading(true);
+        const data = await fetchNotices(effectiveUser, { limit: 4 });
+        setNotices(data);
+      } catch { setNotices([]); }
+      finally { setNotLoading(false); }
+    } else {
+      setNotices([]); setNotLoading(false);
+    }
     // Gallery — non-critical, silent fail
-    fetchGalleryPhotos(effectiveUser)
-      .then(({ photos }) => setGallery(photos.slice(0, 6)))
-      .catch(() => {});
-  }, [effectiveUser]);
+    if (hasModule("communication")) {
+      fetchGalleryPhotos(effectiveUser)
+        .then(({ photos }) => setGallery(photos.slice(0, 6)))
+        .catch(() => {});
+    } else {
+      setGallery([]);
+    }
+  }, [effectiveUser, hasModule]);
 
   const loadEvents = useCallback(async () => {
     if (!effectiveUser?.token) return;
+    if (!hasModule("notices")) { setEvents([]); setEvLoading(false); return; }
     try {
       setEvLoading(true);
       const data = await fetchUpcomingEvents(effectiveUser, 6);
       setEvents(data);
     } catch { setEvents([]); }
     finally { setEvLoading(false); }
-  }, [effectiveUser]);
+  }, [effectiveUser, hasModule]);
 
   useEffect(() => {
     loadAttendance();

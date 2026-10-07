@@ -106,7 +106,10 @@ try {
           branchId:       data.branchId        ?? null,
           enrollmentId:   data.enrollmentId    ?? data.enrollment_id ?? null,
           staffId:        data.staffId         ?? null,
-          activeModules:  Array.isArray(data.activeModules) ? data.activeModules : ['school'],
+          billingModel:   data.billingModel === 'subscription' ? 'subscription' : 'legacy',
+          activeModules:  Array.isArray(data.activeModules)
+                            ? data.activeModules
+                            : (data.billingModel === 'subscription' ? ['core'] : ['school']),
         };
        // console.log("=== STORING USER ===", JSON.stringify(userData));
         login(userData);

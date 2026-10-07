@@ -48,7 +48,6 @@ export default {
       "expo-build-properties",
       {
         android: {
-          kotlinVersion: "1.9.25",
           targetSdkVersion: 36,
           enableProguardInReleaseBuilds: true,
           enableShrinkResourcesInReleaseBuilds: true,

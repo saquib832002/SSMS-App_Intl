@@ -1,8 +1,16 @@
 // context/AuthContext.js
 import React, { createContext, useState, useEffect, useRef, useCallback } from 'react';
-import { Alert } from 'react-native';
-import { setExpiredHandler, setLoggedOut } from '../services/apiInterceptor';
-import { fetchUserProfile } from '../services/UserServiceApi';
+import { Alert, AppState } from 'react-native';
+import { setExpiredHandler, setLockedHandler, setLoggedOut } from '../services/apiInterceptor';
+import { fetchUserProfile, fetchEntitlements } from '../services/UserServiceApi';
+
+// Module keys introduced for the international (subscription) app.
+// Legacy (Indian) schools have never been gated on these, so for them
+// hasModule() keeps returning true – their behaviour is unchanged.
+const SUBSCRIPTION_MODULE_KEYS = [
+  'core', 'attendance', 'notices', 'fees', 'exams',
+  'academics', 'assessments', 'communication',
+];
 
 export const AuthContext = createContext({
   user:                  null,
@@ -12,6 +20,8 @@ export const AuthContext = createContext({
   logout:                () => {},
   handleExpired:         () => {},
   hasModule:             (_key) => false,
+  isSubscription:        false,
+  refreshEntitlements:   async () => {},
   activeEnrollmentId:    null,
   setActiveEnrollmentId: () => {},
   linkedStudents:        null,   // null = not yet fetched, [] = fetched (0 or 1), [..] = multiple
@@ -31,6 +41,7 @@ export function AuthProvider({ children }) {
   const expiryTimer = useRef(null);
   const warnTimer   = useRef(null);
   const isExpiring  = useRef(false);
+  const lastLockAlert = useRef(0);
 
   const login = useCallback((userData) => {
     isExpiring.current = false;
@@ -107,19 +118,77 @@ export function AuthProvider({ children }) {
     };
   }, [user?.expiresAt, handleExpired]);
 
+  const isSubscription = user?.billingModel === 'subscription';
+
   // Returns true if the module key is granted for the logged-in client.
-  // 'school' is always granted. Falls back to true if activeModules is missing
-  // (older login responses / dev mode) so existing installs don't break.
+  //  • Subscription (international) schools: fail closed – only 'core' and
+  //    modules the server says are active.
+  //  • Legacy (Indian) schools: unchanged – 'school' and the new keys are
+  //    always granted, other keys follow activeModules, and a missing list
+  //    falls back to true so existing installs don't break.
   const hasModule = useCallback((key) => {
-    if (key === 'school') return true;
+    if (key === 'school' || key === 'core') return true;
     const modules = user?.activeModules;
+    if (user?.billingModel === 'subscription') {
+      return Array.isArray(modules) && modules.includes(key);
+    }
+    if (SUBSCRIPTION_MODULE_KEYS.includes(key)) return true;
     if (!Array.isArray(modules)) return true;   // graceful fallback
     return modules.includes(key);
-  }, [user?.activeModules]);
+  }, [user?.activeModules, user?.billingModel]);
+
+  // ── Re-read billing model + modules from the server ───────────────────────
+  // Lets upgrades / trial expiry apply without logging out. Only updates the
+  // user object when something actually changed, so screens don't reload.
+  const refreshEntitlements = useCallback(async () => {
+    if (!user?.token) return;
+    try {
+      const ent = await fetchEntitlements(user);
+      if (!ent || !Array.isArray(ent.activeModules)) return;
+      const billingModel = ent.billingModel === 'subscription' ? 'subscription' : 'legacy';
+      setUser(prev => {
+        if (!prev || prev.token !== user.token) return prev;
+        const same = prev.billingModel === billingModel
+          && JSON.stringify(prev.activeModules ?? []) === JSON.stringify(ent.activeModules);
+        return same ? prev : { ...prev, billingModel, activeModules: ent.activeModules };
+      });
+    } catch {
+      // silent – keep the modules we already have
+    }
+  }, [user?.token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Refresh whenever the app returns to the foreground
+  useEffect(() => {
+    if (!user?.token) return;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refreshEntitlements();
+    });
+    return () => sub.remove();
+  }, [user?.token, refreshEntitlements]);
+
+  // ── HTTP 402 MODULE_LOCKED from any safeFetch call ────────────────────────
+  // One alert per burst (a screen often fires several calls at once).
+  const handleLocked = useCallback((info) => {
+    const now = Date.now();
+    if (now - lastLockAlert.current < 4000) return;
+    lastLockAlert.current = now;
+    refreshEntitlements();
+    Alert.alert(
+      'Upgrade required',
+      info?.message || "This feature is not included in your school's plan. "
+        + 'Please ask your school administrator to upgrade the subscription.',
+      [{ text: 'OK' }]
+    );
+  }, [refreshEntitlements]);
+
+  useEffect(() => {
+    setLockedHandler(handleLocked);
+  }, [handleLocked]);
 
   return (
     <AuthContext.Provider value={{
       user, profilePhoto, setProfilePhoto, login, logout, handleExpired, hasModule,
+      isSubscription, refreshEntitlements,
       activeEnrollmentId, setActiveEnrollmentId,
       linkedStudents, setLinkedStudents,
     }}>
