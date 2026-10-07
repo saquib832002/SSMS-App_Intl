@@ -1,11 +1,12 @@
 import React from "react";
+import { featureScreenLayout } from "../components/FeatureGate";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import StudentsScreen from "../screens/StudentsScreen";
 
 const Stack = createNativeStackNavigator();
 
 const StudentsStack = () => (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ headerShown: false }} screenLayout={featureScreenLayout}>
     <Stack.Screen name="StudentsList"     component={StudentsScreen} />
     <Stack.Screen name="Registration"     getComponent={() => require("../screens/StudentActions/StudentRegistrationScreen").default} options={{ title: "Registration",  headerShown: false }} />
     <Stack.Screen name="StudentDirectory" getComponent={() => require("../screens/StudentActions/RegisteredStudentsScreen").default}  options={{ title: "Reg. Students", headerShown: true }} />

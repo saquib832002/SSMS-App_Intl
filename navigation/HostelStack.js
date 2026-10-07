@@ -4,13 +4,14 @@
  * Bottom tabs + custom header stay visible on all screens.
  */
 import React from "react";
+import { featureScreenLayout } from "../components/FeatureGate";
 import { createStackNavigator } from "@react-navigation/stack";
 
 const Stack = createStackNavigator();
 
 export default function HostelStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ headerShown: false }} screenLayout={featureScreenLayout}>
       <Stack.Screen name="HostelHome" getComponent={() => require("../screens/Hostel/HostelScreen").default}
       />
       <Stack.Screen name="HostelBuildings" getComponent={() => require("../screens/Hostel/HostelBuildingScreen").default}

@@ -161,6 +161,8 @@ return function (RouteBuilder $routes): void {
          $builder->connect('/SubscriptionApi/getSubscription',       ['controller'=>'SubscriptionApi','action'=>'getSubscription',       '_method'=>'GET']);
          $builder->connect('/SubscriptionApi/createCheckoutSession', ['controller'=>'SubscriptionApi','action'=>'createCheckoutSession', '_method'=>'POST']);
          $builder->connect('/SubscriptionApi/createPortalSession',   ['controller'=>'SubscriptionApi','action'=>'createPortalSession',   '_method'=>'POST']);
+         $builder->connect('/SubscriptionApi/syncPlayPurchase',      ['controller'=>'SubscriptionApi','action'=>'syncPlayPurchase',      '_method'=>'POST']);
+         $builder->connect('/SubscriptionApi/revenuecatWebhook',     ['controller'=>'SubscriptionApi','action'=>'revenuecatWebhook',     '_method'=>'POST']);
          $builder->connect('/SubscriptionApi/stripeWebhook',         ['controller'=>'SubscriptionApi','action'=>'stripeWebhook',         '_method'=>'POST']);
          $builder->connect('/billing',          ['controller'=>'Billing','action'=>'index',    '_method'=>'GET']);
          $builder->connect('/billing/checkout', ['controller'=>'Billing','action'=>'checkout', '_method'=>'POST']);

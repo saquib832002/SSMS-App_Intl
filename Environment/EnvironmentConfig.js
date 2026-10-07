@@ -11,3 +11,6 @@ export const HOST_NAME      = extra.HOST_NAME ?? "http://192.168.4.115/";
 export const APP_ENV        = extra.APP_ENV   ?? "development";
 export const IS_PROD        = APP_ENV === "production";
 export const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.sawera.ssms";
+
+// RevenueCat public Android SDK key for Google Play subscriptions ("" = purchases disabled)
+export const REVENUECAT_ANDROID_KEY = extra.REVENUECAT_ANDROID_KEY ?? "";

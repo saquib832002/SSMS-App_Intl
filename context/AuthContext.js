@@ -4,13 +4,16 @@ import { Alert, AppState } from 'react-native';
 import { setExpiredHandler, setLockedHandler, setLoggedOut } from '../services/apiInterceptor';
 import { fetchUserProfile, fetchEntitlements } from '../services/UserServiceApi';
 
-// Module keys introduced for the international (subscription) app.
-// Legacy (Indian) schools have never been gated on these, so for them
-// hasModule() keeps returning true – their behaviour is unchanged.
+// Plan feature keys for the international (subscription) app. They come from
+// user.activeFeatures (ssms_client_features). Legacy (Indian) schools have
+// never been gated on these, so for them hasModule() keeps returning true.
 const SUBSCRIPTION_MODULE_KEYS = [
   'core', 'attendance', 'notices', 'fees', 'exams',
   'academics', 'assessments', 'communication',
 ];
+// Product modules – always from user.activeModules (ssms_client_modules),
+// exactly as before, for every school.
+const PRODUCT_MODULE_KEYS = ['school', 'finance', 'library', 'donation'];
 
 export const AuthContext = createContext({
   user:                  null,
@@ -20,6 +23,7 @@ export const AuthContext = createContext({
   logout:                () => {},
   handleExpired:         () => {},
   hasModule:             (_key) => false,
+  hasFeature:            (_key) => true,
   isSubscription:        false,
   refreshEntitlements:   async () => {},
   activeEnrollmentId:    null,
@@ -41,7 +45,7 @@ export function AuthProvider({ children }) {
   const expiryTimer = useRef(null);
   const warnTimer   = useRef(null);
   const isExpiring  = useRef(false);
-  const lastLockAlert = useRef(0);
+  const lastLockAlert = useRef({});   // feature → time of last "Upgrade required" alert
 
   const login = useCallback((userData) => {
     isExpiring.current = false;
@@ -130,12 +134,26 @@ export function AuthProvider({ children }) {
     if (key === 'school' || key === 'core') return true;
     const modules = user?.activeModules;
     if (user?.billingModel === 'subscription') {
-      return Array.isArray(modules) && modules.includes(key);
+      if (PRODUCT_MODULE_KEYS.includes(key)) {
+        return Array.isArray(modules) && modules.includes(key);
+      }
+      const features = user?.activeFeatures;
+      return Array.isArray(features) && features.includes(key);
     }
     if (SUBSCRIPTION_MODULE_KEYS.includes(key)) return true;
     if (!Array.isArray(modules)) return true;   // graceful fallback
     return modules.includes(key);
-  }, [user?.activeModules, user?.billingModel]);
+  }, [user?.activeModules, user?.activeFeatures, user?.billingModel]);
+
+  // Plan feature check used by FeatureGate (screen-level lock).
+  //  • Indian (legacy) schools: ALWAYS true – nothing is ever gated for them.
+  //  • Subscription schools: 'core' + the features in user.activeFeatures.
+  const hasFeature = useCallback((key) => {
+    if (user?.billingModel !== 'subscription') return true;
+    if (!key || key === 'core') return true;
+    const features = user?.activeFeatures;
+    return Array.isArray(features) && features.includes(key);
+  }, [user?.activeFeatures, user?.billingModel]);
 
   // ── Re-read billing model + modules from the server ───────────────────────
   // Lets upgrades / trial expiry apply without logging out. Only updates the
@@ -145,12 +163,17 @@ export function AuthProvider({ children }) {
     try {
       const ent = await fetchEntitlements(user);
       if (!ent || !Array.isArray(ent.activeModules)) return;
-      const billingModel = ent.billingModel === 'subscription' ? 'subscription' : 'legacy';
+      const billingModel   = ent.billingModel === 'subscription' ? 'subscription' : 'legacy';
+      const activeFeatures = Array.isArray(ent.activeFeatures) ? ent.activeFeatures : ['core'];
       setUser(prev => {
         if (!prev || prev.token !== user.token) return prev;
+        // Compare sorted copies so a different order from the server
+        // never counts as a change (a change re-renders every screen).
+        const key  = (a) => JSON.stringify([...(a ?? [])].sort());
         const same = prev.billingModel === billingModel
-          && JSON.stringify(prev.activeModules ?? []) === JSON.stringify(ent.activeModules);
-        return same ? prev : { ...prev, billingModel, activeModules: ent.activeModules };
+          && key(prev.activeModules)  === key(ent.activeModules)
+          && key(prev.activeFeatures) === key(activeFeatures);
+        return same ? prev : { ...prev, billingModel, activeModules: ent.activeModules, activeFeatures };
       });
     } catch {
       // silent – keep the modules we already have
@@ -167,11 +190,15 @@ export function AuthProvider({ children }) {
   }, [user?.token, refreshEntitlements]);
 
   // ── HTTP 402 MODULE_LOCKED from any safeFetch call ────────────────────────
-  // One alert per burst (a screen often fires several calls at once).
+  // At most ONE alert per locked feature every 30 s, however many calls fail
+  // (a screen often fires several calls, and some reload on every render).
+  // The refresh updates activeFeatures, so FeatureGate then replaces the
+  // locked screen with the "not included" screen and the calls stop.
   const handleLocked = useCallback((info) => {
-    const now = Date.now();
-    if (now - lastLockAlert.current < 4000) return;
-    lastLockAlert.current = now;
+    const feature = info?.module || 'unknown';
+    const now     = Date.now();
+    if (now - (lastLockAlert.current[feature] || 0) < 30000) return;
+    lastLockAlert.current[feature] = now;
     refreshEntitlements();
     Alert.alert(
       'Upgrade required',
@@ -188,7 +215,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user, profilePhoto, setProfilePhoto, login, logout, handleExpired, hasModule,
-      isSubscription, refreshEntitlements,
+      hasFeature, isSubscription, refreshEntitlements,
       activeEnrollmentId, setActiveEnrollmentId,
       linkedStudents, setLinkedStudents,
     }}>

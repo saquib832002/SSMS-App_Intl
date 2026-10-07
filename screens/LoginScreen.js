@@ -107,9 +107,10 @@ try {
           enrollmentId:   data.enrollmentId    ?? data.enrollment_id ?? null,
           staffId:        data.staffId         ?? null,
           billingModel:   data.billingModel === 'subscription' ? 'subscription' : 'legacy',
-          activeModules:  Array.isArray(data.activeModules)
-                            ? data.activeModules
-                            : (data.billingModel === 'subscription' ? ['core'] : ['school']),
+          // Product modules (school / finance / library …) – same as before
+          activeModules:  Array.isArray(data.activeModules) ? data.activeModules : ['school'],
+          // Plan features for subscription (international) schools
+          activeFeatures: Array.isArray(data.activeFeatures) ? data.activeFeatures : ['core'],
         };
        // console.log("=== STORING USER ===", JSON.stringify(userData));
         login(userData);

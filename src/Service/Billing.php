@@ -16,7 +16,7 @@ use Cake\Routing\Router;
  *   2. Stripe calls /SubscriptionApi/stripeWebhook
  *      → handleWebhook() → syncSubscription():
  *         • saves the subscription in ssms_subscriptions
- *         • grants the plan's modules in ssms_client_modules
+ *         • grants the plan's features in ssms_client_features
  *           with expires_at = end of the paid period + GRACE_DAYS
  *         • expires them when the subscription ends / is unpaid
  *   3. Entitlements cache is cleared → the paywall (phase 1) follows at once.
@@ -45,8 +45,7 @@ final class Billing
     {
         $conn = ConnectionManager::get('default');
         $rows = $conn->execute(
-            'SELECT plan_code, name, description, price_minor, currency, billing_interval, stripe_price_id
-               FROM ssms_plans WHERE is_active = 1 ORDER BY sort_order, plan_code'
+            'SELECT * FROM ssms_plans WHERE is_active = 1 ORDER BY sort_order, plan_code'
         )->fetchAll('assoc');
         $mods = $conn->execute('SELECT plan_code, module_key FROM ssms_plan_modules')->fetchAll('assoc');
 
@@ -65,6 +64,7 @@ final class Billing
                 'currency'    => $r['currency'],
                 'interval'    => $r['billing_interval'],
                 'available'   => !empty($r['stripe_price_id']),
+                'playProductId' => $r['play_product_id'] ?? null,   // Google Play subscription id (phase 4)
                 'modules'     => $byPlan[$r['plan_code']] ?? [],
             ];
         }
@@ -103,9 +103,15 @@ final class Billing
 
         $trialEndsAt = null;
         if (Entitlements::isSubscription($ent)) {
+            // Trial end = the school's expiry date (while any trial module is still unpaid)
             $row = ConnectionManager::get('default')->execute(
-                "SELECT MAX(expires_at) AS trial_end FROM ssms_client_modules
-                  WHERE ssms_client_code = ? AND granted_by LIKE 'trial%' AND expires_at > NOW()",
+                "SELECT c.ssms_client_expiry_date AS trial_end
+                   FROM ssms_clients c
+                  WHERE c.ssms_client_code = ?
+                    AND c.ssms_client_expiry_date >= CURDATE()
+                    AND EXISTS (SELECT 1 FROM ssms_client_features f
+                                 WHERE f.ssms_client_code = c.ssms_client_code
+                                   AND f.source = 'trial')",
                 [$clientCode]
             )->fetch('assoc');
             $trialEndsAt = $row['trial_end'] ?? null;
@@ -114,11 +120,14 @@ final class Billing
         return [
             'billingModel'     => $ent['billing_model'],
             'activeModules'    => $ent['modules'],
-            'moduleExpiries'   => (object)$ent['expiries'],
+            'activeFeatures'   => $ent['features'],
+            'featureExpiries'  => (object)$ent['expiries'],
             'trialEndsAt'      => $trialEndsAt,
             'subscription'     => $sub ? [
                 'planCode'          => $sub['plan_code'],
                 'planName'          => $sub['plan_name'] ?? $sub['plan_code'],
+                'provider'          => $sub['provider'] ?? 'stripe',
+                'storeProductId'    => $sub['store_product_id'] ?? null,
                 'status'            => $sub['status'],
                 'currentPeriodEnd'  => $sub['current_period_end'],
                 'cancelAtPeriodEnd' => (bool)$sub['cancel_at_period_end'],
@@ -364,30 +373,30 @@ final class Billing
             if ($entitled && $periodEnd && $modules) {
                 $expires = (int)$periodEnd + self::GRACE_DAYS * 86400;
                 foreach ($modules as $module) {
-                    // Keep the later of trial end / paid period; never shorten a permanent (NULL) grant.
+                    // Paid period replaces a trial row; a permanent manual grant (NULL) is kept.
                     $conn->execute(
-                        "INSERT INTO ssms_client_modules (ssms_client_code, module_key, granted_by, expires_at)
+                        "INSERT INTO ssms_client_features (ssms_client_code, feature_key, source, expires_at)
                          VALUES (?, ?, 'subscription', FROM_UNIXTIME(?))
                          ON DUPLICATE KEY UPDATE
-                            granted_by = 'subscription',
-                            expires_at = IF(expires_at IS NULL, NULL, GREATEST(expires_at, VALUES(expires_at)))",
+                            source     = IF(source = 'manual' AND expires_at IS NULL, source, 'subscription'),
+                            expires_at = IF(source = 'manual' AND expires_at IS NULL, NULL, VALUES(expires_at))",
                         [$client, $module, $expires]
                     );
                 }
-                // Plan downgraded → modules no longer in the plan end now.
+                // Plan downgraded → features no longer in the plan end now.
                 $in = implode(',', array_fill(0, count($modules), '?'));
                 $conn->execute(
-                    "UPDATE ssms_client_modules SET expires_at = NOW()
-                      WHERE ssms_client_code = ? AND granted_by = 'subscription'
-                        AND module_key NOT IN ({$in})
+                    "UPDATE ssms_client_features SET expires_at = NOW()
+                      WHERE ssms_client_code = ? AND source = 'subscription'
+                        AND feature_key NOT IN ({$in})
                         AND (expires_at IS NULL OR expires_at > NOW())",
                     array_merge([$client], $modules)
                 );
             } else {
-                // Cancelled / unpaid / incomplete → paid modules end now (trial rows untouched).
+                // Cancelled / unpaid / incomplete → paid features end now (trial / manual rows untouched).
                 $conn->execute(
-                    "UPDATE ssms_client_modules SET expires_at = NOW()
-                      WHERE ssms_client_code = ? AND granted_by = 'subscription'
+                    "UPDATE ssms_client_features SET expires_at = NOW()
+                      WHERE ssms_client_code = ? AND source = 'subscription'
                         AND (expires_at IS NULL OR expires_at > NOW())",
                     [$client]
                 );

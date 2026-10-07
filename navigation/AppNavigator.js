@@ -1,4 +1,5 @@
 import React, { useContext } from "react";
+import { featureScreenLayout } from "../components/FeatureGate";
 import { createStackNavigator } from '@react-navigation/stack';
 import LoginScreen          from "../screens/LoginScreen";
 import ForgotPasswordScreen from "../screens/ForgotPasswordScreen";
@@ -23,7 +24,7 @@ const AppNavigator = () => {
   const { user } = useContext(AuthContext);
 
   return (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
+  <Stack.Navigator screenOptions={{ headerShown: false }} screenLayout={featureScreenLayout}>
     {!user ? (
       // ── Unauthenticated stack — Login + public screens only ──
       <>
@@ -52,6 +53,7 @@ const AppNavigator = () => {
         <Stack.Screen name="SelectStudent"         getComponent={() => require("../screens/SelectStudentScreen").default} />
         <Stack.Screen name="SchoolMemories"        getComponent={() => require("../screens/SchoolMemoriesScreen").default} options={{ headerShown: false }} />
         <Stack.Screen name="SchoolMemoriesAdmin"   getComponent={() => require("../screens/SchoolMemoriesAdminScreen").default} options={{ headerShown: false }} />
+        <Stack.Screen name="Subscription"          getComponent={() => require("../screens/SubscriptionScreen").default} options={{ headerShown: false }} />
         <Stack.Screen name="ChatList"              getComponent={() => require("../screens/Chat/ChatListScreen").default}      options={{ headerShown: false }} />
         <Stack.Screen name="Chat"                  getComponent={() => require("../screens/Chat/ChatScreen").default}          options={{ headerShown: false }} />
       </>

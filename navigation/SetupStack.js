@@ -3,6 +3,7 @@
  * All Setup + Exam screens live here so bottom tabs always stay visible.
  */
 import React from "react";
+import { featureScreenLayout } from "../components/FeatureGate";
 import { createStackNavigator } from "@react-navigation/stack";
 
 // // Setup screens
@@ -38,7 +39,7 @@ const Stack = createStackNavigator();
 
 export default function SetupStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: true }}>
+    <Stack.Navigator screenOptions={{ headerShown: true }} screenLayout={featureScreenLayout}>
       {/* Root — no header, shows bottom tabs */}
       <Stack.Screen name="SetupHome"        component={SetupScreen}            options={{ headerShown: false }} />
 

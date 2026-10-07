@@ -7,11 +7,18 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { AuthContext } from "../context/AuthContext";
+import { featureScreenLayout } from "../components/FeatureGate";
 import { HOST_NAME, PLAY_STORE_URL } from "../Environment/EnvironmentConfig";
 import { fetchInstituteDetails } from "../services/UserServiceApi";
 import { sendHeartbeat }         from "../services/ChatServiceApi";
 import { AppState, Platform }    from "react-native";
 import * as Notifications        from "expo-notifications";
+import Constants                  from "expo-constants";
+
+// Expo Go (the generic preview app) no longer supports remote push on
+// Android since SDK 53. Skip push-token registration there so the app can
+// still be previewed in Expo Go; development / production builds are unaffected.
+const IS_EXPO_GO = Constants.executionEnvironment === "storeClient";
 
 import DashboardScreen        from "../screens/DashboardScreen";
 import StudentDashboardScreen from "../screens/StudentDashboardScreen";
@@ -123,7 +130,7 @@ const hd = StyleSheet.create({
 
 // ── More drawer ───────────────────────────────────────────────────────────────
 function MoreDrawer({ visible, onClose, navigation }) {
-  const { logout } = useContext(AuthContext);
+  const { logout, isSubscription } = useContext(AuthContext);
   const { user, fullName, initials, photoUrl } = useAvatarData();
   const insets = useSafeAreaInsets();
 
@@ -176,6 +183,11 @@ function MoreDrawer({ visible, onClose, navigation }) {
   const items = [
     { label: "Profile",         icon: "user",      onPress: () => { onClose(); navigation.navigate("UserProfile");  } },
     { label: "Notice Board",    icon: "bell",      onPress: () => { onClose(); navigation.navigate("NoticeBoard"); } },
+    // International (subscription) schools only – plan status, trial, Google Play subscribe
+    ...(isSubscription ? [{
+      label: "Plan & Billing", icon: "credit-card",
+      onPress: () => { onClose(); navigation.navigate("Subscription"); },
+    }] : []),
     {
       label:   "School Gallery",
       icon:    isAdmin ? "upload-cloud" : "image",
@@ -362,6 +374,7 @@ export default function MainTabs({ navigation }) {
   const pushTokenRef = useRef(null);
   useEffect(() => {
     if (!user) return;
+    if (IS_EXPO_GO) return; // push not available in Expo Go – use a development build
     (async () => {
       try {
         const { status: existing } = await Notifications.getPermissionsAsync();
@@ -418,6 +431,7 @@ export default function MainTabs({ navigation }) {
 
   return (
     <Tab.Navigator
+      screenLayout={featureScreenLayout}
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor:   "#2563eb",

@@ -20,7 +20,7 @@ export default {
       foregroundImage: "./assets/smsLogo4.png",
       backgroundColor: "#ffffff",
     },
-    versionCode: 61,
+    versionCode: 62,
     permissions: [
       "CAMERA",
     ],
@@ -62,8 +62,11 @@ export default {
     eas: {
       projectId: "c9de8370-e67a-4710-bcd4-1ab5869a3b02",
     },
-    BASE_URL:  IS_PROD ? "https://managemyacademy.com/"  : "http://192.168.4.115/",
-    HOST_NAME: IS_PROD ? "https://managemyacademy.com/"  : "http://192.168.4.115/",
+    BASE_URL:  IS_PROD ? "https://managemyacademy.com/"  : "http://192.168.4.30/",
+    HOST_NAME: IS_PROD ? "https://managemyacademy.com/"  : "http://192.168.4.30/",
     APP_ENV:   IS_PROD ? "production"                 : "development",
+    // RevenueCat PUBLIC Android SDK key (goog_…) – safe to ship in the app.
+    // Set it in eas.json "env" or before building: $env:REVENUECAT_ANDROID_KEY="goog_..."
+    REVENUECAT_ANDROID_KEY: process.env.REVENUECAT_ANDROID_KEY ?? "",
 }
 };

@@ -16,8 +16,14 @@ use Cake\Log\Log;
  *   'legacy'       Indian schools (default for every existing row).
  *                  No module paywall – behaviour is unchanged.
  *   'subscription' International schools. 'core' is free; every other
- *                  module needs an active (non-expired) row in
- *                  ssms_client_modules.
+ *                  school-app feature needs an active row in
+ *                  ssms_client_features (trial / subscription / manual).
+ *
+ * Two separate things, two separate tables:
+ *   ssms_client_modules   PRODUCT modules (school, finance, library, donation)
+ *                         – unchanged, managed on the web "Manage Modules" page.
+ *   ssms_client_features  PLAN features inside the school app
+ *                         (attendance, fees, exams …) – subscription schools only.
  *
  * To change which screens are free/paid, edit CONTROLLER_MODULES and
  * ACTION_MODULES below. Nothing else needs to change.
@@ -37,6 +43,9 @@ final class Entitlements
     ];
 
     public const TRIAL_DAYS = 14;
+
+    /** Product-level modules: checked against ssms_client_modules (as the web panel does). */
+    public const PRODUCT_MODULES = ['school', 'finance', 'library', 'donation'];
 
     /** Default module for every action of an API controller. */
     private const CONTROLLER_MODULES = [
@@ -141,13 +150,13 @@ final class Entitlements
     /**
      * Entitlements for a school (cached for 60 s).
      *
-     * @return array{billing_model:string, modules:string[], expiries:array<string,string>}
+     * @return array{billing_model:string, modules:string[], features:string[], expiries:array<string,string>}
      */
     public static function forClient(string $clientCode): array
     {
         $clientCode = trim($clientCode);
         if ($clientCode === '') {
-            return ['billing_model' => self::LEGACY, 'modules' => [], 'expiries' => []];
+            return ['billing_model' => self::LEGACY, 'modules' => [], 'features' => [], 'expiries' => []];
         }
 
         $key = self::cacheKey($clientCode);
@@ -199,11 +208,15 @@ final class Entitlements
         if ($module === null) {
             return false;
         }
-        if (in_array($module, self::FREE_MODULES, true)) {
+        if (in_array($module, self::FREE_MODULES, true) || $module === 'school') {
             return true;
         }
+        if (in_array($module, self::PRODUCT_MODULES, true)) {
+            // finance / library / donation: same product grant the web panel uses
+            return in_array($module, $ent['modules'] ?? [], true);
+        }
 
-        return in_array($module, $ent['modules'] ?? [], true);
+        return in_array($module, $ent['features'] ?? [], true);
     }
 
     /** Human label used in the 402 message. */
@@ -246,41 +259,58 @@ final class Entitlements
             Log::warning('Entitlements: billing_model unavailable – ' . $e->getMessage());
         }
 
-        try {
-            $rows = $conn->execute(
-                'SELECT module_key, expires_at FROM ssms_client_modules
-                  WHERE ssms_client_code = ?
-                    AND (expires_at IS NULL OR expires_at > NOW())',
-                [$clientCode]
-            )->fetchAll('assoc');
-        } catch (\Throwable $e) {
-            // expires_at column not migrated yet
-            $rows = $conn->execute(
-                'SELECT module_key, NULL AS expires_at FROM ssms_client_modules
-                  WHERE ssms_client_code = ?',
-                [$clientCode]
-            )->fetchAll('assoc');
-        }
-
-        $modules  = [];
-        $expiries = [];
-        foreach ($rows as $r) {
-            $key = (string)$r['module_key'];
-            $modules[] = $key;
-            if (!empty($r['expires_at'])) {
-                $expiries[$key] = (string)$r['expires_at'];
-            }
-        }
-
-        if ($billing === self::SUBSCRIPTION) {
-            $modules = array_merge(self::FREE_MODULES, $modules);
-        } elseif ($modules === []) {
+        // ── Product modules: exactly what the web panel reads (no expiry logic) ──
+        $rows    = $conn->execute(
+            'SELECT module_key FROM ssms_client_modules WHERE ssms_client_code = ?',
+            [$clientCode]
+        )->fetchAll('assoc');
+        $modules = array_values(array_unique(array_column($rows, 'module_key')));
+        if ($modules === []) {
             $modules = ['school']; // same default as login always used
+        }
+
+        // ── Plan features: subscription schools only ─────────────────────────
+        $features = [];
+        $expiries = [];
+        if ($billing === self::SUBSCRIPTION) {
+            try {
+                // Trial rows follow the school's ssms_client_expiry_date (one date
+                // to extend a trial); paid / manual rows follow their expires_at.
+                $frows = $conn->execute(
+                    "SELECT f.feature_key,
+                            CASE WHEN f.source = 'trial' AND c.ssms_client_expiry_date IS NOT NULL
+                                 THEN CONCAT(c.ssms_client_expiry_date, ' 23:59:59')
+                                 ELSE f.expires_at END AS expires_at
+                       FROM ssms_client_features f
+                       JOIN ssms_clients c ON c.ssms_client_code = f.ssms_client_code
+                      WHERE f.ssms_client_code = ?
+                        AND (
+                              (f.source = 'trial'
+                                 AND c.ssms_client_expiry_date IS NOT NULL
+                                 AND c.ssms_client_expiry_date >= CURDATE())
+                           OR ((f.source <> 'trial' OR c.ssms_client_expiry_date IS NULL)
+                                 AND (f.expires_at IS NULL OR f.expires_at > NOW()))
+                        )",
+                    [$clientCode]
+                )->fetchAll('assoc');
+                foreach ($frows as $r) {
+                    $key        = (string)$r['feature_key'];
+                    $features[] = $key;
+                    if (!empty($r['expires_at'])) {
+                        $expiries[$key] = (string)$r['expires_at'];
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Phase-3 migration not run yet → only free features (fail closed).
+                Log::error('Entitlements: ssms_client_features unavailable – ' . $e->getMessage());
+            }
+            $features = array_values(array_unique(array_merge(self::FREE_MODULES, $features)));
         }
 
         return [
             'billing_model' => $billing,
-            'modules'       => array_values(array_unique($modules)),
+            'modules'       => $modules,
+            'features'      => $features,
             'expiries'      => $expiries,
         ];
     }

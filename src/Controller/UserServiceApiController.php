@@ -124,11 +124,8 @@ class UserServiceApiController extends AppController
                 ['code' => $ssmsClientCode]
             )->fetchAll('assoc');
 
+            // Product modules (school / finance / library …) – unchanged for every school.
             $activeModules = !empty($modRows) ? array_column($modRows, 'module_key') : ['school'];
-            if ($isSubscription) {
-                // Only modules that are free or still within their paid/trial period
-                $activeModules = $entitlements['modules'];
-            }
 
             // ── 5. Generate JWT ────────────────────────────────────────────────
             $secret = env('JWT_SECRET', '');
@@ -215,6 +212,8 @@ class UserServiceApiController extends AppController
                     'staffId'        => $userRow['staff_id'] ?? null,
                     'activeModules'  => $activeModules,
                     'billingModel'   => $entitlements['billing_model'],
+                    // Plan features for subscription schools ([] for Indian/legacy schools)
+                    'activeFeatures' => $entitlements['features'],
                 ],
             ]);
 
@@ -244,9 +243,10 @@ class UserServiceApiController extends AppController
         return $this->_json([
             'status' => true,
             'data'   => [
-                'billingModel'   => $ent['billing_model'],
-                'activeModules'  => $ent['modules'],
-                'moduleExpiries' => (object)$ent['expiries'],
+                'billingModel'    => $ent['billing_model'],
+                'activeModules'   => $ent['modules'],
+                'activeFeatures'  => $ent['features'],
+                'featureExpiries' => (object)$ent['expiries'],
             ],
         ]);
     }
@@ -708,9 +708,18 @@ class UserServiceApiController extends AppController
         $now          = date('Y-m-d H:i:s');
         $today        = date('Y-m-d');
         //$expiryDate   = $today;
+        // Expiry date stored on ssms_clients:
+        //   • International (subscription) schools → end of the free trial
+        //     (registration + TRIAL_DAYS). Shown as the trial end; module access
+        //     to trial features in ssms_client_features follows this date.
+        //   • Indian (legacy) schools → 1 year, as before.
         $exp = new \DateTime();
+        if ($isIntl) {
+            $exp->modify('+' . (int)\App\Service\Entitlements::TRIAL_DAYS . ' days');
+        } else {
             $exp->modify('+1 year');
-            $expiryDate = $exp->format('Y-m-d');
+        }
+        $expiryDate = $exp->format('Y-m-d');
         //$expiryDate   = trim((string)($data['ssms_client_expiry_date'] ?? ''));
         //if (empty($expiryDate)) {
         //    $exp = new \DateTime();
@@ -828,7 +837,9 @@ class UserServiceApiController extends AppController
             }
 
             // 4b. International school → subscription billing:
-            //     free 'core' forever + every paid module for the trial period.
+            //     free 'core' features always + every paid feature during the trial.
+            //     Plan features go to ssms_client_features, NOT ssms_client_modules
+            //     (that table stays for product modules used by the web panel).
             if ($isIntl) {
                 $db->execute(
                     "UPDATE ssms_clients
@@ -836,22 +847,18 @@ class UserServiceApiController extends AppController
                       WHERE ssms_client_code = ?",
                     [$countryCode, $timezone, $clientCode]
                 );
-                $db->execute(
-                    "INSERT IGNORE INTO ssms_client_modules
-                        (ssms_client_code, module_key, granted_by)
-                     VALUES (?, 'core', 'trial_signup:intl')",
-                    [$clientCode]
-                );
+                // Trial features end on ssms_client_expiry_date (registration + TRIAL_DAYS);
+                // expires_at is stored too as a fallback if that date is ever cleared.
                 $trialDays = (int)\App\Service\Entitlements::TRIAL_DAYS;
-                foreach (\App\Service\Entitlements::PAID_MODULES as $paidModule) {
+                foreach (\App\Service\Entitlements::PAID_MODULES as $paidFeature) {
                     $db->execute(
-                        "INSERT INTO ssms_client_modules
-                            (ssms_client_code, module_key, granted_by, expires_at)
-                         VALUES (?, ?, 'trial:intl', DATE_ADD(NOW(), INTERVAL {$trialDays} DAY))
+                        "INSERT INTO ssms_client_features
+                            (ssms_client_code, feature_key, source, expires_at)
+                         VALUES (?, ?, 'trial', DATE_ADD(NOW(), INTERVAL {$trialDays} DAY))
                          ON DUPLICATE KEY UPDATE
-                            granted_by = VALUES(granted_by),
+                            source     = VALUES(source),
                             expires_at = VALUES(expires_at)",
-                        [$clientCode, $paidModule]
+                        [$clientCode, $paidFeature]
                     );
                 }
             }

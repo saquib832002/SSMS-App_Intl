@@ -84,6 +84,7 @@ class JwtAuthMiddleware implements MiddlewareInterface
         'UserServiceApi/registerStudentParent',
         'UserServiceApi/submitTicket',
         'SubscriptionApi/stripeWebhook',   // verified by Stripe-Signature instead
+        'SubscriptionApi/revenuecatWebhook', // verified by RevenueCat Authorization header
     ];
 
     public function process(
@@ -223,8 +224,9 @@ class JwtAuthMiddleware implements MiddlewareInterface
         }
 
         $request = $request
-            ->withAttribute('jwt_active_modules', $ent['modules'])
-            ->withAttribute('jwt_billing_model',  $ent['billing_model']);
+            ->withAttribute('jwt_active_modules',  $ent['modules'])   // product modules (school/finance/library…)
+            ->withAttribute('jwt_active_features', $ent['features'])  // plan features (subscription schools)
+            ->withAttribute('jwt_billing_model',   $ent['billing_model']);
 
         if (Entitlements::isSubscription($ent)) {
             [$controller, $action] = $this->routeOf($request, $path);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Service\Billing;
+use App\Service\PlayBilling;
 use App\Service\StripeClient;
 use Cake\Log\Log;
 
@@ -15,6 +16,8 @@ use Cake\Log\Log;
  *   POST /SubscriptionApi/createCheckoutSession  { planCode }  → { url }   (owner/admin)
  *   POST /SubscriptionApi/createPortalSession                 → { url }   (owner/admin)
  *   POST /SubscriptionApi/stripeWebhook          Stripe only (signature-verified, no JWT)
+ *   POST /SubscriptionApi/syncPlayPurchase       app, after a Google Play purchase/restore → status
+ *   POST /SubscriptionApi/revenuecatWebhook      RevenueCat only (Authorization header, no JWT)
  *
  * Auth: JwtAuthMiddleware (app token or web session). All actions are in the
  * free 'core' module so a locked school can always reach billing.
@@ -127,6 +130,67 @@ class SubscriptionApiController extends AppController
             return $this->_json(['received' => true, 'result' => $result]);
         } catch (\Throwable $e) {
             Log::error("stripeWebhook {$event['type']} {$event['id']} failed: " . $e->getMessage());
+            return $this->_json(['received' => false], 500);
+        }
+    }
+
+    /**
+     * Called by the app right after a Google Play purchase or "Restore".
+     * Re-reads the school's subscription from RevenueCat and unlocks features.
+     * Any logged-in user of the school may call it (it only reads the store).
+     */
+    public function syncPlayPurchase()
+    {
+        $this->request->allowMethod(['post']);
+        $client = $this->_clientCode();
+        if ($client === '') {
+            return $this->_json(['status' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        try {
+            return $this->_json(['status' => true, 'data' => PlayBilling::sync($client)]);
+        } catch (\DomainException $e) {
+            return $this->_json(['status' => false, 'message' => $e->getMessage()], 400);
+        } catch (\Throwable $e) {
+            Log::error('syncPlayPurchase: ' . $e->getMessage());
+            return $this->_json(['status' => false, 'message' => 'Could not confirm the purchase yet. Please try again in a minute.'], 500);
+        }
+    }
+
+    /**
+     * RevenueCat webhook (renewals, cancellations, expiry, billing issues …).
+     * Public route; trust comes from the Authorization header configured in
+     * RevenueCat (REVENUECAT_WEBHOOK_AUTH). 5xx makes RevenueCat retry.
+     */
+    public function revenuecatWebhook()
+    {
+        $this->request->allowMethod(['post']);
+        $this->autoRender = false;
+
+        $expected = PlayBilling::webhookAuth();
+        $given    = trim($this->request->getHeaderLine('Authorization'));
+        if ($expected === '' || !hash_equals($expected, $given)) {
+            Log::warning('revenuecatWebhook rejected: bad or missing Authorization header');
+            return $this->_json(['received' => false], 401);
+        }
+
+        $payload = (string)file_get_contents('php://input');
+        if ($payload === '') {
+            $stream = $this->request->getBody();
+            if ($stream->isSeekable()) {
+                $stream->rewind();
+            }
+            $payload = $stream->getContents();
+        }
+        $body = json_decode($payload, true);
+        if (!is_array($body) || !isset($body['event'])) {
+            return $this->_json(['received' => false, 'error' => 'invalid payload'], 400);
+        }
+
+        try {
+            return $this->_json(['received' => true, 'result' => PlayBilling::handleWebhook($body, $payload)]);
+        } catch (\Throwable $e) {
+            Log::error('revenuecatWebhook failed: ' . $e->getMessage());
             return $this->_json(['received' => false], 500);
         }
     }

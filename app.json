@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "School Management System",
+    "slug": "SchoolManagementSystem",
+    "version": "1.0.2",
+    "orientation": "portrait",
+    "icon": "./assets/smsLogo4.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.sawera.ssms",
+      "versionCode": 62,
+      "kotlinVersion": "2.1.20",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/smsLogo4.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "./plugins/withPdfboxFix"
+    ]
+  },
+   "extra": {
+      "eas": {
+        "projectId": "c9de8370-e67a-4710-bcd4-1ab5869a3b02"
+      }
+    }
+}
