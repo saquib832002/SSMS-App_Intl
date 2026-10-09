@@ -20,7 +20,7 @@ export default {
       foregroundImage: "./assets/smsLogo4.png",
       backgroundColor: "#ffffff",
     },
-    versionCode: 63,
+    versionCode: 64,
     permissions: [
       "CAMERA",
     ],

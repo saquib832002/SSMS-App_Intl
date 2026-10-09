@@ -8,7 +8,8 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "APP_ENV": "development"
+        "APP_ENV": "development",
+        "REVENUECAT_ANDROID_KEY": "goog_RqUmiHDyPJPvASZqvMtbgesWMtY"
       }
     },
     "preview": {
@@ -17,7 +18,8 @@
     "production": {
       "autoIncrement": true,
       "env": {
-        "APP_ENV": "production"
+        "APP_ENV": "production",
+        "REVENUECAT_ANDROID_KEY": "goog_RqUmiHDyPJPvASZqvMtbgesWMtY"
       }
     }
   },
