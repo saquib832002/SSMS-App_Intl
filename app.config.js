@@ -20,7 +20,7 @@ export default {
       foregroundImage: "./assets/smsLogo4.png",
       backgroundColor: "#ffffff",
     },
-    versionCode: 65,
+    versionCode: 66,
     permissions: [
       "CAMERA",
     ],
@@ -68,5 +68,8 @@ export default {
     // RevenueCat PUBLIC Android SDK key (goog_…) – safe to ship in the app.
     // Set it in eas.json "env" or before building: $env:REVENUECAT_ANDROID_KEY="goog_..."
     REVENUECAT_ANDROID_KEY: process.env.REVENUECAT_ANDROID_KEY ?? "",
+    // Stamped when the app is built – shown on Login + More menu so you can
+    // check the installed app is the latest build.
+    BUILD_TIME: new Date().toISOString(),
 }
 };
