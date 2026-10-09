@@ -9,6 +9,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialIcons, Feather } from "@expo/vector-icons";
 import { AuthContext } from "../context/AuthContext";
+import { useFeatureLock, LockBadge } from "../components/FeatureLock";
 import { fetchDashboardMetrics } from "../services/DashboardServiceApi";
 import { HOST_NAME } from "../Environment/EnvironmentConfig";
 import {
@@ -352,6 +353,9 @@ function DateField({ label, required, value, onChange, minDate, disabled }) {
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function DashboardScreen({ navigation }) {
   const { user, hasModule } = useContext(AuthContext);
+  const { isLocked, guard } = useFeatureLock();
+  // Subscription schools see paid modules WITH a lock icon instead of hiding them
+  const showPaid = (key) => hasModule(key) || user?.billingModel === "subscription";
   const isAdmin  = ["admin", "owner"].includes((user?.ssmsUserRole ?? user?.role ?? "").toLowerCase());
   const canManage = ["admin", "owner", "user"].includes((user?.ssmsUserRole ?? user?.role ?? "").toLowerCase());
 
@@ -378,7 +382,12 @@ export default function DashboardScreen({ navigation }) {
     const isAdm   = ["admin", "owner"].includes(r);
     const isStaff = ["admin", "owner", "user"].includes(r);
     const isFin   = ["admin", "owner", "accountant"].includes(r);
-    const go      = (screen, params) => () => navigation.navigate(screen, params);
+    // nav() opens the screen; .target = the real screen name (for lock icons)
+    const go      = (screen, params) => {
+      const nav = () => navigation.navigate(screen, params);
+      nav.target = params?.screen ?? screen;
+      return nav;
+    };
 
     return [
       {
@@ -443,7 +452,7 @@ export default function DashboardScreen({ navigation }) {
           { icon: "school",     label: "Sub. Teacher", nav: go("School", { screen: "SubjectTeacher"    }) },
         ],
       },
-      isAdm && hasModule("hostel") && {
+      isAdm && showPaid("hostel") && {
         key: "hostel", label: "Hostel", icon: "hotel",
         color: "#0369a1", bg: "#f0f9ff",
         links: [
@@ -464,12 +473,12 @@ export default function DashboardScreen({ navigation }) {
           isAdm && { icon: "manage-accounts", label: "Users",        nav: go("Setup", { screen: "UserSetup"            }) },
           { icon: "monetization-on",          label: "Fee Struct",   nav: go("Setup", { screen: "ClassFeeStructure"    }) },
           { icon: "receipt-long",             label: "Fee Items",    nav: go("School", { screen: "FeeItem"             }) },
-          isAdm && hasModule("hostel") && { icon: "hotel",            label: "Hostel Fee", nav: go("Setup", { screen: "HostelFeeStructure"    }) },
-          isAdm && hasModule("transport") && { icon: "directions-bus", label: "Trans. Fee", nav: go("Setup", { screen: "TransportFeeStructure" }) },
+          isAdm && showPaid("hostel") && { icon: "hotel",            label: "Hostel Fee", nav: go("Setup", { screen: "HostelFeeStructure"    }) },
+          isAdm && showPaid("transport") && { icon: "directions-bus", label: "Trans. Fee", nav: go("Setup", { screen: "TransportFeeStructure" }) },
         ].filter(Boolean),
       },
     ].filter(m => m && m.show !== false && m.links && m.links.length > 0);
-  }, [userRole, hasModule, navigation]);
+  }, [userRole, hasModule, navigation, user?.billingModel]);
   const [leadMins,        setLeadMins]        = useState(DEFAULT_LEAD);
   const [notifEnabled,    setNotifEnabled]    = useState(true);
   const [notifSettingsVis,setNotifSettingsVis]= useState(false);
@@ -746,14 +755,18 @@ export default function DashboardScreen({ navigation }) {
             </View>
             {/* Links grid */}
             <View style={st.modLinks}>
-              {mod.links.map((link, i) => (
-                <TouchableOpacity key={i} style={st.modLink} onPress={link.nav} activeOpacity={0.75}>
-                  <View style={[st.modLinkIcon, { backgroundColor: mod.bg }]}>
-                    <MaterialIcons name={link.icon} size={20} color={mod.color} />
-                  </View>
-                  <Text style={st.modLinkTxt} numberOfLines={2}>{link.label}</Text>
-                </TouchableOpacity>
-              ))}
+              {mod.links.map((link, i) => {
+                const locked = isLocked(link.nav?.target);
+                return (
+                  <TouchableOpacity key={i} style={st.modLink} onPress={guard(link.nav?.target, link.nav)} activeOpacity={0.75}>
+                    <View style={[st.modLinkIcon, { backgroundColor: mod.bg }]}>
+                      <MaterialIcons name={link.icon} size={20} color={locked ? "#94a3b8" : mod.color} />
+                      {locked && <LockBadge />}
+                    </View>
+                    <Text style={[st.modLinkTxt, locked && { color: "#94a3b8" }]} numberOfLines={2}>{link.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
         ))}

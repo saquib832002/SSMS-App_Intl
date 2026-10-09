@@ -8,6 +8,7 @@ import { Feather } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { AuthContext } from "../context/AuthContext";
 import { featureScreenLayout } from "../components/FeatureGate";
+import { useFeatureLock, LockBadge } from "../components/FeatureLock";
 import { HOST_NAME, PLAY_STORE_URL } from "../Environment/EnvironmentConfig";
 import { fetchInstituteDetails } from "../services/UserServiceApi";
 import { sendHeartbeat }         from "../services/ChatServiceApi";
@@ -131,6 +132,7 @@ const hd = StyleSheet.create({
 // ── More drawer ───────────────────────────────────────────────────────────────
 function MoreDrawer({ visible, onClose, navigation }) {
   const { logout, isSubscription } = useContext(AuthContext);
+  const { isLocked, guard } = useFeatureLock();
   const { user, fullName, initials, photoUrl } = useAvatarData();
   const insets = useSafeAreaInsets();
 
@@ -182,7 +184,7 @@ function MoreDrawer({ visible, onClose, navigation }) {
 
   const items = [
     { label: "Profile",         icon: "user",      onPress: () => { onClose(); navigation.navigate("UserProfile");  } },
-    { label: "Notice Board",    icon: "bell",      onPress: () => { onClose(); navigation.navigate("NoticeBoard"); } },
+    { label: "Notice Board",    icon: "bell",      screen: "NoticeBoard", onPress: () => { onClose(); navigation.navigate("NoticeBoard"); } },
     // International (subscription) schools only – plan status, trial, Google Play subscribe
     ...(isSubscription ? [{
       label: "Plan & Billing", icon: "credit-card",
@@ -191,6 +193,7 @@ function MoreDrawer({ visible, onClose, navigation }) {
     {
       label:   "School Gallery",
       icon:    isAdmin ? "upload-cloud" : "image",
+      screen:  isAdmin ? "SchoolMemoriesAdmin" : "SchoolMemories",
       onPress: () => { onClose(); navigation.navigate(isAdmin ? "SchoolMemoriesAdmin" : "SchoolMemories"); },
     },
     { label: "Change Password", icon: "lock",      onPress: () => { onClose(); navigation.navigate("ChangePassword"); } },
@@ -220,7 +223,7 @@ function MoreDrawer({ visible, onClose, navigation }) {
       waCh:    true,
       onPress: () => { onClose(); Linking.openURL(channelLink).catch(() => {}); },
     }] : []),
-    { label: "Messages",        icon: "message-circle", onPress: () => { onClose(); navigation.navigate("ChatList"); } },
+    { label: "Messages",        icon: "message-circle", screen: "ChatList", onPress: () => { onClose(); navigation.navigate("ChatList"); } },
     { divider: true },
     { label: "Share App",  icon: "share-2",  onPress: handleShareApp, accent: true },
     { label: "Logout",     icon: "log-out",  onPress: handleLogout, danger: true },
@@ -257,11 +260,12 @@ function MoreDrawer({ visible, onClose, navigation }) {
                 <TouchableOpacity
                   key={item.label}
                   style={dr.item}
-                  onPress={item.onPress}
+                  onPress={item.screen ? guard(item.screen, item.onPress) : item.onPress}
                   activeOpacity={0.7}
                 >
                   <View style={[dr.itemIcon, item.danger && dr.itemIconDanger, item.accent && dr.itemIconAccent, item.wa && dr.itemIconWa, item.waCh && dr.itemIconWaCh]}>
-                    <Feather name={item.icon} size={16} color={item.danger ? "#dc2626" : item.accent ? "#16a34a" : item.wa ? "#15803d" : item.waCh ? "#6b21a8" : "#1e40af"} />
+                    <Feather name={item.icon} size={16} color={isLocked(item.screen) ? "#94a3b8" : item.danger ? "#dc2626" : item.accent ? "#16a34a" : item.wa ? "#15803d" : item.waCh ? "#6b21a8" : "#1e40af"} />
+                    {isLocked(item.screen) && <LockBadge size={8} style={{ width: 15, height: 15, top: -4, right: -4 }} />}
                   </View>
                   <Text style={[dr.itemLabel, item.danger && dr.itemLabelDanger, item.accent && dr.itemLabelAccent, item.wa && dr.itemLabelWa, item.waCh && dr.itemLabelWaCh]}>
                     {item.label}
@@ -366,6 +370,7 @@ function SetupWithHeader({ navigation }) {
 // ── Main Tabs ─────────────────────────────────────────────────────────────────
 export default function MainTabs({ navigation }) {
   const { user } = useContext(AuthContext);
+  const { isLocked, showUpgradePrompt, featureOf } = useFeatureLock();
   const role = (user?.ssmsUserRole ?? '').toLowerCase().trim();
   const isStudentOrParent = role === 'student' || role === 'parent';
   const insets = useSafeAreaInsets();
@@ -443,7 +448,8 @@ export default function MainTabs({ navigation }) {
         tabBarLabelStyle: { fontSize: 12, fontWeight: "700" },
         tabBarIcon: ({ color, focused }) => (
           <View style={[tb.iconWrap, focused && tb.iconActive]}>
-            <Feather name={tabIcons[route.name] ?? "circle"} size={22} color={color} />
+            <Feather name={tabIcons[route.name] ?? "circle"} size={22} color={isLocked(route.name) ? "#94a3b8" : color} />
+            {isLocked(route.name) && <LockBadge size={8} style={{ width: 15, height: 15, top: 0, right: 0 }} />}
           </View>
         ),
       })}
@@ -483,11 +489,20 @@ export default function MainTabs({ navigation }) {
             listeners={({ navigation }) => ({
               tabPress: (e) => {
                 e.preventDefault();
+                if (isLocked("Hostel")) { showUpgradePrompt(featureOf("Hostel")); return; }
                 navigation.navigate("Hostel", { screen: "HostelHome" });
               },
             })}
           />
-          <Tab.Screen name="Transport" component={TransportWithHeader} />
+          <Tab.Screen
+            name="Transport"
+            component={TransportWithHeader}
+            listeners={() => ({
+              tabPress: (e) => {
+                if (isLocked("Transport")) { e.preventDefault(); showUpgradePrompt(featureOf("Transport")); }
+              },
+            })}
+          />
           <Tab.Screen
             name="Setup"
             component={SetupWithHeader}

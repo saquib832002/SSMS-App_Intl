@@ -3,6 +3,7 @@ import React, { createContext, useState, useEffect, useRef, useCallback } from '
 import { Alert, AppState } from 'react-native';
 import { setExpiredHandler, setLockedHandler, setLoggedOut } from '../services/apiInterceptor';
 import { fetchUserProfile, fetchEntitlements } from '../services/UserServiceApi';
+import { FEATURE_LABELS } from '../constants/RouteFeatures';
 
 // Plan feature keys for the international (subscription) app. They come from
 // user.activeFeatures (ssms_client_features). Legacy (Indian) schools have
@@ -25,6 +26,7 @@ export const AuthContext = createContext({
   hasModule:             (_key) => false,
   hasFeature:            (_key) => true,
   isSubscription:        false,
+  showUpgradePrompt:     (_feature) => {},
   refreshEntitlements:   async () => {},
   activeEnrollmentId:    null,
   setActiveEnrollmentId: () => {},
@@ -200,6 +202,30 @@ export function AuthProvider({ children }) {
     return () => sub.remove();
   }, [user?.token, refreshEntitlements]);
 
+  // ── "Upgrade required" pop-up ─────────────────────────────────────────────
+  // Shown when a locked (paid, not active) option is tapped, or when the
+  // server refuses a paid feature (HTTP 402). Owners / admins get
+  // "View plans" (opens Plan & Billing); everyone else is told to ask them.
+  const showUpgradePrompt = useCallback((feature) => {
+    const label   = FEATURE_LABELS[feature] ?? 'This feature';
+    const role    = (user?.ssmsUserRole ?? '').toLowerCase().trim();
+    const isOwner = ['owner', 'admin', 'super', 'superuser'].includes(role);
+    const openPlans = () => {
+      try { navigationRef.current?.navigate('Subscription'); } catch { /* ignore */ }
+    };
+    Alert.alert(
+      `\u{1F512} ${label} is locked`,
+      "Your school's subscription or free trial has expired, or this feature "
+        + "isn't included in your current plan.\n\n"
+        + (isOwner
+          ? 'Subscribe or upgrade the plan to unlock it for your whole school.'
+          : 'Please ask your school administrator to renew or upgrade the subscription.'),
+      isOwner
+        ? [{ text: 'Not now', style: 'cancel' }, { text: 'View plans', onPress: openPlans }]
+        : [{ text: 'OK' }]
+    );
+  }, [user?.ssmsUserRole]);
+
   // ── HTTP 402 MODULE_LOCKED from any safeFetch call ────────────────────────
   // At most ONE alert per locked feature every 30 s, however many calls fail
   // (a screen often fires several calls, and some reload on every render).
@@ -214,24 +240,8 @@ export function AuthProvider({ children }) {
     if (now - (lastLockAlert.current[feature] || 0) < 30000) return;
     lastLockAlert.current[feature] = now;
     refreshEntitlements();
-
-    const role    = (user?.ssmsUserRole ?? '').toLowerCase().trim();
-    const isOwner = ['owner', 'admin', 'super', 'superuser'].includes(role);
-    const openPlans = () => {
-      try { navigationRef.current?.navigate('Subscription'); } catch { /* ignore */ }
-    };
-    Alert.alert(
-      'Upgrade required',
-      isOwner
-        ? "This feature isn't included in your school's current plan, or the free trial has ended. "
-          + 'Choose a plan to unlock it for your whole school.'
-        : "This feature isn't included in your school's current plan. "
-          + 'Please ask your school administrator to upgrade the plan.',
-      isOwner
-        ? [{ text: 'Not now', style: 'cancel' }, { text: 'View plans', onPress: openPlans }]
-        : [{ text: 'OK' }]
-    );
-  }, [refreshEntitlements, user?.ssmsUserRole]);
+    showUpgradePrompt(feature);
+  }, [refreshEntitlements, showUpgradePrompt]);
 
   useEffect(() => {
     setLockedHandler(handleLocked);
@@ -240,7 +250,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user, profilePhoto, setProfilePhoto, login, logout, handleExpired, hasModule,
-      hasFeature, isSubscription, refreshEntitlements,
+      hasFeature, isSubscription, refreshEntitlements, showUpgradePrompt,
       activeEnrollmentId, setActiveEnrollmentId,
       linkedStudents, setLinkedStudents,
     }}>

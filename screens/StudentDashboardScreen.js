@@ -20,6 +20,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { AuthContext } from "../context/AuthContext";
+import { useFeatureLock, LockBadge } from "../components/FeatureLock";
 import { fetchMyAttendance, fetchLinkedStudents } from "../services/StudentServiceApi";
 import { fetchStudentFeeData } from "../services/FeeServiceApi";
 import { getStudentHomework } from "../services/HomeworkServiceApi";
@@ -46,11 +47,14 @@ const fmtDate = (d) => {
 const PRIORITY_DOT = { urgent: "#dc2626", important: "#f59e0b", normal: "#3b82f6" };
 
 // ── Quick link tile ───────────────────────────────────────────────────────────
-function QuickTile({ icon, label, color, bg, onPress }) {
+function QuickTile({ icon, label, color, bg, onPress, screen }) {
+  const { isLocked, guard } = useFeatureLock();
+  const locked = isLocked(screen);
   return (
-    <TouchableOpacity style={[s.tile, { backgroundColor: bg }]} onPress={onPress} activeOpacity={0.75}>
+    <TouchableOpacity style={[s.tile, { backgroundColor: bg }]} onPress={guard(screen, onPress)} activeOpacity={0.75}>
       <View style={[s.tileIcon, { backgroundColor: color + "22" }]}>
-        <Feather name={icon} size={20} color={color} />
+        <Feather name={icon} size={20} color={locked ? "#94a3b8" : color} />
+        {locked && <LockBadge />}
       </View>
       <Text style={[s.tileLabel, { color }]}>{label}</Text>
     </TouchableOpacity>
@@ -348,15 +352,15 @@ export default function StudentDashboardScreen({ navigation }) {
 
         {/* ── 2. Quick links ── */}
         <View style={s.tilesRow}>
-          <QuickTile icon="check-square" label="Attendance" color="#16a34a" bg="#f0fdf4"
+          <QuickTile icon="check-square" label="Attendance" color="#16a34a" bg="#f0fdf4" screen="MyAttendance"
             onPress={() => navigation.navigate("MyAttendance")} />
-          <QuickTile icon="file-text"   label="View Marks" color="#7c3aed" bg="#faf5ff"
+          <QuickTile icon="file-text"   label="View Marks" color="#7c3aed" bg="#faf5ff" screen="MyMarksheet"
             onPress={() => navigation.navigate("MyMarksheet")} />
-          <QuickTile icon="book"        label="Homework"   color="#0369a1" bg="#f0f9ff"
+          <QuickTile icon="book"        label="Homework"   color="#0369a1" bg="#f0f9ff" screen="MyHomework"
             onPress={() => navigation.navigate("My Portal", { screen: "MyHomework" })} />
-          <QuickTile icon="dollar-sign" label="Fee"        color="#b45309" bg="#fffbeb"
+          <QuickTile icon="dollar-sign" label="Fee"        color="#b45309" bg="#fffbeb" screen="MyFee"
             onPress={() => navigation.navigate("MyFee")} />
-          <QuickTile icon="layers"      label="My Tests"  color="#0891b2" bg="#f0f9ff"
+          <QuickTile icon="layers"      label="My Tests"  color="#0891b2" bg="#f0f9ff" screen="MyTestSeries"
             onPress={() => navigation.navigate("My Portal", { screen: "MyTestSeries" })} />
         </View>
 

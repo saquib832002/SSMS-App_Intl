@@ -7,6 +7,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { AuthContext } from "../context/AuthContext";
+import { useFeatureLock, LockBadge } from "../components/FeatureLock";
 
 // ── Student / Parent portal menu ─────────────────────────────────────────────
 const buildStudentSections = (enrollmentId) => [
@@ -132,16 +133,19 @@ function SectionHeader({ section }) {
 
 // ── Item Tile ─────────────────────────────────────────────────────────────────
 function ItemTile({ item, section, navigation }) {
+  const { isLocked, guard } = useFeatureLock();
+  const locked = isLocked(item.screen);
   return (
     <TouchableOpacity
       style={sc.tile}
-      onPress={() => navigation.navigate(item.screen, item.params ?? {})}
+      onPress={guard(item.screen, () => navigation.navigate(item.screen, item.params ?? {}))}
       activeOpacity={0.75}
     >
       <View style={[sc.tileIcon, { backgroundColor: section.tint }]}>
-        <Feather name={item.icon} size={22} color={section.accent} />
+        <Feather name={item.icon} size={22} color={locked ? "#94a3b8" : section.accent} />
+        {locked && <LockBadge />}
       </View>
-      <Text style={[sc.tileLabel, { color: "#1e293b" }]} numberOfLines={2}>
+      <Text style={[[sc.tileLabel, { color: "#1e293b" }], locked && { color: "#94a3b8" }]} numberOfLines={2}>
         {item.label}
       </Text>
     </TouchableOpacity>

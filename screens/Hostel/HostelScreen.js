@@ -7,6 +7,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
+import { useFeatureLock, LockBadge } from "../../components/FeatureLock";
 
 // ── Menu structure ────────────────────────────────────────────────────────────
 // adminOnly    → visible to admin + owner only
@@ -60,16 +61,19 @@ function SectionHeader({ section }) {
 
 // ── Item Tile ─────────────────────────────────────────────────────────────────
 function ItemTile({ item, section, navigation }) {
+  const { isLocked, guard } = useFeatureLock();
+  const locked = isLocked(item.screen);
   return (
     <TouchableOpacity
       style={sc.tile}
-      onPress={() => navigation.navigate(item.screen)}
+      onPress={guard(item.screen, () => navigation.navigate(item.screen))}
       activeOpacity={0.75}
     >
       <View style={[sc.tileIcon, { backgroundColor: section.tint }]}>
-        <Feather name={item.icon} size={22} color={section.accent} />
+        <Feather name={item.icon} size={22} color={locked ? "#94a3b8" : section.accent} />
+        {locked && <LockBadge />}
       </View>
-      <Text style={sc.tileLabel} numberOfLines={2}>
+      <Text style={[sc.tileLabel, locked && { color: "#94a3b8" }]} numberOfLines={2}>
         {item.label}
       </Text>
     </TouchableOpacity>
