@@ -24,7 +24,7 @@ import { Feather } from "@expo/vector-icons";
 import { AuthContext } from "../context/AuthContext";
 import { AppStyles, Theme } from "../styles/AppStyles";
 
-import { BASE_URL } from "../Environment/EnvironmentConfig";
+import { BASE_URL, APP_VERSION_LABEL } from "../Environment/EnvironmentConfig";
 const { width } = Dimensions.get("window");
 const isTablet = width >= 768;
 
@@ -284,7 +284,7 @@ try {
 
             {/* ================= BOTTOM SECTION ================= */}
             <View style={AppStyles.bottomSection}>
-              <Text style={AppStyles.versionText}>Version 1.0.0</Text>
+              <Text style={AppStyles.versionText}>{APP_VERSION_LABEL}</Text>
               <Text style={AppStyles.bottomSubText}>
                 Built for efficient school administration with secure access,
                 responsive design, and enterprise-ready workflows across web,

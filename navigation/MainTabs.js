@@ -9,7 +9,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { AuthContext } from "../context/AuthContext";
 import { featureScreenLayout } from "../components/FeatureGate";
 import { useFeatureLock, LockBadge } from "../components/FeatureLock";
-import { HOST_NAME, PLAY_STORE_URL } from "../Environment/EnvironmentConfig";
+import { HOST_NAME, PLAY_STORE_URL, APP_VERSION_LABEL } from "../Environment/EnvironmentConfig";
 import { fetchInstituteDetails } from "../services/UserServiceApi";
 import { sendHeartbeat }         from "../services/ChatServiceApi";
 import { AppState, Platform }    from "react-native";
@@ -274,6 +274,9 @@ function MoreDrawer({ visible, onClose, navigation }) {
                 </TouchableOpacity>
               )
           )}
+          <Text style={{ textAlign: "center", fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
+            {APP_VERSION_LABEL}
+          </Text>
         </Pressable>
       </Pressable>
     </Modal>

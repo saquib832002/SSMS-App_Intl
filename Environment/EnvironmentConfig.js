@@ -14,3 +14,11 @@ export const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com
 
 // RevenueCat public Android SDK key for Google Play subscriptions ("" = purchases disabled)
 export const REVENUECAT_ANDROID_KEY = extra.REVENUECAT_ANDROID_KEY ?? "";
+
+// "Version 1.0.2 (66) · built 09 Oct 2026, 14:32" – identifies the installed build.
+// (66) is the Play versionCode; it must match the latest release in Play Console.
+import * as Application from "expo-application";
+const _built = extra.BUILD_TIME ? new Date(extra.BUILD_TIME) : null;
+export const APP_VERSION_LABEL =
+  `Version ${Application.nativeApplicationVersion ?? "?"} (${Application.nativeBuildVersion ?? "?"})`
+  + (_built ? ` · built ${_built.toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}` : "");
