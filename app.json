@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "com.sawera.ssms",
-      "versionCode": 66,
+      "versionCode": 67,
       "kotlinVersion": "2.1.20",
       "adaptiveIcon": {
         "foregroundImage": "./assets/smsLogo4.png",
