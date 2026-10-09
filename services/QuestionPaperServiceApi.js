@@ -3,6 +3,7 @@
  * Question Bank + Question Paper API service
  */
 import { BASE_URL } from "../Environment/EnvironmentConfig";
+import { fetchWithLockCheck } from "./apiInterceptor";
 
 const buildHeaders = (user) => ({
   Accept:           "application/json",
@@ -37,7 +38,7 @@ export const fetchQuestions = (user, filters = {}) => {
   const params = new URLSearchParams(
     Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
   ).toString();
-  return fetch(`${BASE_URL}/QuestionBankApi/getQuestions${params ? `?${params}` : ""}`, {
+  return fetchWithLockCheck(`${BASE_URL}/QuestionBankApi/getQuestions${params ? `?${params}` : ""}`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => d.data ?? []);
 };
@@ -56,11 +57,11 @@ export const createQuestion = (user, payload) => {
         fd.append(k, String(v ?? ""));
       }
     });
-    return fetch(`${BASE_URL}/QuestionBankApi/createQuestion`, {
+    return fetchWithLockCheck(`${BASE_URL}/QuestionBankApi/createQuestion`, {
       method: "POST", headers: buildMultipartHeaders(user), body: fd,
     }).then(handleResponse);
   }
-  return fetch(`${BASE_URL}/QuestionBankApi/createQuestion`, {
+  return fetchWithLockCheck(`${BASE_URL}/QuestionBankApi/createQuestion`, {
     method: "POST", headers: buildHeaders(user),
     body: JSON.stringify(payload),
   }).then(handleResponse);
@@ -84,11 +85,11 @@ export const updateQuestion = (user, qId, payload) => {
         fd.append(k, String(v ?? ""));
       }
     });
-    return fetch(`${BASE_URL}/QuestionBankApi/createQuestion`, {
+    return fetchWithLockCheck(`${BASE_URL}/QuestionBankApi/createQuestion`, {
       method: "POST", headers: buildMultipartHeaders(user), body: fd,
     }).then(handleResponse);
   }
-  return fetch(`${BASE_URL}/QuestionBankApi/createQuestion`, {
+  return fetchWithLockCheck(`${BASE_URL}/QuestionBankApi/createQuestion`, {
     method: "POST", headers: buildHeaders(user),
     body: JSON.stringify({ ...payload, id: qId }),
   }).then(handleResponse);
@@ -96,7 +97,7 @@ export const updateQuestion = (user, qId, payload) => {
 
 /** Soft-delete a question — id goes in the body to avoid URL-parameter routing issues */
 export const deleteQuestion = (user, qId) =>
-  fetch(`${BASE_URL}/QuestionBankApi/deleteQuestion`, {
+  fetchWithLockCheck(`${BASE_URL}/QuestionBankApi/deleteQuestion`, {
     method: "POST", headers: buildHeaders(user),
     body: JSON.stringify({ id: qId }),
   }).then(handleResponse);
@@ -108,7 +109,7 @@ export const deleteQuestion = (user, qId) =>
  * build the Excel template's Reference sheet and validate names client-side.
  */
 export const getImportReference = (user) =>
-  fetch(`${BASE_URL}/QuestionBankApi/getImportReference`, {
+  fetchWithLockCheck(`${BASE_URL}/QuestionBankApi/getImportReference`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => d.data ?? {});
 
@@ -119,7 +120,7 @@ export const getImportReference = (user) =>
  * @returns {Promise<{imported, failed, errors}>}
  */
 export const importQuestions = (user, rows) =>
-  fetch(`${BASE_URL}/QuestionBankApi/importQuestions`, {
+  fetchWithLockCheck(`${BASE_URL}/QuestionBankApi/importQuestions`, {
     method: "POST", headers: buildHeaders(user),
     body: JSON.stringify({ questions: rows }),
   }).then(handleResponse);
@@ -131,60 +132,60 @@ export const fetchPapers = (user, filters = {}) => {
   const params = new URLSearchParams(
     Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
   ).toString();
-  return fetch(`${BASE_URL}/QuestionPaperApi/getPapers${params ? `?${params}` : ""}`, {
+  return fetchWithLockCheck(`${BASE_URL}/QuestionPaperApi/getPapers${params ? `?${params}` : ""}`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => d.data ?? []);
 };
 
 /** Create a paper (header only; returns paper_id) */
 export const createPaper = (user, payload) =>
-  fetch(`${BASE_URL}/QuestionPaperApi/createPaper`, {
+  fetchWithLockCheck(`${BASE_URL}/QuestionPaperApi/createPaper`, {
     method: "POST", headers: buildHeaders(user),
     body: JSON.stringify(payload),
   }).then(handleResponse).then(d => d.data ?? d);
 
 /** Update paper header/config */
 export const updatePaper = (user, paperId, payload) =>
-  fetch(`${BASE_URL}/QuestionPaperApi/updatePaper/${paperId}`, {
+  fetchWithLockCheck(`${BASE_URL}/QuestionPaperApi/updatePaper/${paperId}`, {
     method: "POST", headers: buildHeaders(user),
     body: JSON.stringify(payload),
   }).then(handleResponse);
 
 /** Delete a paper */
 export const deletePaper = (user, paperId) =>
-  fetch(`${BASE_URL}/QuestionPaperApi/deletePaper/${paperId}`, {
+  fetchWithLockCheck(`${BASE_URL}/QuestionPaperApi/deletePaper/${paperId}`, {
     method: "DELETE", headers: buildHeaders(user),
   }).then(handleResponse);
 
 /** Get full paper with all questions (for preview) */
 export const fetchPaperDetail = (user, paperId) =>
-  fetch(`${BASE_URL}/QuestionPaperApi/getPaper/${paperId}`, {
+  fetchWithLockCheck(`${BASE_URL}/QuestionPaperApi/getPaper/${paperId}`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => d.data ?? {});
 
 /** Add a question to a paper */
 export const addQuestionToPaper = (user, paperId, payload) =>
-  fetch(`${BASE_URL}/QuestionPaperApi/addQuestion/${paperId}`, {
+  fetchWithLockCheck(`${BASE_URL}/QuestionPaperApi/addQuestion/${paperId}`, {
     method: "POST", headers: buildHeaders(user),
     body: JSON.stringify(payload),
   }).then(handleResponse);
 
 /** Update order/marks of a question in a paper */
 export const updatePaperQuestion = (user, paperId, pqId, payload) =>
-  fetch(`${BASE_URL}/QuestionPaperApi/updateQuestion/${paperId}/${pqId}`, {
+  fetchWithLockCheck(`${BASE_URL}/QuestionPaperApi/updateQuestion/${paperId}/${pqId}`, {
     method: "POST", headers: buildHeaders(user),
     body: JSON.stringify(payload),
   }).then(handleResponse);
 
 /** Remove a question from a paper */
 export const removeQuestionFromPaper = (user, paperId, pqId) =>
-  fetch(`${BASE_URL}/QuestionPaperApi/removeQuestion/${paperId}/${pqId}`, {
+  fetchWithLockCheck(`${BASE_URL}/QuestionPaperApi/removeQuestion/${paperId}/${pqId}`, {
     method: "DELETE", headers: buildHeaders(user),
   }).then(handleResponse);
 
 /** Publish a paper (status → published) */
 export const publishPaper = (user, paperId) =>
-  fetch(`${BASE_URL}/QuestionPaperApi/publishPaper/${paperId}`, {
+  fetchWithLockCheck(`${BASE_URL}/QuestionPaperApi/publishPaper/${paperId}`, {
     method: "POST", headers: buildHeaders(user),
   }).then(handleResponse);
 

@@ -3,6 +3,7 @@
  * Exam Date Sheet API calls
  */
 import { BASE_URL } from "../Environment/EnvironmentConfig";
+import { fetchWithLockCheck } from "./apiInterceptor";
 
 const buildHeaders = (user) => ({
   Accept:           "application/json",
@@ -27,7 +28,7 @@ const handleResponse = async (res) => {
  */
 export const fetchDatesheet = (user, examId, classId, branchId = 0, sessionId = 0) => {
   const params = new URLSearchParams({ examId, classId, branchId, sessionId });
-  return fetch(`${BASE_URL}/DatesheetApi/getDatesheet?${params}`, {
+  return fetchWithLockCheck(`${BASE_URL}/DatesheetApi/getDatesheet?${params}`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => d.data ?? { entries: [], is_published: false });
 };
@@ -39,7 +40,7 @@ export const fetchDatesheet = (user, examId, classId, branchId = 0, sessionId = 
  * start_time / end_time stored in 24h "HH:MM" format.
  */
 export const saveDatesheet = (user, payload) =>
-  fetch(`${BASE_URL}/DatesheetApi/saveDatesheet`, {
+  fetchWithLockCheck(`${BASE_URL}/DatesheetApi/saveDatesheet`, {
     method: "POST", headers: buildHeaders(user),
     body: JSON.stringify(payload),
   }).then(handleResponse);
@@ -49,7 +50,7 @@ export const saveDatesheet = (user, payload) =>
  * Returns { is_published: bool, message: string }
  */
 export const togglePublish = (user, examId, classId, branchId = 0, sessionId = 0) =>
-  fetch(`${BASE_URL}/DatesheetApi/togglePublish`, {
+  fetchWithLockCheck(`${BASE_URL}/DatesheetApi/togglePublish`, {
     method: "POST", headers: buildHeaders(user),
     body: JSON.stringify({ exam_id: examId, class_id: classId, branch_id: branchId, session_id: sessionId }),
   }).then(handleResponse).then(d => d.data ?? {});
@@ -60,7 +61,7 @@ export const togglePublish = (user, examId, classId, branchId = 0, sessionId = 0
  */
 export const fetchAllDatesheets = (user, examId, branchId = 0, sessionId = 0) => {
   const params = new URLSearchParams({ examId, branchId, sessionId });
-  return fetch(`${BASE_URL}/DatesheetApi/getAllDatesheets?${params}`, {
+  return fetchWithLockCheck(`${BASE_URL}/DatesheetApi/getAllDatesheets?${params}`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => d.data ?? { exam_name: "", classes: [] });
 };
@@ -72,6 +73,6 @@ export const fetchAllDatesheets = (user, examId, branchId = 0, sessionId = 0) =>
  * where each entry has start_time / end_time in 24h format (display as 12h in the screen).
  */
 export const fetchMyDatesheet = (user) =>
-  fetch(`${BASE_URL}/DatesheetApi/getMyDatesheet`, {
+  fetchWithLockCheck(`${BASE_URL}/DatesheetApi/getMyDatesheet`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => d.data ?? []);

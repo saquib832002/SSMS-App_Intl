@@ -3,6 +3,7 @@
  * Test Series module — Admin & Student API service
  */
 import { BASE_URL } from "../Environment/EnvironmentConfig";
+import { fetchWithLockCheck } from "./apiInterceptor";
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
@@ -40,7 +41,7 @@ const buildQuery = (params = {}) => {
  * @returns {Promise<object>} API response containing the new series record.
  */
 export const createSeries = (user, data) =>
-  fetch(`${BASE_URL}/TestSeriesApi/createSeries`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/createSeries`, {
     method: "POST",
     headers: buildHeaders(user),
     body: JSON.stringify(data),
@@ -57,7 +58,7 @@ export const createSeries = (user, data) =>
  */
 export const getSeriesList = (user, filters = {}) => {
   const { branch_id, session_id, class_id } = filters;
-  return fetch(
+  return fetchWithLockCheck(
     `${BASE_URL}/TestSeriesApi/getSeriesList${buildQuery({ branch_id, session_id, class_id })}`,
     { method: "GET", headers: buildHeaders(user) }
   ).then(handleResponse);
@@ -71,7 +72,7 @@ export const getSeriesList = (user, filters = {}) => {
  * @returns {Promise<object>} API response.
  */
 export const updateSeries = (user, id, data) =>
-  fetch(`${BASE_URL}/TestSeriesApi/updateSeries`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/updateSeries`, {
     method: "POST",
     headers: buildHeaders(user),
     body: JSON.stringify({ ...data, id }),
@@ -84,7 +85,7 @@ export const updateSeries = (user, id, data) =>
  * @returns {Promise<object>} API response.
  */
 export const deleteSeries = (user, id) =>
-  fetch(`${BASE_URL}/TestSeriesApi/deleteSeries`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/deleteSeries`, {
     method: "POST",
     headers: buildHeaders(user),
     body: JSON.stringify({ id }),
@@ -99,7 +100,7 @@ export const deleteSeries = (user, id) =>
  * @returns {Promise<object>} API response containing the new test record.
  */
 export const createTest = (user, data) =>
-  fetch(`${BASE_URL}/TestSeriesApi/createTest`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/createTest`, {
     method: "POST",
     headers: buildHeaders(user),
     body: JSON.stringify(data),
@@ -112,7 +113,7 @@ export const createTest = (user, data) =>
  * @returns {Promise<object>} API response containing the test list.
  */
 export const getTestsBySeriesId = (user, seriesId) =>
-  fetch(`${BASE_URL}/TestSeriesApi/getTestsBySeriesId${buildQuery({ series_id: seriesId })}`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/getTestsBySeriesId${buildQuery({ series_id: seriesId })}`, {
     method: "GET",
     headers: buildHeaders(user),
   }).then(handleResponse);
@@ -125,7 +126,7 @@ export const getTestsBySeriesId = (user, seriesId) =>
  * @returns {Promise<object>} API response.
  */
 export const updateTest = (user, id, data) =>
-  fetch(`${BASE_URL}/TestSeriesApi/updateTest`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/updateTest`, {
     method: "POST",
     headers: buildHeaders(user),
     body: JSON.stringify({ ...data, id }),
@@ -138,7 +139,7 @@ export const updateTest = (user, id, data) =>
  * @returns {Promise<object>} API response.
  */
 export const deleteTest = (user, id) =>
-  fetch(`${BASE_URL}/TestSeriesApi/deleteTest`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/deleteTest`, {
     method: "POST",
     headers: buildHeaders(user),
     body: JSON.stringify({ id }),
@@ -153,7 +154,7 @@ export const deleteTest = (user, id) =>
  * @returns {Promise<object>} API response containing the new section record.
  */
 export const addSection = (user, data) =>
-  fetch(`${BASE_URL}/TestSeriesApi/addSection`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/addSection`, {
     method: "POST",
     headers: buildHeaders(user),
     body: JSON.stringify(data),
@@ -166,7 +167,7 @@ export const addSection = (user, data) =>
  * @returns {Promise<object>} API response containing the sections list.
  */
 export const getSections = (user, testId) =>
-  fetch(`${BASE_URL}/TestSeriesApi/getSections${buildQuery({ test_id: testId })}`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/getSections${buildQuery({ test_id: testId })}`, {
     method: "GET",
     headers: buildHeaders(user),
   }).then(handleResponse);
@@ -178,7 +179,7 @@ export const getSections = (user, testId) =>
  * @returns {Promise<object>} API response.
  */
 export const deleteSection = (user, id) =>
-  fetch(`${BASE_URL}/TestSeriesApi/deleteSection`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/deleteSection`, {
     method: "POST",
     headers: buildHeaders(user),
     body: JSON.stringify({ id }),
@@ -194,7 +195,7 @@ export const deleteSection = (user, id) =>
  * @returns {Promise<object>} API response.
  */
 export const addQuestions = (user, testId, questions) =>
-  fetch(`${BASE_URL}/TestSeriesApi/addQuestions`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/addQuestions`, {
     method: "POST",
     headers: buildHeaders(user),
     body: JSON.stringify({ test_id: testId, questions }),
@@ -207,7 +208,7 @@ export const addQuestions = (user, testId, questions) =>
  * @returns {Promise<object>} API response.
  */
 export const removeQuestion = (user, testQuestionId) =>
-  fetch(`${BASE_URL}/TestSeriesApi/removeQuestion`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/removeQuestion`, {
     method: "POST",
     headers: buildHeaders(user),
     body: JSON.stringify({ id: testQuestionId }),
@@ -220,7 +221,7 @@ export const removeQuestion = (user, testQuestionId) =>
  * @returns {Promise<object>} API response containing the question list.
  */
 export const getTestQuestions = (user, testId) =>
-  fetch(`${BASE_URL}/TestSeriesApi/getTestQuestions${buildQuery({ test_id: testId })}`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/getTestQuestions${buildQuery({ test_id: testId })}`, {
     method: "GET",
     headers: buildHeaders(user),
   }).then(handleResponse);
@@ -234,7 +235,7 @@ export const getTestQuestions = (user, testId) =>
  * @returns {Promise<object>} API response.
  */
 export const publishTest = (user, testId) =>
-  fetch(`${BASE_URL}/TestSeriesApi/publishTest`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/publishTest`, {
     method: "POST",
     headers: buildHeaders(user),
     body: JSON.stringify({ id: testId }),
@@ -247,7 +248,7 @@ export const publishTest = (user, testId) =>
  * @returns {Promise<object>} API response containing the attempts list.
  */
 export const getTestAttempts = (user, testId) =>
-  fetch(`${BASE_URL}/TestSeriesApi/getTestAttempts${buildQuery({ test_id: testId })}`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/getTestAttempts${buildQuery({ test_id: testId })}`, {
     method: "GET",
     headers: buildHeaders(user),
   }).then(handleResponse);
@@ -259,7 +260,7 @@ export const getTestAttempts = (user, testId) =>
  * @returns {Promise<object>} API response containing aggregated analytics.
  */
 export const getBatchAnalysis = (user, testId) =>
-  fetch(`${BASE_URL}/TestSeriesApi/getBatchAnalysis${buildQuery({ test_id: testId })}`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/getBatchAnalysis${buildQuery({ test_id: testId })}`, {
     method: "GET",
     headers: buildHeaders(user),
   }).then(handleResponse);
@@ -272,7 +273,7 @@ export const getBatchAnalysis = (user, testId) =>
  * @returns {Promise<object>} API response containing the student's series list.
  */
 export const getMySeriesList = (user) =>
-  fetch(`${BASE_URL}/TestSeriesApi/getMySeriesList`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/getMySeriesList`, {
     method: "GET",
     headers: buildHeaders(user),
   }).then(handleResponse);
@@ -284,7 +285,7 @@ export const getMySeriesList = (user) =>
  * @returns {Promise<object>} API response containing the student's test list.
  */
 export const getMyTests = (user, seriesId) =>
-  fetch(`${BASE_URL}/TestSeriesApi/getMyTests${buildQuery({ series_id: seriesId })}`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/getMyTests${buildQuery({ series_id: seriesId })}`, {
     method: "GET",
     headers: buildHeaders(user),
   }).then(handleResponse);
@@ -298,7 +299,7 @@ export const getMyTests = (user, seriesId) =>
  * @returns {Promise<object>} API response containing the attempt_id and initial state.
  */
 export const startAttempt = (user, testId) =>
-  fetch(`${BASE_URL}/TestSeriesApi/startAttempt`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/startAttempt`, {
     method: "POST",
     headers: buildHeaders(user),
     body: JSON.stringify({ test_id: testId }),
@@ -313,7 +314,7 @@ export const startAttempt = (user, testId) =>
  * @returns {Promise<object>} API response.
  */
 export const saveResponses = (user, attemptId, responses) =>
-  fetch(`${BASE_URL}/TestSeriesApi/saveResponses`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/saveResponses`, {
     method: "POST",
     headers: buildHeaders(user),
     body: JSON.stringify({ attempt_id: attemptId, responses }),
@@ -327,7 +328,7 @@ export const saveResponses = (user, attemptId, responses) =>
  * @returns {Promise<object>} API response containing submission confirmation.
  */
 export const submitAttempt = (user, attemptId, timeSpent, responses = null) =>
-  fetch(`${BASE_URL}/TestSeriesApi/submitAttempt`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/submitAttempt`, {
     method: "POST",
     headers: buildHeaders(user),
     body: JSON.stringify({
@@ -346,7 +347,7 @@ export const submitAttempt = (user, attemptId, timeSpent, responses = null) =>
  * @returns {Promise<object>} API response containing score, rank, and summary.
  */
 export const getResult = (user, attemptId) =>
-  fetch(`${BASE_URL}/TestSeriesApi/getResult${buildQuery({ attempt_id: attemptId })}`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/getResult${buildQuery({ attempt_id: attemptId })}`, {
     method: "GET",
     headers: buildHeaders(user),
   }).then(handleResponse);
@@ -358,7 +359,7 @@ export const getResult = (user, attemptId) =>
  * @returns {Promise<object>} API response containing detailed question-level breakdown.
  */
 export const getAnalysis = (user, attemptId) =>
-  fetch(`${BASE_URL}/TestSeriesApi/getAnalysis${buildQuery({ attempt_id: attemptId })}`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/getAnalysis${buildQuery({ attempt_id: attemptId })}`, {
     method: "GET",
     headers: buildHeaders(user),
   }).then(handleResponse);
@@ -370,7 +371,7 @@ export const getAnalysis = (user, attemptId) =>
  * @returns {Promise<object>} API response containing ranked student scores.
  */
 export const getLeaderboard = (user, testId) =>
-  fetch(`${BASE_URL}/TestSeriesApi/getLeaderboard${buildQuery({ test_id: testId })}`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/getLeaderboard${buildQuery({ test_id: testId })}`, {
     method: "GET",
     headers: buildHeaders(user),
   }).then(handleResponse);
@@ -384,27 +385,27 @@ export const fetchChapters = (user, classId, subjectId, subjectName) => {
   if (subjectId)   params.append("subject_id",   subjectId);
   if (subjectName) params.append("subject_name", subjectName);
   const qs = params.toString() ? `?${params.toString()}` : "";
-  return fetch(`${BASE_URL}/TestSeriesApi/getChapters${qs}`, {
+  return fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/getChapters${qs}`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => d.data ?? []);
 };
 
 /** POST /TestSeriesApi/createChapter */
 export const createChapter = (user, payload) =>
-  fetch(`${BASE_URL}/TestSeriesApi/createChapter`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/createChapter`, {
     method: "POST", headers: buildHeaders(user),
     body: JSON.stringify(payload),
   }).then(handleResponse);
 
 /** POST /TestSeriesApi/updateChapter/:id */
 export const updateChapter = (user, id, payload) =>
-  fetch(`${BASE_URL}/TestSeriesApi/updateChapter/${id}`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/updateChapter/${id}`, {
     method: "POST", headers: buildHeaders(user),
     body: JSON.stringify(payload),
   }).then(handleResponse);
 
 /** DELETE /TestSeriesApi/deleteChapter/:id */
 export const deleteChapter = (user, id) =>
-  fetch(`${BASE_URL}/TestSeriesApi/deleteChapter/${id}`, {
+  fetchWithLockCheck(`${BASE_URL}/TestSeriesApi/deleteChapter/${id}`, {
     method: "DELETE", headers: buildHeaders(user),
   }).then(handleResponse);

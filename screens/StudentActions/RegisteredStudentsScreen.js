@@ -13,6 +13,7 @@ import {
   Modal} from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
+import { wasJustLocked } from "../../services/apiInterceptor";
 import { fetchBranches, fetchClasses, fetchSections, fetchSessions, getAllRegisteredStudents, enrollStudent } from "../../services/StudentServiceApi";
 import { useFocusEffect } from "@react-navigation/native";
 import { HOST_NAME } from "../../Environment/EnvironmentConfig";
@@ -228,7 +229,9 @@ useFocusEffect(
         setPage(nextPage);
         setHasNextPage(Boolean(pagination.hasNextPage));
       } catch (error) {
-        Alert.alert("Error", error.message || "Failed to load students");
+        // Stop "load more" retrying forever (an empty list keeps firing onEndReached)
+        setHasNextPage(false);
+        if (!wasJustLocked()) Alert.alert("Error", error.message || "Failed to load students");
       } finally {
         setLoading(false);
         setLoadingMore(false);

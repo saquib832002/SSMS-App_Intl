@@ -13,6 +13,15 @@
 let _handleExpired = null;
 let _handleLocked  = null;
 let _isLoggedOut   = false;
+let _lastLockedAt  = 0;
+
+/**
+ * True for ~3 s after a 402 MODULE_LOCKED response. Screens use it to skip
+ * their own "Error" alert (AuthContext already shows "Upgrade required").
+ */
+export function wasJustLocked() {
+  return Date.now() - _lastLockedAt < 3000;
+}
 
 /** Called by AuthProvider on mount to register the expiry handler */
 export function setExpiredHandler(fn) {
@@ -30,6 +39,7 @@ export function setLockedHandler(fn) {
 
 /** 402 → tell AuthContext (reads a clone so the caller can still read the body). */
 export function checkLocked(response) {
+  if (response?.status === 402) _lastLockedAt = Date.now();
   if (_isLoggedOut || response?.status !== 402 || !_handleLocked) return;
   try {
     response.clone().json()
@@ -83,6 +93,17 @@ export async function safeFetch(url, options = {}) {
   }
   const res = await fetch(url, options);
   checkExpired(res);
+  checkLocked(res);
+  return res;
+}
+
+/**
+ * fetch() + 402 MODULE_LOCKED detection only (no 401 logout handling).
+ * Used by older service files that call fetch() directly, so a locked
+ * feature always shows the "Upgrade required" prompt with "View plans".
+ */
+export async function fetchWithLockCheck(url, options = {}) {
+  const res = await fetch(url, options);
   checkLocked(res);
   return res;
 }

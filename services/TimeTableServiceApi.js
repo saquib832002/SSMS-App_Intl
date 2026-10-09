@@ -3,6 +3,7 @@
  * API calls for Periods and Timetable management
  */
 import { BASE_URL } from "../Environment/EnvironmentConfig";
+import { fetchWithLockCheck } from "./apiInterceptor";
 
 const buildHeaders = (user) => ({
   Accept:         "application/json",
@@ -23,24 +24,24 @@ const handleResponse = async (res) => {
 // ── Periods ───────────────────────────────────────────────────────────────────
 
 export const fetchPeriods = (user) =>
-  fetch(`${BASE_URL}/TimeTableServiceApi/getPeriods`, {
+  fetchWithLockCheck(`${BASE_URL}/TimeTableServiceApi/getPeriods`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => d.data ?? []);
 
 export const createPeriod = (user, payload) =>
-  fetch(`${BASE_URL}/TimeTableServiceApi/createPeriod`, {
+  fetchWithLockCheck(`${BASE_URL}/TimeTableServiceApi/createPeriod`, {
     method: "POST", headers: buildHeaders(user),
     body: JSON.stringify(payload),
   }).then(handleResponse);
 
 export const updatePeriod = (user, id, payload) =>
-  fetch(`${BASE_URL}/TimeTableServiceApi/updatePeriod/${id}`, {
+  fetchWithLockCheck(`${BASE_URL}/TimeTableServiceApi/updatePeriod/${id}`, {
     method: "POST", headers: buildHeaders(user),
     body: JSON.stringify(payload),
   }).then(handleResponse);
 
 export const deletePeriod = (user, id) =>
-  fetch(`${BASE_URL}/TimeTableServiceApi/deletePeriod/${id}`, {
+  fetchWithLockCheck(`${BASE_URL}/TimeTableServiceApi/deletePeriod/${id}`, {
     method: "DELETE", headers: buildHeaders(user),
   }).then(handleResponse);
 
@@ -56,7 +57,7 @@ export const fetchTimetable = (user, { classId, sectionId, sessionId, branchId }
   if (sectionId) qs.set("sectionId", sectionId);
   if (sessionId) qs.set("sessionId", sessionId);
   if (branchId)  qs.set("branchId",  branchId);
-  return fetch(`${BASE_URL}/TimeTableServiceApi/getTimetable?${qs}`, {
+  return fetchWithLockCheck(`${BASE_URL}/TimeTableServiceApi/getTimetable?${qs}`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => d.data ?? []);
 };
@@ -67,7 +68,7 @@ export const fetchTimetable = (user, { classId, sectionId, sessionId, branchId }
  *             class_subject_id, staff_id, room }
  */
 export const saveTimetableSlot = (user, payload) =>
-  fetch(`${BASE_URL}/TimeTableServiceApi/saveTimetableSlot`, {
+  fetchWithLockCheck(`${BASE_URL}/TimeTableServiceApi/saveTimetableSlot`, {
     method: "POST", headers: buildHeaders(user),
     body: JSON.stringify(payload),
   }).then(handleResponse);
@@ -81,7 +82,7 @@ export const fetchMasterTimetable = (user, { sessionId, branchId } = {}) => {
   const qs = new URLSearchParams();
   if (sessionId) qs.set("sessionId", sessionId);
   if (branchId)  qs.set("branchId",  branchId);
-  return fetch(`${BASE_URL}/TimeTableServiceApi/getMasterTimetable?${qs}`, {
+  return fetchWithLockCheck(`${BASE_URL}/TimeTableServiceApi/getMasterTimetable?${qs}`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse);
 };
@@ -96,7 +97,7 @@ export const fetchBusyMap = (user, { classId, sectionId, sessionId, branchId } =
   if (sectionId) qs.set("sectionId", sectionId);
   if (sessionId) qs.set("sessionId", sessionId);
   if (branchId)  qs.set("branchId",  branchId);
-  return fetch(`${BASE_URL}/TimeTableServiceApi/getBusyMap?${qs}`, {
+  return fetchWithLockCheck(`${BASE_URL}/TimeTableServiceApi/getBusyMap?${qs}`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => d.data ?? {});
 };
@@ -107,13 +108,13 @@ export const fetchBusyMap = (user, { classId, sectionId, sessionId, branchId } =
  */
 /** payload: { class_id, section_id, session_id, branch_id?, source_day, mode } */
 export const copyDay = (user, payload) =>
-  fetch(`${BASE_URL}/TimeTableServiceApi/copyDay`, {
+  fetchWithLockCheck(`${BASE_URL}/TimeTableServiceApi/copyDay`, {
     method: "POST", headers: buildHeaders(user),
     body: JSON.stringify(payload),
   }).then(handleResponse);
 
 export const deleteTimetableSlot = (user, id) =>
-  fetch(`${BASE_URL}/TimeTableServiceApi/deleteTimetableSlot/${id}`, {
+  fetchWithLockCheck(`${BASE_URL}/TimeTableServiceApi/deleteTimetableSlot/${id}`, {
     method: "DELETE", headers: buildHeaders(user),
   }).then(handleResponse);
 
@@ -124,7 +125,7 @@ export const deleteTimetableSlot = (user, id) =>
 export const fetchTeacherTimetable = (user, { staffId, sessionId } = {}) => {
   const qs = new URLSearchParams({ staffId });
   if (sessionId) qs.set("sessionId", sessionId);
-  return fetch(`${BASE_URL}/TimeTableServiceApi/getTeacherTimetable?${qs}`, {
+  return fetchWithLockCheck(`${BASE_URL}/TimeTableServiceApi/getTeacherTimetable?${qs}`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => d.data ?? []);
 };

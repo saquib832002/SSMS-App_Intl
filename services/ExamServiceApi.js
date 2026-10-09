@@ -2,6 +2,7 @@
  * services/ExamServiceApi.js
  */
 import { BASE_URL } from "../Environment/EnvironmentConfig";
+import { fetchWithLockCheck } from "./apiInterceptor";
 
 const buildHeaders = (user) => ({
   Accept:            "application/json",
@@ -21,39 +22,39 @@ const handleResponse = async (res) => {
 };
 
 export const fetchClientInfo = (user) =>
-  fetch(`${BASE_URL}/ExamServiceApi/getClientInfo`, {
+  fetchWithLockCheck(`${BASE_URL}/ExamServiceApi/getClientInfo`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => d.data ?? null);
 
 export const fetchSchoolInfo = (user) =>
-  fetch(`${BASE_URL}/ExamServiceApi/getSchoolInfo`, {
+  fetchWithLockCheck(`${BASE_URL}/ExamServiceApi/getSchoolInfo`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => d.data ?? null);
 
 export const fetchExams = (user) =>
-  fetch(`${BASE_URL}/ExamServiceApi/getExams`, {
+  fetchWithLockCheck(`${BASE_URL}/ExamServiceApi/getExams`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => d.data ?? []);
 
 export const createExam = (user, payload) =>
-  fetch(`${BASE_URL}/ExamServiceApi/createExam`, {
+  fetchWithLockCheck(`${BASE_URL}/ExamServiceApi/createExam`, {
     method: "POST", headers: buildHeaders(user),
     body: JSON.stringify(payload),
   }).then(handleResponse);
 
 export const updateExam = (user, examId, payload) =>
-  fetch(`${BASE_URL}/ExamServiceApi/updateExam/${examId}`, {
+  fetchWithLockCheck(`${BASE_URL}/ExamServiceApi/updateExam/${examId}`, {
     method: "POST", headers: buildHeaders(user),
     body: JSON.stringify(payload),
   }).then(handleResponse);
 
 export const deleteExam = (user, examId) =>
-  fetch(`${BASE_URL}/ExamServiceApi/deleteExam/${examId}`, {
+  fetchWithLockCheck(`${BASE_URL}/ExamServiceApi/deleteExam/${examId}`, {
     method: "DELETE", headers: buildHeaders(user),
   }).then(handleResponse);
 
 export const toggleExamRelease = (user, examId) =>
-  fetch(`${BASE_URL}/ExamServiceApi/toggleExamRelease/${examId}`, {
+  fetchWithLockCheck(`${BASE_URL}/ExamServiceApi/toggleExamRelease/${examId}`, {
     method: "POST", headers: buildHeaders(user),
   }).then(handleResponse);
 
@@ -62,7 +63,7 @@ export const toggleExamRelease = (user, examId) =>
 export const fetchSubjectMaxMarks = (user, classId, subjectId, examId) => {
   const params = new URLSearchParams({ classId, subjectId });
   if (examId) params.set('examId', examId);
-  return fetch(`${BASE_URL}/ExamServiceApi/getSubjectMaxMarks?${params}`, {
+  return fetchWithLockCheck(`${BASE_URL}/ExamServiceApi/getSubjectMaxMarks?${params}`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => d.data ?? null);
 };
@@ -70,7 +71,7 @@ export const fetchSubjectMaxMarks = (user, classId, subjectId, examId) => {
 // Fetch saved max marks for a specific exam + class (exam-specific rows only).
 export const fetchQuickTestMaxMarks = (user, examId, classId) => {
   const params = new URLSearchParams({ examId, classId });
-  return fetch(`${BASE_URL}/ExamServiceApi/getQuickTestMaxMarks?${params}`, {
+  return fetchWithLockCheck(`${BASE_URL}/ExamServiceApi/getQuickTestMaxMarks?${params}`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => d.data ?? []);
 };
@@ -78,7 +79,7 @@ export const fetchQuickTestMaxMarks = (user, examId, classId) => {
 // Saves per-exam per-subject max marks for a quick test.
 // payload: { exam_id, class_id, subjects: [{subject_id, max_marks}] }
 export const saveQuickTestMaxMarks = (user, payload) =>
-  fetch(`${BASE_URL}/ExamServiceApi/saveQuickTestMaxMarks`, {
+  fetchWithLockCheck(`${BASE_URL}/ExamServiceApi/saveQuickTestMaxMarks`, {
     method: "POST", headers: buildHeaders(user),
     body: JSON.stringify(payload),
   }).then(handleResponse);
@@ -94,14 +95,14 @@ export const fetchStudentsForMarks = (user, { branchId, examId, sessionId, class
   if (classId)   params.set('classId',   classId);
   if (sectionId) params.set('sectionId', sectionId);
   if (subjectId) params.set('subjectId', subjectId);
-  return fetch(`${BASE_URL}/ExamServiceApi/getStudentsForMarks?${params}`, {
+  return fetchWithLockCheck(`${BASE_URL}/ExamServiceApi/getStudentsForMarks?${params}`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => d.data ?? []);
 };
 
 // Save marks for multiple students in one call
 export const saveMarks = (user, payload) =>
-  fetch(`${BASE_URL}/ExamServiceApi/saveMarks`, {
+  fetchWithLockCheck(`${BASE_URL}/ExamServiceApi/saveMarks`, {
     method: "POST", headers: buildHeaders(user),
     body: JSON.stringify(payload),
   }).then(handleResponse);
@@ -117,7 +118,7 @@ export const fetchMarksheet = (user, { enrollmentId, examId, sessionId, classId,
   if (sessionId)    params.set('sessionId',    sessionId);
   if (classId)      params.set('classId',      classId);
   if (branchId)     params.set('branchId',     branchId);
-  return fetch(`${BASE_URL}/ExamServiceApi/getMarksheet?${params}`, {
+  return fetchWithLockCheck(`${BASE_URL}/ExamServiceApi/getMarksheet?${params}`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => d.data ?? null);
 };
@@ -130,7 +131,7 @@ export const fetchClassMarksMatrix = (user, { examId, classId, sessionId, sectio
   if (sessionId) params.set('sessionId', sessionId);
   if (sectionId) params.set('sectionId', sectionId);
   if (branchId)  params.set('branchId',  branchId);
-  return fetch(`${BASE_URL}/ExamServiceApi/getClassMarksMatrix?${params}`, {
+  return fetchWithLockCheck(`${BASE_URL}/ExamServiceApi/getClassMarksMatrix?${params}`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => ({ subjects: d.subjects ?? [], students: d.students ?? [] }));
 };
@@ -143,7 +144,7 @@ export const fetchStudentsWithMarks = (user, { examId, sessionId, classId, secti
   if (classId)    params.set('classId',    classId);
   if (sectionId)  params.set('sectionId',  sectionId);
   if (branchId)   params.set('branchId',   branchId);
-  return fetch(`${BASE_URL}/ExamServiceApi/getStudentsWithMarks?${params}`, {
+  return fetchWithLockCheck(`${BASE_URL}/ExamServiceApi/getStudentsWithMarks?${params}`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => d.data ?? []);
 };
@@ -156,13 +157,13 @@ export const fetchStudentsForMarksheet = (user, { branchId, examId, sessionId, c
   if (sessionId) params.set('sessionId', sessionId);
   if (classId)   params.set('classId',   classId);
   if (sectionId) params.set('sectionId', sectionId);
-  return fetch(`${BASE_URL}/ExamServiceApi/getStudentsWithMarks?${params}`, {
+  return fetchWithLockCheck(`${BASE_URL}/ExamServiceApi/getStudentsWithMarks?${params}`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => d.data ?? []);
 };
 // Fetch all marksheets for the logged-in student (student portal)
 export const fetchMyMarksheets = (user) =>
-  fetch(`${BASE_URL}/ExamServiceApi/getMyMarksheets`, {
+  fetchWithLockCheck(`${BASE_URL}/ExamServiceApi/getMyMarksheets`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => ({ student: d.student ?? null, exams: d.exams ?? [] }));
 
@@ -174,14 +175,14 @@ export const fetchExamRankings = (user, { examId, classId, sessionId, sectionId,
   if (sessionId) params.set('sessionId', sessionId);
   if (sectionId) params.set('sectionId', sectionId);
   if (branchId)  params.set('branchId',  branchId);
-  return fetch(`${BASE_URL}/ExamServiceApi/getExamRankings?${params}`, {
+  return fetchWithLockCheck(`${BASE_URL}/ExamServiceApi/getExamRankings?${params}`, {
     method: "GET", headers: buildHeaders(user),
   }).then(handleResponse).then(d => ({ data: d.data ?? [], exam: d.exam ?? null, total: d.total ?? 0 }));
 };
 
 // Promote students to a new class / section / session
 export const promoteStudents = (user, payload) =>
-  fetch(`${BASE_URL}/ExamServiceApi/promoteStudents`, {
+  fetchWithLockCheck(`${BASE_URL}/ExamServiceApi/promoteStudents`, {
     method: "POST",
     headers: buildHeaders(user),
     body: JSON.stringify(payload),

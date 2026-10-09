@@ -46,9 +46,13 @@ export function AuthProvider({ children }) {
   const warnTimer   = useRef(null);
   const isExpiring  = useRef(false);
   const lastLockAlert = useRef({});   // feature → time of last "Upgrade required" alert
+  // Features the SERVER refused (HTTP 402) during this session. Makes the app
+  // behave as a subscription school even if the login data was incomplete.
+  const [lockedFeatures, setLockedFeatures] = useState([]);
 
   const login = useCallback((userData) => {
     isExpiring.current = false;
+    setLockedFeatures([]);
     setLoggedOut(false); // re-enable API calls and 401 handling
     setUser(userData);
   }, []);
@@ -62,6 +66,7 @@ export function AuthProvider({ children }) {
     setProfilePhoto(null);
     setActiveEnrollmentId(null);
     setLinkedStudents(null);
+    setLockedFeatures([]);
     clearTimeout(expiryTimer.current);
     clearTimeout(warnTimer.current);
     expiryTimer.current = null;
@@ -122,7 +127,8 @@ export function AuthProvider({ children }) {
     };
   }, [user?.expiresAt, handleExpired]);
 
-  const isSubscription = user?.billingModel === 'subscription';
+  // Subscription school if login said so, OR the server has refused a paid feature.
+  const isSubscription = user?.billingModel === 'subscription' || lockedFeatures.length > 0;
 
   // Returns true if the module key is granted for the logged-in client.
   //  • Subscription (international) schools: fail closed – only 'core' and
@@ -149,11 +155,12 @@ export function AuthProvider({ children }) {
   //  • Indian (legacy) schools: ALWAYS true – nothing is ever gated for them.
   //  • Subscription schools: 'core' + the features in user.activeFeatures.
   const hasFeature = useCallback((key) => {
-    if (user?.billingModel !== 'subscription') return true;
     if (!key || key === 'core') return true;
+    if (lockedFeatures.includes(key)) return false;           // server said 402
+    if (user?.billingModel !== 'subscription') return true;
     const features = user?.activeFeatures;
     return Array.isArray(features) && features.includes(key);
-  }, [user?.activeFeatures, user?.billingModel]);
+  }, [user?.activeFeatures, user?.billingModel, lockedFeatures]);
 
   // ── Re-read billing model + modules from the server ───────────────────────
   // Lets upgrades / trial expiry apply without logging out. Only updates the
@@ -175,6 +182,10 @@ export function AuthProvider({ children }) {
           && key(prev.activeFeatures) === key(activeFeatures);
         return same ? prev : { ...prev, billingModel, activeModules: ent.activeModules, activeFeatures };
       });
+      // A feature bought / unlocked since → stop treating it as locked
+      if (billingModel === 'subscription') {
+        setLockedFeatures(prev => prev.filter(f => !activeFeatures.includes(f)));
+      }
     } catch {
       // silent – keep the modules we already have
     }
@@ -196,17 +207,31 @@ export function AuthProvider({ children }) {
   // locked screen with the "not included" screen and the calls stop.
   const handleLocked = useCallback((info) => {
     const feature = info?.module || 'unknown';
+    if (info?.code === 'MODULE_LOCKED' && feature !== 'unknown') {
+      setLockedFeatures(prev => (prev.includes(feature) ? prev : [...prev, feature]));
+    }
     const now     = Date.now();
     if (now - (lastLockAlert.current[feature] || 0) < 30000) return;
     lastLockAlert.current[feature] = now;
     refreshEntitlements();
+
+    const role    = (user?.ssmsUserRole ?? '').toLowerCase().trim();
+    const isOwner = ['owner', 'admin', 'super', 'superuser'].includes(role);
+    const openPlans = () => {
+      try { navigationRef.current?.navigate('Subscription'); } catch { /* ignore */ }
+    };
     Alert.alert(
       'Upgrade required',
-      info?.message || "This feature is not included in your school's plan. "
-        + 'Please ask your school administrator to upgrade the subscription.',
-      [{ text: 'OK' }]
+      isOwner
+        ? "This feature isn't included in your school's current plan, or the free trial has ended. "
+          + 'Choose a plan to unlock it for your whole school.'
+        : "This feature isn't included in your school's current plan. "
+          + 'Please ask your school administrator to upgrade the plan.',
+      isOwner
+        ? [{ text: 'Not now', style: 'cancel' }, { text: 'View plans', onPress: openPlans }]
+        : [{ text: 'OK' }]
     );
-  }, [refreshEntitlements]);
+  }, [refreshEntitlements, user?.ssmsUserRole]);
 
   useEffect(() => {
     setLockedHandler(handleLocked);

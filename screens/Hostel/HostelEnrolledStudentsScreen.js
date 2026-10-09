@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
+import { wasJustLocked } from "../../services/apiInterceptor";
 import { fetchClasses, fetchSections, fetchBranches, uploadStudentPhoto, updateEnrollment } from "../../services/StudentServiceApi";
 import { getHostelEnrolledStudents, updateHostelEnrollment } from "../../services/HostelServiceApi";
 
@@ -610,7 +611,9 @@ export default function HostelEnrolledStudentsScreen({ navigation }) {
       setPage(pg);
       setHasNextPage(Boolean(pagi.hasNextPage));
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load students");
+      // Stop "load more" retrying forever (an empty list keeps firing onEndReached)
+      setHasNextPage(false);
+      if (!wasJustLocked()) Alert.alert("Error", e.message || "Failed to load students");
     } finally {
       setLoading(false);
       setLoadingMore(false);

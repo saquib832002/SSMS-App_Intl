@@ -3,6 +3,7 @@
  * All transport module API calls
  */
 import { BASE_URL as _RAW } from "../Environment/EnvironmentConfig";
+import { fetchWithLockCheck } from "./apiInterceptor";
 const BASE_URL = _RAW.replace(/\/+$/, "");
 
 const buildHeaders = (user) => ({
@@ -16,10 +17,10 @@ const buildHeaders = (user) => ({
 
 const BASE = `${BASE_URL}/TransportServiceApi`;
 const api = (user) => ({
-  get:    (path)       => fetch(`${BASE}/${path}`, { method: "GET",    headers: buildHeaders(user) }).then(r => r.json()),
-  post:   (path, body) => fetch(`${BASE}/${path}`, { method: "POST",   headers: buildHeaders(user), body: JSON.stringify(body) }).then(r => r.json()),
-  put:    (path, body) => fetch(`${BASE}/${path}`, { method: "PUT",    headers: buildHeaders(user), body: JSON.stringify(body) }).then(r => r.json()),
-  delete: (path)       => fetch(`${BASE}/${path}`, { method: "DELETE", headers: buildHeaders(user) }).then(r => r.json()),
+  get:    (path)       => fetchWithLockCheck(`${BASE}/${path}`, { method: "GET",    headers: buildHeaders(user) }).then(r => r.json()),
+  post:   (path, body) => fetchWithLockCheck(`${BASE}/${path}`, { method: "POST",   headers: buildHeaders(user), body: JSON.stringify(body) }).then(r => r.json()),
+  put:    (path, body) => fetchWithLockCheck(`${BASE}/${path}`, { method: "PUT",    headers: buildHeaders(user), body: JSON.stringify(body) }).then(r => r.json()),
+  delete: (path)       => fetchWithLockCheck(`${BASE}/${path}`, { method: "DELETE", headers: buildHeaders(user) }).then(r => r.json()),
 });
 
 const ok = (res) => { if (!res || res.status === false) throw new Error(res?.message ?? "Request failed"); return res; };
