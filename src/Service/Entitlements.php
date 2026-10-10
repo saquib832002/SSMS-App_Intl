@@ -42,7 +42,14 @@ final class Entitlements
         'assessments', 'hostel', 'transport', 'communication',
     ];
 
+    /** Fallback only – the real trial length is Trials::defaultDays() (platform setting). */
     public const TRIAL_DAYS = 14;
+
+    /** Current default trial length for new international schools (configurable). */
+    public static function trialDays(): int
+    {
+        return Trials::defaultDays();
+    }
 
     /** Product-level modules: checked against ssms_client_modules (as the web panel does). */
     public const PRODUCT_MODULES = ['school', 'finance', 'library', 'donation'];

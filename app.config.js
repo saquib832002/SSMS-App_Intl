@@ -1,6 +1,11 @@
 // app.config.js
 const IS_PROD = process.env.APP_ENV === "production";
 
+// Server the app talks to. Default: live server for production builds,
+// your PC for development builds. Override for one run, e.g. (PowerShell):
+//   $env:API_URL="https://managemyacademy.com/"; npx expo start --dev-client
+const API_URL = process.env.API_URL || (IS_PROD ? "https://managemyacademy.com/" : "http://192.168.4.30/");
+
 export default {
   name:        IS_PROD ? "ManageMyAcademy" : "SSMS (Dev)",
   slug:        "SchoolManagementSystem",
@@ -15,7 +20,10 @@ export default {
   },
 
   android: {
-    package:      "com.sawera.ssms",
+    // Development builds get their own package ("…ssms.dev", app name "SSMS (Dev)")
+    // so they install NEXT TO the Play Store app – no uninstalling, no signature clash.
+    // (Google Play purchases only work in the real com.sawera.ssms app.)
+    package:      IS_PROD ? "com.sawera.ssms" : "com.sawera.ssms.dev",
     adaptiveIcon: {
       foregroundImage: "./assets/smsLogo4.png",
       backgroundColor: "#ffffff",
@@ -62,8 +70,8 @@ export default {
     eas: {
       projectId: "c9de8370-e67a-4710-bcd4-1ab5869a3b02",
     },
-    BASE_URL:  IS_PROD ? "https://managemyacademy.com/"  : "http://192.168.4.30/",
-    HOST_NAME: IS_PROD ? "https://managemyacademy.com/"  : "http://192.168.4.30/",
+    BASE_URL:  API_URL,
+    HOST_NAME: API_URL,
     APP_ENV:   IS_PROD ? "production"                 : "development",
     // RevenueCat PUBLIC Android SDK key (goog_…) – safe to ship in the app.
     // Set it in eas.json "env" or before building: $env:REVENUECAT_ANDROID_KEY="goog_..."

@@ -25,6 +25,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 //const BASE = "http://192.168.4.90/ssms5/UserServiceApi";
 import { BASE_URL } from "../Environment/EnvironmentConfig";
 import { COUNTRIES, findCountry, guessCountryCode, deviceTimeZone } from "../constants/Countries";
+import { fetchSignupConfig } from "../services/UserServiceApi";
 
 // Email format validator
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -60,7 +61,7 @@ const STEPS = ["School Info", "Admin Account", "Review & Submit", "Verify Email"
 // ─────────────────────────────────────────────────────────────────────────────
 // Small reusable components
 // ─────────────────────────────────────────────────────────────────────────────
-function InputField({ icon, label, required, ...props }) {
+function InputField({ icon, label, required, prefix, ...props }) {
   return (
     <View style={ts.fieldBlock}>
       {!!label && (
@@ -68,6 +69,11 @@ function InputField({ icon, label, required, ...props }) {
       )}
       <View style={ts.inputRow}>
         {!!icon && <Feather name={icon} size={16} color={C.muted} style={{ marginRight: 8 }} />}
+        {!!prefix && (
+          <View style={ts.prefixBox}>
+            <Text style={ts.prefixTxt}>{prefix}</Text>
+          </View>
+        )}
         <TextInput
           style={ts.input}
           placeholderTextColor={C.placeholder}
@@ -78,6 +84,22 @@ function InputField({ icon, label, required, ...props }) {
     </View>
   );
 }
+
+// ── Phone helpers ────────────────────────────────────────────────────────────
+// The user types the LOCAL number; the country dial code is shown as a fixed
+// prefix. Saved value = dial code + number, e.g. "+44" + "07700 900123"
+// → "+447700900123" (spaces/dashes removed, one leading trunk "0" dropped).
+// A number typed with its own "+" is kept as it is.
+const localDigits = (v) => String(v ?? "").replace(/[^0-9+]/g, "");
+function fullPhone(dial, local, keepLeadingZero = false) {
+  const raw = localDigits(local);
+  if (!raw) return "";
+  if (raw.startsWith("+")) return "+" + raw.slice(1).replace(/\+/g, "");
+  const noPlus = raw.replace(/\+/g, "");
+  const digits = keepLeadingZero ? noPlus : noPlus.replace(/^0/, "");
+  return dial ? `${dial}${digits}` : digits;
+}
+const phoneDigitCount = (v) => localDigits(v).replace(/\+/g, "").length;
 
 // ── OTP Input — 6 individual digit boxes ─────────────────────────────────────
 function OtpInput({ value, onChange }) {
@@ -156,8 +178,16 @@ function ReviewRow({ label, value }) {
 // ── Custom Dropdown — replaces @react-native-picker/picker ───────────────────
 // Fully JS-BASE_URLd: immune to Android dark mode, no native thread blocking.
 function Dropdown({ label, value, options, onChange, disabled, loading }) {
-  const [open, setOpen] = React.useState(false);
-  const selected = options.find(o => String(o.value) === String(value));
+  const [open, setOpen]   = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const selected   = options.find(o => String(o.value) === String(value));
+  const searchable = options.length > 12;   // e.g. the country list
+  const shown = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter(o => String(o.label).toLowerCase().includes(q) || String(o.search ?? "").toLowerCase().includes(q));
+  }, [options, query]);
+  const close = () => { setOpen(false); setQuery(""); };
   return (
     <>
       <TouchableOpacity
@@ -170,17 +200,36 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
         </Text>
         <Feather name="chevron-down" size={16} color="#475569" />
       </TouchableOpacity>
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <TouchableOpacity style={_ddSt.overlay} onPress={() => setOpen(false)} activeOpacity={1}>
-          <View style={_ddSt.sheet}>
+      <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
+        <TouchableOpacity style={_ddSt.overlay} onPress={close} activeOpacity={1}>
+          <View style={[_ddSt.sheet, searchable && { height: "75%" }]}>
             <Text style={_ddSt.sheetTitle}>{label}</Text>
+            {searchable && (
+              <View style={_ddSt.searchRow}>
+                <Feather name="search" size={15} color="#94a3b8" />
+                <TextInput
+                  style={_ddSt.searchInput}
+                  placeholder="Search…"
+                  placeholderTextColor="#94a3b8"
+                  value={query}
+                  onChangeText={setQuery}
+                  autoCorrect={false}
+                />
+                {!!query && (
+                  <TouchableOpacity onPress={() => setQuery("")}><Feather name="x" size={15} color="#94a3b8" /></TouchableOpacity>
+                )}
+              </View>
+            )}
             <FlatList
-              data={options}
+              data={shown}
+              keyboardShouldPersistTaps="handled"
+              initialNumToRender={20}
+              ListEmptyComponent={<Text style={{ color: "#94a3b8", padding: 12 }}>No matches</Text>}
               keyExtractor={(o, i) => String(o.value) + i}
               renderItem={({ item: o }) => (
                 <TouchableOpacity
                   style={[_ddSt.option, String(o.value) === String(value) && _ddSt.optionActive]}
-                  onPress={() => { onChange(o.value); setOpen(false); }}
+                  onPress={() => { onChange(o.value); close(); }}
                 >
                   <Text style={[_ddSt.optionTxt, String(o.value) === String(value) && _ddSt.optionTxtActive]}>
                     {o.label}
@@ -204,6 +253,8 @@ const _ddSt = StyleSheet.create({
   overlay:         { flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "center", paddingHorizontal: 20 },
   sheet:           { backgroundColor: "#fff", borderRadius: 18, padding: 16, maxHeight: "70%" },
   sheetTitle:      { fontSize: 15, fontWeight: "800", color: "#0f172a", marginBottom: 10 },
+  searchRow:       { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 10, paddingHorizontal: 10, marginBottom: 8 },
+  searchInput:     { flex: 1, fontSize: 14, color: "#0f172a", paddingVertical: 8 },
   option:          { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 13, paddingHorizontal: 8, borderRadius: 10 },
   optionActive:    { backgroundColor: "#eff6ff" },
   optionTxt:       { fontSize: 14, color: "#0f172a" },
@@ -475,6 +526,16 @@ const dp = StyleSheet.create({
 // ─────────────────────────────────────────────────────────────────────────────
 export default function TrialRegistrationScreen({ navigation, route }) {
   const [step,          setStep]          = useState(0);
+  // Free-trial length is set by the platform owner on the server (default 14)
+  const [trialDays,     setTrialDays]     = useState(14);
+  useEffect(() => {
+    let alive = true;
+    fetchSignupConfig().then((cfg) => {
+      const d = Number(cfg?.trialDays);
+      if (alive && Number.isFinite(d) && d > 0) setTrialDays(d);
+    });
+    return () => { alive = false; };
+  }, []);
   const [submitting,    setSubmitting]    = useState(false);
   const [uploadPct,     setUploadPct]     = useState(0);
   const [photo,         setPhoto]         = useState(null);
@@ -555,10 +616,10 @@ export default function TrialRegistrationScreen({ navigation, route }) {
     ssms_client_phone:       "",
     ssms_client_header_text: "",
     logo_name:               "",
-    currency:                guessCountryCode() === "IN" ? "INR" : "",
+    currency:                "INR",              // India is the default country
     // Country decides billing on the server: IN → current Indian flow,
-    // anything else → subscription (14-day trial, then monthly plan).
-    country_code:            guessCountryCode(),
+    // anything else → subscription (free trial – length set on the server – then yearly plan).
+    country_code:            "IN",               // default India – user can pick any other country
     timezone:                deviceTimeZone(),
     ssms_client_status:      "active",
     ssms_client_expiry_date: defaultExpiry,
@@ -614,6 +675,8 @@ export default function TrialRegistrationScreen({ navigation, route }) {
       if (!EMAIL_RE.test(school.ssms_client_email.trim()))
         return "Please enter a valid school email address (e.g. school@example.com)";
       if (!school.ssms_client_phone.trim())       return "School phone is required";
+      if (phoneDigitCount(school.ssms_client_phone) < 6 || phoneDigitCount(school.ssms_client_phone) > 15)
+        return "Please enter a valid school phone number";
       if (!school.branch_name.trim())             return "Branch name is required";
     }
     if (step === 1) {
@@ -626,6 +689,8 @@ export default function TrialRegistrationScreen({ navigation, route }) {
       if (!EMAIL_RE.test(admin.ssms_user_email.trim()))
         return "Please enter a valid email address (e.g. you@example.com)";
       if (!admin.mobile_number.trim())            return "Mobile number is required";
+      if (phoneDigitCount(admin.mobile_number) < 6 || phoneDigitCount(admin.mobile_number) > 15)
+        return "Please enter a valid mobile number";
     }
     return null;
   }, [step, school, admin]);
@@ -729,11 +794,15 @@ export default function TrialRegistrationScreen({ navigation, route }) {
 
       const fd = new FormData();
 
+      // Phone numbers are saved WITH the country code (e.g. +447700900123)
+      const schoolData = { ...school, ssms_client_phone: fullPhone(country?.dial, school.ssms_client_phone, country?.keepLeadingZero) };
+      const adminData  = { ...admin,  mobile_number:     fullPhone(country?.dial, admin.mobile_number, country?.keepLeadingZero) };
+
       // School fields
-      Object.entries(school).forEach(([k, v]) => fd.append(k, String(v ?? "")));
+      Object.entries(schoolData).forEach(([k, v]) => fd.append(k, String(v ?? "")));
 
       // Admin fields
-      Object.entries(admin).forEach(([k, v]) => fd.append(k, String(v ?? "")));
+      Object.entries(adminData).forEach(([k, v]) => fd.append(k, String(v ?? "")));
 
       // Logo (optional)
       if (photo?.uri) {
@@ -959,16 +1028,16 @@ export default function TrialRegistrationScreen({ navigation, route }) {
                 <Dropdown
                   label="Select country"
                   value={school.country_code}
-                  options={COUNTRIES.map(c => ({ value: c.code, label: c.name }))}
+                  options={COUNTRIES.map(c => ({ value: c.code, label: c.dial ? `${c.name} (${c.dial})` : c.name, search: `${c.code} ${c.dial}` }))}
                   onChange={setCountry}
                 />
                 {!!school.country_code && !isIndia && (
                   <View style={ts.trialNote}>
                     <Feather name="gift" size={14} color="#1d4ed8" />
                     <Text style={ts.trialNoteTxt}>
-                      Includes a 14-day free trial of all features. After the trial,
+                      Includes a {trialDays}-day free trial of all features. After the trial,
                       student registration and setup stay free; other modules need a
-                      monthly subscription.
+                      yearly subscription.
                     </Text>
                   </View>
                 )}
@@ -1015,7 +1084,8 @@ export default function TrialRegistrationScreen({ navigation, route }) {
                 />
                 <InputField
                   label="School Phone" required icon="phone"
-                  placeholder={country?.dial ? `${country.dial} phone number` : "+91 98765 43210"}
+                  prefix={country?.dial}
+                  placeholder={country?.dial ? "Phone number" : "Select the country first"}
                   value={school.ssms_client_phone}
                   onChangeText={v => setS("ssms_client_phone", v)}
                   keyboardType="phone-pad"
@@ -1138,7 +1208,8 @@ export default function TrialRegistrationScreen({ navigation, route }) {
                 />
                 <InputField
                   label="Mobile Number" required icon="phone"
-                  placeholder="+91 98765 43210"
+                  prefix={country?.dial}
+                  placeholder="Mobile number"
                   value={admin.mobile_number}
                   onChangeText={v => setA("mobile_number", v)}
                   keyboardType="phone-pad"
@@ -1204,7 +1275,7 @@ export default function TrialRegistrationScreen({ navigation, route }) {
                 <ReviewRow label="Address"            value={[school.ssms_client_address, school.ssms_client_city, school.ssms_client_state, school.ssms_client_zip].filter(Boolean).join(", ")} />
                 <ReviewRow label="Email"              value={school.ssms_client_email} />
                 <ReviewRow label="Country"            value={country?.name ?? ""} />
-                <ReviewRow label="Phone"              value={school.ssms_client_phone} />
+                <ReviewRow label="Phone"              value={fullPhone(country?.dial, school.ssms_client_phone, country?.keepLeadingZero)} />
                 <ReviewRow label="Currency"           value={school.currency} />
                 <ReviewRow label="Enroll Prefix"      value={school.enroll_prefix} />
                 <ReviewRow label="Reg Prefix"         value={school.registration_prefix} />
@@ -1216,7 +1287,7 @@ export default function TrialRegistrationScreen({ navigation, route }) {
                 <ReviewRow label="Username"    value={admin.ssms_user_name} />
                 <ReviewRow label="Full Name"   value={`${admin.ssms_user_firstname} ${admin.ssms_user_lastname}`} />
                 <ReviewRow label="Email"       value={admin.ssms_user_email} />
-                <ReviewRow label="Mobile"      value={admin.mobile_number} />
+                <ReviewRow label="Mobile"      value={fullPhone(country?.dial, admin.mobile_number, country?.keepLeadingZero)} />
                 <ReviewRow label="Role"        value="Owner" />
               </SectionCard>
 
@@ -1408,6 +1479,8 @@ const ts = StyleSheet.create({
   fieldLabel:  { fontSize: 13, fontWeight: "600", color: C.textSoft, marginBottom: 5 },
   inputRow:    { flexDirection: "row", alignItems: "center", backgroundColor: "#f8fafc", borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingHorizontal: 12, minHeight: 48 },
   input:       { flex: 1, fontSize: 14, color: C.text, paddingVertical: 10 },
+  prefixBox:   { paddingRight: 10, marginRight: 10, borderRightWidth: 1, borderRightColor: C.border, justifyContent: "center" },
+  prefixTxt:   { fontSize: 14, fontWeight: "700", color: C.text },
 
   row:         { flexDirection: "row" },
   trialNote:   { flexDirection: "row", gap: 8, alignItems: "flex-start", backgroundColor: "#eff6ff", borderRadius: 10, padding: 10, marginBottom: 12 },

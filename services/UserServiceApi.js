@@ -28,6 +28,20 @@ function t(val) {
 }
 
 
+// ── Sign-up config (public, no login) ────────────────────────────────────────
+// Current free-trial length set by the platform owner. Returns { trialDays }
+// or null if the server can't be reached (callers fall back to 14).
+export const fetchSignupConfig = async () => {
+  try {
+    const res  = await fetch(`${BASE_URL}/UserServiceApi/getSignupConfig`, { method: "GET" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.status === false) return null;
+    return data.data ?? null;
+  } catch {
+    return null;
+  }
+};
+
 // ── Entitlements (billing model + active modules) ────────────────────────────
 // Returns { billingModel, activeModules, moduleExpiries } or null on failure.
 export const fetchEntitlements = async (user) => {

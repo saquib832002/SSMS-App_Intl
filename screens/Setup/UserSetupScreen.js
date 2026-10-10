@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useState } from "react";
+import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Image,
   Platform,
   FlatList,
+  Keyboard,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { Feather } from "@expo/vector-icons";
@@ -306,6 +307,45 @@ export default function UserSetupScreen() {
   const [mobileNumber, setMobileNumber] = useState('');
   const [ccPickerVisible, setCcPickerVisible] = useState(false);
 
+  // ── Keyboard handling for the Add/Edit User form ──────────────────────────
+  // Android (edge-to-edge) does not resize a Modal when the keyboard opens,
+  // so fields near the bottom ended up hidden under the keyboard. We add the
+  // keyboard height as extra bottom space (so everything can scroll above it)
+  // and scroll the focused field into view.
+  const [kbHeight, setKbHeight] = useState(0);
+  const formScrollRef = useRef(null);
+  const formScrollY   = useRef(0);
+
+  const scrollToFocused = useCallback(() => {
+    setTimeout(() => {
+      const input  = TextInput.State?.currentlyFocusedInput?.();
+      const scroll = formScrollRef.current;
+      if (!input || !scroll) return;
+      const target = scroll.getNativeScrollRef?.() ?? scroll;
+      try {
+        input.measureLayout(
+          target,
+          (_x, y) => {
+            // keep ~120px of space above the field
+            scroll.scrollTo({ y: Math.max(0, formScrollY.current + y - 120), animated: true });
+          },
+          () => {}
+        );
+      } catch { /* ignore – best effort */ }
+    }, 120);
+  }, []);
+
+  useEffect(() => {
+    const showEvt = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvt = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const s1 = Keyboard.addListener(showEvt, (e) => {
+      setKbHeight(e?.endCoordinates?.height ?? 0);
+      scrollToFocused();
+    });
+    const s2 = Keyboard.addListener(hideEvt, () => setKbHeight(0));
+    return () => { s1.remove(); s2.remove(); };
+  }, [scrollToFocused]);
+
   const [form, setForm] = useState({
     ssms_user_name: "",
     ssms_user_firstname: "",
@@ -541,10 +581,14 @@ export default function UserSetupScreen() {
 
           {/* Single ScrollView: form + buttons at the bottom */}
           <ScrollView
+            ref={formScrollRef}
             style={styles.drawerBody}
-            contentContainerStyle={styles.drawerBodyContent}
+            contentContainerStyle={[styles.drawerBodyContent, kbHeight > 0 && { paddingBottom: kbHeight + 40 }]}
             keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
+            keyboardDismissMode="none"
+            showsVerticalScrollIndicator
+            onScroll={(e) => { formScrollY.current = e.nativeEvent.contentOffset.y; }}
+            scrollEventThrottle={16}
           >
             {/* ── ACCOUNT INFO ──────────────────────────────────────────────── */}
             <Text style={styles.sectionLabel}>ACCOUNT INFO</Text>
@@ -556,6 +600,7 @@ export default function UserSetupScreen() {
               <View style={[styles.inputWrap, editingUser ? styles.inputWrapDisabled : null]}>
                 <MaterialIcons name="alternate-email" size={18} color="#94a3b8" style={styles.inputIcon} />
                 <TextInput
+                  onFocus={scrollToFocused}
                   style={styles.inputInner}
                   placeholder="e.g. john_doe"
                   placeholderTextColor="#94a3b8"
@@ -579,6 +624,7 @@ export default function UserSetupScreen() {
                 <View style={styles.inputWrap}>
                   <MaterialIcons name="person-outline" size={18} color="#94a3b8" style={styles.inputIcon} />
                   <TextInput
+                  onFocus={scrollToFocused}
                     style={styles.inputInner}
                     placeholder="First name"
                     placeholderTextColor="#94a3b8"
@@ -593,6 +639,7 @@ export default function UserSetupScreen() {
                 <View style={styles.inputWrap}>
                   <MaterialIcons name="person-outline" size={18} color="#94a3b8" style={styles.inputIcon} />
                   <TextInput
+                  onFocus={scrollToFocused}
                     style={styles.inputInner}
                     placeholder="Last name"
                     placeholderTextColor="#94a3b8"
@@ -611,6 +658,7 @@ export default function UserSetupScreen() {
               <View style={styles.inputWrap}>
                 <MaterialIcons name="mail-outline" size={18} color="#94a3b8" style={styles.inputIcon} />
                 <TextInput
+                  onFocus={scrollToFocused}
                   style={styles.inputInner}
                   placeholder="user@example.com"
                   placeholderTextColor="#94a3b8"
@@ -638,6 +686,7 @@ export default function UserSetupScreen() {
                 <View style={[styles.inputWrap, { flex: 1 }]}>
                   <MaterialIcons name="phone" size={18} color="#94a3b8" style={styles.inputIcon} />
                   <TextInput
+                  onFocus={scrollToFocused}
                     style={styles.inputInner}
                     placeholder="9876543210"
                     placeholderTextColor="#94a3b8"
@@ -694,6 +743,7 @@ export default function UserSetupScreen() {
               <View style={styles.inputWrap}>
                 <MaterialIcons name="lock-outline" size={18} color="#94a3b8" style={styles.inputIcon} />
                 <TextInput
+                  onFocus={scrollToFocused}
                   style={styles.inputInner}
                   placeholder="••••••••"
                   placeholderTextColor="#94a3b8"

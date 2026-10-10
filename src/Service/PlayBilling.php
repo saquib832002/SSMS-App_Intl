@@ -124,9 +124,15 @@ final class PlayBilling
                 continue;
             }
             $expires = !empty($s['expires_date']) ? strtotime((string)$s['expires_date']) : null;
+            // Monthly and yearly are two BASE PLANS of the same Play subscription
+            // (ssms_basic:monthly / ssms_basic:yearly) – same plan, same features.
+            $product = (string)$productId;
+            if (strpos($product, ':') === false && !empty($s['product_plan_identifier'])) {
+                $product .= ':' . $s['product_plan_identifier'];
+            }
             $row = [
                 'plan'       => $planCode,
-                'product'    => (string)$productId,
+                'product'    => $product,
                 'expires'    => $expires,
                 'active'     => $expires === null || $expires > $now,
                 'cancelled'  => !empty($s['unsubscribe_detected_at']),
@@ -134,7 +140,12 @@ final class PlayBilling
                 'trial'      => ($s['period_type'] ?? '') === 'trial',
                 'modules'    => count(Billing::planModules($planCode)),
             ];
-            if ($row['active'] && ($best === null || $row['modules'] > $best['modules'])) {
+            // Most features wins; same plan (e.g. monthly → yearly switch) → later paid-until wins
+            if ($row['active'] && (
+                $best === null
+                || $row['modules'] > $best['modules']
+                || ($row['modules'] === $best['modules'] && (int)$row['expires'] > (int)$best['expires'])
+            )) {
                 $best = $row;
             }
             if ($latest === null || (int)$row['expires'] > (int)$latest['expires']) {

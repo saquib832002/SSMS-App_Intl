@@ -8,6 +8,7 @@ use Cake\Datasource\ConnectionManager;
 use Cake\Event\EventInterface;
 use Cake\Log\Log;
 use Cake\Mailer\Mailer;
+use App\Service\Trials;
 
 /**
  * SsmsClients Controller
@@ -895,5 +896,140 @@ class SsmsClientsController extends AppController
             Log::error('_sendPinEmail FAILED: ' . $e->getMessage() . ' | to=' . $email);
             return false;
         }
+    }
+
+    // =========================================================================
+    // Free-trial management (platform owner / superuser only)
+    //   GET/POST /admin/clients/trials             default trial length + all schools
+    //   GET/POST /admin/clients/manageTrial/{CODE} one school: extend / set / end / restart
+    // =========================================================================
+
+    private function _isSuperuser(): bool
+    {
+        return $this->request->getSession()->read('ssms_user_role') === 'superuser';
+    }
+
+    private function _changedBy(): string
+    {
+        $s = $this->request->getSession();
+        $name = (string)($s->read('ssms_user_name') ?? '');
+        if ($name === '') {
+            $identity = $this->request->getAttribute('identity');
+            if ($identity !== null && method_exists($identity, 'get')) {
+                $name = (string)($identity->get('ssms_user_name') ?? '');
+            }
+        }
+
+        return $name !== '' ? $name : 'superuser';
+    }
+
+    public function trials()
+    {
+        if (!$this->_isSuperuser()) {
+            $this->Flash->error('You are not authorized to manage free trials.');
+            return $this->redirect(['controller' => 'Dashboards', 'action' => 'superuserDashboard']);
+        }
+        $this->viewBuilder()->disableAutoLayout();
+
+        $notice = null;
+        $error  = null;
+        if ($this->request->is('post')) {
+            try {
+                $days  = (int)$this->request->getData('trial_days');
+                $apply = (string)$this->request->getData('apply_current') === '1';
+                $note  = trim((string)$this->request->getData('note'));
+                $res   = Trials::setDefaultDays($days, $this->_changedBy(), $apply, $note);
+                $notice = "Default free trial changed from {$res['old']} to {$res['new']} days."
+                    . ($apply ? " {$res['updatedSchools']} school(s) currently in trial were updated." : '');
+            } catch (\Throwable $e) {
+                $error = $e->getMessage();
+            }
+        }
+
+        $filter  = (string)$this->request->getQuery('state', '');
+        $search  = trim((string)$this->request->getQuery('q', ''));
+        $schools = Trials::listSchools(null, false, $search);
+        $counts  = ['trial' => 0, 'trial_ended' => 0, 'paid' => 0];
+        foreach ($schools as $sc) {
+            if (isset($counts[$sc['state']])) {
+                $counts[$sc['state']]++;
+            }
+        }
+        if ($filter !== '') {
+            $schools = array_values(array_filter($schools, fn($sc) => $sc['state'] === $filter));
+        }
+
+        $this->set([
+            'defaultDays' => Trials::defaultDays(),
+            'schools'     => $schools,
+            'counts'      => $counts,
+            'filter'      => $filter,
+            'search'      => $search,
+            'history'     => Trials::history(null, 20),
+            'notice'      => $notice,
+            'error'       => $error,
+            'csrfToken'   => (string)$this->request->getAttribute('csrfToken'),
+        ]);
+        $this->render('trials');
+    }
+
+    public function manageTrial(string $clientCode = '')
+    {
+        if (!$this->_isSuperuser()) {
+            $this->Flash->error('You are not authorized to manage free trials.');
+            return $this->redirect(['controller' => 'Dashboards', 'action' => 'superuserDashboard']);
+        }
+        $this->viewBuilder()->disableAutoLayout();
+        $clientCode = strtoupper(trim($clientCode));
+
+        $notice = null;
+        $error  = null;
+        if ($this->request->is('post')) {
+            $by   = $this->_changedBy();
+            $note = trim((string)$this->request->getData('note'));
+            try {
+                switch ((string)$this->request->getData('op')) {
+                    case 'extend':
+                        $from   = (string)$this->request->getData('from') === 'today' ? 'today' : 'end';
+                        $date   = Trials::extend($clientCode, (int)$this->request->getData('days'), $by, $note, $from);
+                        $notice = 'Trial extended. New end date: ' . date('j M Y', strtotime($date)) . '.';
+                        break;
+                    case 'set_date':
+                        $date   = Trials::setEndDate($clientCode, trim((string)$this->request->getData('end_date')), $by, $note);
+                        $notice = 'Trial end date set to ' . date('j M Y', strtotime($date)) . '.';
+                        break;
+                    case 'end_now':
+                        Trials::endNow($clientCode, $by, $note);
+                        $notice = 'Trial ended. Paid and manually granted features are not affected.';
+                        break;
+                    case 'restart':
+                        $d      = (int)$this->request->getData('days');
+                        $date   = Trials::restart($clientCode, $d > 0 ? $d : null, $by, $note);
+                        $notice = 'New trial started. It ends on ' . date('j M Y', strtotime($date)) . '.';
+                        break;
+                    default:
+                        $error = 'Unknown action.';
+                }
+            } catch (\Throwable $e) {
+                $error = $e->getMessage();
+            }
+        }
+
+        try {
+            $school = Trials::status($clientCode);
+        } catch (\Throwable $e) {
+            $this->Flash->error('School not found.');
+            return $this->redirect(['action' => 'trials']);
+        }
+
+        $this->set([
+            'school'      => $school,
+            'defaultDays' => Trials::defaultDays(),
+            'history'     => Trials::history($clientCode, 50),
+            'notice'      => $notice,
+            'error'       => $error,
+            'csrfToken'   => (string)$this->request->getAttribute('csrfToken'),
+        ]);
+        $this->render('manage_trial');
     }
 }

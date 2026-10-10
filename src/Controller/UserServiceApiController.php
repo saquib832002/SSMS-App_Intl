@@ -229,6 +229,23 @@ class UserServiceApiController extends AppController
      * The app calls this when it returns to the foreground so upgrades and
      * expiries apply without logging out.
      */
+    /**
+     * GET /UserServiceApi/getSignupConfig   (public – no login)
+     * Values the app shows on the registration screen, e.g. the current
+     * free-trial length set by the platform owner.
+     */
+    public function getSignupConfig()
+    {
+        $this->request->allowMethod(['get']);
+
+        return $this->_json([
+            'status' => true,
+            'data'   => [
+                'trialDays' => \App\Service\Entitlements::trialDays(),
+            ],
+        ]);
+    }
+
     public function getEntitlements()
     {
         $this->request->allowMethod(['get']);
@@ -715,7 +732,7 @@ class UserServiceApiController extends AppController
         //   • Indian (legacy) schools → 1 year, as before.
         $exp = new \DateTime();
         if ($isIntl) {
-            $exp->modify('+' . (int)\App\Service\Entitlements::TRIAL_DAYS . ' days');
+            $exp->modify('+' . \App\Service\Entitlements::trialDays() . ' days');
         } else {
             $exp->modify('+1 year');
         }
@@ -849,7 +866,7 @@ class UserServiceApiController extends AppController
                 );
                 // Trial features end on ssms_client_expiry_date (registration + TRIAL_DAYS);
                 // expires_at is stored too as a fallback if that date is ever cleared.
-                $trialDays = (int)\App\Service\Entitlements::TRIAL_DAYS;
+                $trialDays = \App\Service\Entitlements::trialDays();
                 foreach (\App\Service\Entitlements::PAID_MODULES as $paidFeature) {
                     $db->execute(
                         "INSERT INTO ssms_client_features
@@ -915,7 +932,7 @@ class UserServiceApiController extends AppController
                 . "Branch        : " . trim((string)($data['branch_name'] ?? '')) . "\n"
                 . "City          : " . trim((string)($data['ssms_client_city'] ?? '')) . "\n"
                 . "Trial Expiry  : {$expiryDate}\n"
-                . "Billing       : " . ($isIntl ? 'subscription (' . $countryCode . ', ' . \App\Service\Entitlements::TRIAL_DAYS . '-day trial)' : 'legacy') . "\n"
+                . "Billing       : " . ($isIntl ? 'subscription (' . $countryCode . ', ' . \App\Service\Entitlements::trialDays() . '-day trial)' : 'legacy') . "\n"
                 . "Country       : " . ($countryCode ?? 'not sent') . "\n"
                 . "Registered At : " . date('d M Y, h:i A') . "\n"
             );

@@ -156,6 +156,7 @@ return function (RouteBuilder $routes): void {
          $builder->connect('/UserServiceApi/verifyForgotPasswordCode', ['controller' => 'UserServiceApi', 'action' => 'verifyForgotPasswordCode', '_method' => 'POST']);
          $builder->connect('/UserServiceApi/resetPassword', ['controller' => 'UserServiceApi', 'action' => 'resetPassword', '_method' => 'POST']);
          $builder->connect('/UserServiceApi/registerTrialUser', ['controller' => 'UserServiceApi', 'action' => 'registerTrialUser', '_method' => 'POST']);
+         $builder->connect('/UserServiceApi/getSignupConfig', ['controller' => 'UserServiceApi', 'action' => 'getSignupConfig', '_method' => 'GET']);
          // ── Subscription billing (phase 2) ──────────────────────────────────
          $builder->connect('/SubscriptionApi/getPlans',              ['controller'=>'SubscriptionApi','action'=>'getPlans',              '_method'=>'GET']);
          $builder->connect('/SubscriptionApi/getSubscription',       ['controller'=>'SubscriptionApi','action'=>'getSubscription',       '_method'=>'GET']);

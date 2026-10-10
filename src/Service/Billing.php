@@ -101,11 +101,13 @@ final class Billing
         $ent = Entitlements::forClient($clientCode);
         $sub = Entitlements::isSubscription($ent) ? self::subscription($clientCode) : null;
 
-        $trialEndsAt = null;
+        $trialEndsAt   = null;
+        $trialDaysLeft = null;
         if (Entitlements::isSubscription($ent)) {
             // Trial end = the school's expiry date (while any trial module is still unpaid)
             $row = ConnectionManager::get('default')->execute(
-                "SELECT c.ssms_client_expiry_date AS trial_end
+                "SELECT c.ssms_client_expiry_date AS trial_end,
+                        DATEDIFF(c.ssms_client_expiry_date, CURDATE()) AS days_left
                    FROM ssms_clients c
                   WHERE c.ssms_client_code = ?
                     AND c.ssms_client_expiry_date >= CURDATE()
@@ -115,6 +117,7 @@ final class Billing
                 [$clientCode]
             )->fetch('assoc');
             $trialEndsAt = $row['trial_end'] ?? null;
+            $trialDaysLeft = $trialEndsAt !== null ? max(0, (int)$row['days_left']) : null;
         }
 
         return [
@@ -123,6 +126,7 @@ final class Billing
             'activeFeatures'   => $ent['features'],
             'featureExpiries'  => (object)$ent['expiries'],
             'trialEndsAt'      => $trialEndsAt,
+            'trialDaysLeft'    => $trialDaysLeft,
             'subscription'     => $sub ? [
                 'planCode'          => $sub['plan_code'],
                 'planName'          => $sub['plan_name'] ?? $sub['plan_code'],

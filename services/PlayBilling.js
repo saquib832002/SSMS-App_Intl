@@ -60,8 +60,11 @@ export const baseProductId = (id) => String(id ?? "").split(":")[0];
  */
 export async function buyPackage(pkg, currentStoreProductId = null) {
   try {
-    const change = currentStoreProductId && baseProductId(currentStoreProductId) !== baseProductId(pkg?.product?.identifier)
-      ? { oldProductIdentifier: currentStoreProductId }
+    // Replace the school's current Play plan when it differs – another plan
+    // (Basic ↔ Pro) or another base plan of the same plan (old monthly → yearly).
+    const newId  = String(pkg?.product?.identifier ?? "");
+    const change = currentStoreProductId && currentStoreProductId !== newId
+      ? { oldProductIdentifier: baseProductId(currentStoreProductId) }
       : null;
     await Purchases.purchasePackage(pkg, null, change);
     return { ok: true };

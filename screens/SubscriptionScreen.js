@@ -23,6 +23,14 @@ import {
   playBillingUnavailableReason, baseProductId, MANAGE_SUBSCRIPTIONS_URL,
 } from "../services/PlayBilling";
 
+/** true for a yearly Play base plan / RevenueCat annual package */
+const isYearlyPackage = (p) => {
+  const id     = String(p?.product?.identifier ?? "");
+  const period = String(p?.product?.subscriptionPeriod ?? "");
+  return /:year/i.test(id) || /:annual/i.test(id) || period === "P1Y"
+      || String(p?.packageType ?? "").toUpperCase() === "ANNUAL";
+};
+
 const fmtDate = (d) => {
   if (!d) return "—";
   const dt = new Date(String(d).replace(" ", "T"));
@@ -63,8 +71,13 @@ export default function SubscriptionScreen({ navigation }) {
   const sub         = status?.subscription;
   const playSub     = sub?.provider === "google_play" ? sub : null;
   const hasActive   = !!status?.hasActiveSubscription;
+  // Plans are sold YEARLY (Play base plan "yearly", e.g. ssms_basic:yearly).
+  // Prefer the yearly package; fall back to any package of that subscription.
   const pkgFor      = useCallback(
-    (plan) => packages.find(p => baseProductId(p?.product?.identifier) === plan.playProductId),
+    (plan) => {
+      const mine = packages.filter(p => baseProductId(p?.product?.identifier) === plan.playProductId);
+      return mine.find(isYearlyPackage) ?? mine[0];
+    },
     [packages]
   );
 
@@ -124,7 +137,9 @@ export default function SubscriptionScreen({ navigation }) {
       };
     }
     if (status.trialEndsAt) {
-      return { icon: "gift", title: "Free trial", line: `All features until ${fmtDate(status.trialEndsAt)}` };
+      const left = Number.isFinite(status.trialDaysLeft) ? status.trialDaysLeft : null;
+      const leftTxt = left === null ? "" : left === 0 ? " · last day" : ` · ${left} day${left === 1 ? "" : "s"} left`;
+      return { icon: "gift", title: "Free trial", line: `All features until ${fmtDate(status.trialEndsAt)}${leftTxt}` };
     }
     return { icon: "lock", title: "Free plan", line: "Student registration and setup are free. Choose a plan to unlock more features." };
   }, [status, sub, hasActive]);
@@ -183,7 +198,7 @@ export default function SubscriptionScreen({ navigation }) {
                     {current && <Text style={s.badge}>Current</Text>}
                   </View>
                   <Text style={s.price}>
-                    {pkg?.product?.priceString ? `${pkg.product.priceString} / month` : (isAdmin && !unavailable ? "Not available yet" : "")}
+                    {pkg?.product?.priceString ? `${pkg.product.priceString} / ${isYearlyPackage(pkg) ? "year" : "month"}` : (isAdmin && !unavailable ? "Not available yet" : "")}
                   </Text>
                   {!!plan.description && <Text style={s.cardLine}>{plan.description}</Text>}
                   <View style={{ marginTop: 8 }}>
@@ -215,7 +230,7 @@ export default function SubscriptionScreen({ navigation }) {
               </TouchableOpacity>
             )}
             <Text style={s.small}>
-              Payments are handled by Google Play. Subscriptions renew monthly until cancelled in Google Play.
+              Payments are handled by Google Play. Plans are billed yearly and renew every year until cancelled in Google Play.
             </Text>
           </>
         )}

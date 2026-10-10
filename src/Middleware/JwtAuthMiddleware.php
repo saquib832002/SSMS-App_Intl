@@ -74,6 +74,7 @@ class JwtAuthMiddleware implements MiddlewareInterface
     private const PUBLIC_ROUTES = [
         'UserServiceApi/login',
         'UserServiceApi/registerTrialUser',
+        'UserServiceApi/getSignupConfig',   // trial length for the sign-up screen
         'UserServiceApi/verifyEmail',
         'UserServiceApi/resendVerificationCode',
         'UserServiceApi/sendForgotPassword',
