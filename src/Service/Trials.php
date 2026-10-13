@@ -403,6 +403,33 @@ final class Trials
         Entitlements::clear($clientCode);
     }
 
+    /**
+     * Record a trial end-date change made OUTSIDE this class (e.g. the existing
+     * "Edit client" page that saves ssms_client_expiry_date directly).
+     * Only international (subscription) schools are recorded; nothing else changes.
+     */
+    public static function recordExternalChange(string $clientCode, ?string $oldDate, ?string $newDate, string $by, string $note = 'Changed on Edit client page'): void
+    {
+        $old = $oldDate ? substr($oldDate, 0, 10) : '';
+        $new = $newDate ? substr($newDate, 0, 10) : '';
+        if ($old === $new) {
+            return;
+        }
+        try {
+            $row = ConnectionManager::get('default')->execute(
+                'SELECT billing_model FROM ssms_clients WHERE ssms_client_code = ? LIMIT 1',
+                [$clientCode]
+            )->fetch('assoc');
+            if (!$row || strtolower((string)$row['billing_model']) !== 'subscription') {
+                return;
+            }
+        } catch (\Throwable $e) {
+            return;
+        }
+        self::log(strtoupper(trim($clientCode)), 'edit_client', $old, $new, $note, $by);
+        Entitlements::clear($clientCode);
+    }
+
     private static function log(?string $clientCode, string $action, string $old, string $new, string $note, string $by): void
     {
         try {
@@ -412,7 +439,7 @@ final class Trials
                 [$clientCode, $action, $old, $new, mb_substr($note, 0, 255), mb_substr($by, 0, 100)]
             );
         } catch (\Throwable $e) {
-            Log::warning('Trials: history not saved (run the phase-5 migration) – ' . $e->getMessage());
+            Log::error('Trials: history NOT saved to ssms_trial_changes (run Database/migrations/2026_10_subscription_phase5_trial_settings.sql) – ' . $e->getMessage());
         }
     }
 

@@ -66,7 +66,7 @@ class DashboardServiceApiController extends AppController
                 $sections = (int)($sectionRow['cnt'] ?? 0);
 
                 // 📈 Today's Attendance %
-                $today = date('Y-m-d');
+                $today = $this->schoolToday();
 
                 $totalAttendance = $AttendanceTable->find()
                     ->where([

@@ -4,25 +4,26 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { _t, _tx } from "../services/i18n";
 
 export default function AdminScreen() {
   const items = [
-    { label: "Manage Users", icon: "users" },
-    { label: "Roles & Permissions", icon: "lock" },
-    { label: "Academic Setup", icon: "book-open" },
-    { label: "System Reports", icon: "bar-chart-2" },
+    { label: _t("Manage Users"), icon: "users" },
+    { label: _t("Roles & Permissions"), icon: "lock" },
+    { label: _t("Academic Setup"), icon: "book-open" },
+    { label: _t("System Reports"), icon: "bar-chart-2" },
   ];
 
   return (
     <View style={adminStyles.container}>
-      <Text style={adminStyles.title}>Admin Panel</Text>
-      <Text style={adminStyles.subtitle}>Administrative shortcuts and system controls.</Text>
+      <Text style={adminStyles.title}>{_t("Admin Panel")}</Text>
+      <Text style={adminStyles.subtitle}>{_t("Administrative shortcuts and system controls.")}</Text>
 
       <View style={adminStyles.grid}>
         {items.map((item) => (
           <TouchableOpacity key={item.label} style={adminStyles.tile}>
             <Feather name={item.icon} size={22} color="#2563eb" />
-            <Text style={adminStyles.tileText}>{item.label}</Text>
+            <Text style={adminStyles.tileText}>{_tx(item.label)}</Text>
           </TouchableOpacity>
         ))}
       </View>

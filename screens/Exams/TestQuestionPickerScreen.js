@@ -3,7 +3,7 @@
  * Admin picks questions from the question bank to add to a test.
  * Route params: { test, sections }
  */
-import React, { useState, useContext, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useContext, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, FlatList, ScrollView,
   StyleSheet, Alert, ActivityIndicator, Modal,
@@ -14,6 +14,7 @@ import { fetchQuestions } from "../../services/QuestionPaperServiceApi";
 import {
   getTestQuestions, addQuestions, removeQuestion, getSections,
 } from "../../services/TestSeriesServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -40,7 +41,7 @@ function Badge({ label, colors }) {
   const c = colors ?? { bg: "#f1f5f9", text: "#374151" };
   return (
     <View style={[b.badge, { backgroundColor: c.bg }]}>
-      <Text style={[b.txt, { color: c.text }]}>{label}</Text>
+      <Text style={[b.txt, { color: c.text }]}>{_tx(label)}</Text>
     </View>
   );
 }
@@ -53,16 +54,16 @@ function SectionSheet({ visible, sections, onSelect, onClose }) {
       <TouchableOpacity style={b.overlay} activeOpacity={1} onPress={onClose} />
       <View style={b.sheet}>
         <View style={b.handle} />
-        <Text style={b.sheetTitle}>Select Section</Text>
+        <Text style={b.sheetTitle}>{_t("Select Section")}</Text>
         <TouchableOpacity
           style={b.sheetItem}
           onPress={() => { onSelect(null); onClose(); }}
         >
-          <Text style={b.sheetItemTxt}>No section (general)</Text>
+          <Text style={b.sheetItemTxt}>{_t("No section (general)")}</Text>
         </TouchableOpacity>
         {sections.map((s) => (
           <TouchableOpacity key={s.id} style={b.sheetItem} onPress={() => { onSelect(s); onClose(); }}>
-            <Text style={b.sheetItemTxt}>{s.section_name}</Text>
+            <Text style={b.sheetItemTxt}>{_tx(s.section_name)}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -81,28 +82,28 @@ function QuestionRow({ item, isAdded, onAdd, onRemove, defaultMarks }) {
   return (
     <View style={b.qCard}>
       <View style={b.qTop}>
-        <Text style={b.qText} numberOfLines={2}>{item.question_text ?? item.text ?? "—"}</Text>
+        <Text style={b.qText} numberOfLines={2}>{_tx(item.question_text) ?? _tx(item.text) ?? "—"}</Text>
         {isAdded && <Feather name="check-circle" size={18} color="#10b981" style={{ marginLeft: 6 }} />}
       </View>
 
       <View style={b.qMeta}>
         <Badge label={(item.type ?? "mcq").replace("_", " ")} colors={TYPE_COLORS[item.type] ?? null} />
-        <Badge label={item.difficulty ?? "medium"} colors={DIFF_COLORS[item.difficulty] ?? null} />
+        <Badge label={_tx(item.difficulty) ?? "medium"} colors={DIFF_COLORS[item.difficulty] ?? null} />
         {!!item.subject_name && (
-          <Badge label={item.subject_name} colors={{ bg: "#f0fdf4", text: "#166534" }} />
+          <Badge label={_tx(item.subject_name)} colors={{ bg: "#f0fdf4", text: "#166534" }} />
         )}
       </View>
 
       {isAdded ? (
         <TouchableOpacity style={b.removeBtn} onPress={() => onRemove(item)}>
           <Feather name="minus-circle" size={13} color="#dc2626" />
-          <Text style={b.removeBtnTxt}>Remove</Text>
+          <Text style={b.removeBtnTxt}>{_t("Remove")}</Text>
         </TouchableOpacity>
       ) : (
         <View style={b.addRow}>
           <TextInput
             style={b.marksInput}
-            placeholder="Marks"
+            placeholder={_t("Marks")}
             placeholderTextColor="#94a3b8"
             keyboardType="decimal-pad"
             value={marks}
@@ -113,7 +114,7 @@ function QuestionRow({ item, isAdded, onAdd, onRemove, defaultMarks }) {
             onPress={() => onAdd(item, parseFloat(marks) || 4)}
           >
             <Feather name="plus" size={14} color="#fff" />
-            <Text style={b.addBtnTxt}>Add</Text>
+            <Text style={b.addBtnTxt}>{_t("Add")}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -236,6 +237,15 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
   // Get count for a given section object
   const getSectionCount = (sec) => sectionCountMap[String(sec?.id ?? "none")] ?? 0;
 
+  // Bank + test-question loads fail together on a 403 (and the bank reloads on
+  // every search) — show each distinct error message only once.
+  const lastErrRef = useRef("");
+  const showLoadError = (msg) => {
+    if (msg === lastErrRef.current) return;
+    lastErrRef.current = msg;
+    Alert.alert(_t("Error"), _tx(msg));
+  };
+
   // ── Load bank ────────────────────────────────────────────────────────────────
 
   const loadBank = useCallback(async () => {
@@ -247,8 +257,9 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
       if (difficulty) filters.difficulty = difficulty;
       const data = await fetchQuestions(user, filters);
       setBankQuestions(norm(data));
+      lastErrRef.current = "";
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load questions");
+      showLoadError(e.message || "Failed to load questions");
     } finally {
       setBankLoading(false);
     }
@@ -263,21 +274,22 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
       const res = await getTestQuestions(user, test.id);
       setTestQuestions(norm(res));
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load test questions");
+      showLoadError(e.message || "Failed to load test questions");
     } finally {
       setTestLoading(false);
     }
   }, [user, test]);
 
-  useEffect(() => { loadBank(); }, [loadBank]);
   useEffect(() => { loadTestQuestions(); }, [loadTestQuestions]);
 
-  // ── Debounced search ─────────────────────────────────────────────────────────
+  // ── Bank load (debounced while typing a search) ──────────────────────────────
+  // Single effect: previously an immediate [loadBank] effect AND a [search]
+  // debounce both fired, doubling every request (and every error alert).
 
   useEffect(() => {
-    const t = setTimeout(() => loadBank(), 400);
+    const t = setTimeout(() => loadBank(), search ? 400 : 0);
     return () => clearTimeout(t);
-  }, [search]);
+  }, [loadBank]);
 
   // ── Add question (pending) ────────────────────────────────────────────────────
 
@@ -292,9 +304,9 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
         const current = getSectionCount(activeSection);
         if (current >= limit) {
           Alert.alert(
-            "Section Full",
-            `"${activeSection.section_name}" allows only ${limit} question${limit !== 1 ? "s" : ""}. ` +
-            `You've already added ${current}. Remove a question first or increase the section limit.`
+            _t("Section Full"),
+            `${_t("\"{section_name}\" allows only {limit} question{pl}.", { section_name: activeSection.section_name, limit, pl: limit !== 1 ? "s" : "" })} ` +
+            _t("You've already added {current}. Remove a question first or increase the section limit.", { current })
           );
           return;
         }
@@ -311,16 +323,16 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
 
   const handleRemove = async (item) => {
     const tqId = item.test_question_id ?? item.id;
-    Alert.alert("Remove Question", "Remove this question from the test?", [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(_t("Remove Question"), _t("Remove this question from the test?"), [
+      { text: _t("Cancel"), style: "cancel" },
       {
-        text: "Remove", style: "destructive",
+        text: _t("Remove"), style: "destructive",
         onPress: async () => {
           try {
             await removeQuestion(user, tqId);
             loadTestQuestions();
           } catch (e) {
-            Alert.alert("Error", e.message);
+            Alert.alert(_t("Error"), _tx(e.message));
           }
         },
       },
@@ -345,7 +357,7 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
       await addQuestions(user, test.id, payload);
       navigation.goBack();
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to add questions");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to add questions"));
     } finally {
       setSaving(false);
     }
@@ -363,17 +375,17 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
       return (
         <View style={b.qCard}>
           <View style={b.qTop}>
-            <Text style={b.qText} numberOfLines={2}>{item.question_text ?? item.text ?? "—"}</Text>
+            <Text style={b.qText} numberOfLines={2}>{_tx(item.question_text) ?? _tx(item.text) ?? "—"}</Text>
             <Feather name="clock" size={16} color="#f59e0b" style={{ marginLeft: 6 }} />
           </View>
           <View style={b.qMeta}>
             <Badge label={(item.type ?? "mcq").replace("_", " ")} colors={TYPE_COLORS[item.type] ?? null} />
-            <Badge label={item.difficulty ?? "medium"} colors={DIFF_COLORS[item.difficulty] ?? null} />
-            <Badge label="Pending" colors={{ bg: "#fef3c7", text: "#92400e" }} />
+            <Badge label={_tx(item.difficulty) ?? "medium"} colors={DIFF_COLORS[item.difficulty] ?? null} />
+            <Badge label={_t("Pending")} colors={{ bg: "#fef3c7", text: "#92400e" }} />
           </View>
           <TouchableOpacity style={b.removeBtn} onPress={() => removePending(qId)}>
             <Feather name="x-circle" size={13} color="#dc2626" />
-            <Text style={b.removeBtnTxt}>Undo</Text>
+            <Text style={b.removeBtnTxt}>{_t("Undo")}</Text>
           </TouchableOpacity>
         </View>
       );
@@ -398,16 +410,16 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
     return (
       <View style={b.qCard}>
         <View style={b.qTop}>
-          <Text style={b.qText} numberOfLines={2}>{displayText}</Text>
+          <Text style={b.qText} numberOfLines={2}>{_tx(displayText)}</Text>
           <Feather name="check-circle" size={16} color="#10b981" style={{ marginLeft: 6 }} />
         </View>
         <View style={b.qMeta}>
-          {!!item.marks && <Badge label={`${item.marks} marks`} colors={{ bg: "#dbeafe", text: "#1d4ed8" }} />}
-          {!!item.section_name && <Badge label={item.section_name} colors={{ bg: "#f3e8ff", text: "#7c3aed" }} />}
+          {!!item.marks && <Badge label={_t("{marks} marks", { marks: item.marks })} colors={{ bg: "#dbeafe", text: "#1d4ed8" }} />}
+          {!!item.section_name && <Badge label={_tx(item.section_name)} colors={{ bg: "#f3e8ff", text: "#7c3aed" }} />}
         </View>
         <TouchableOpacity style={b.removeBtn} onPress={() => handleRemove(item)}>
           <Feather name="minus-circle" size={13} color="#dc2626" />
-          <Text style={b.removeBtnTxt}>Remove</Text>
+          <Text style={b.removeBtnTxt}>{_t("Remove")}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -425,9 +437,9 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
           <Feather name="arrow-left" size={20} color="#fff" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={b.headerTitle} numberOfLines={1}>Add Questions</Text>
+          <Text style={b.headerTitle} numberOfLines={1}>{_t("Add Questions")}</Text>
           {!!test?.title && (
-            <Text style={b.headerSub} numberOfLines={1}>{test.title}</Text>
+            <Text style={b.headerSub} numberOfLines={1}>{_tx(test.title)}</Text>
           )}
         </View>
       </View>
@@ -442,8 +454,8 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
           >
             <Text style={[b.tabTxt, activeTab === tab && b.tabTxtActive]}>
               {tab === "Added"
-                ? `Added (${testQuestions.length + pendingAdds.length})`
-                : "Question Bank"}
+                ? _t("Added ({v})", { v: testQuestions.length + pendingAdds.length })
+                : _t("Question Bank")}
             </Text>
           </TouchableOpacity>
         ))}
@@ -457,7 +469,7 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
             <Feather name="search" size={14} color="#94a3b8" />
             <TextInput
               style={b.searchInput}
-              placeholder="Search questions…"
+              placeholder={_t("Search questions…")}
               placeholderTextColor="#94a3b8"
               value={search}
               onChangeText={setSearch}
@@ -473,9 +485,9 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
           {sections.length > 0 && (
             <TouchableOpacity style={b.filterDropdown} onPress={() => setSectionSheetOpen(true)}>
               <Feather name="book-open" size={14} color="#1e3a8a" style={{ marginRight: 6 }} />
-              <Text style={b.filterDropdownLabel}>Subject</Text>
+              <Text style={b.filterDropdownLabel}>{_t("Subject")}</Text>
               <Text style={b.filterDropdownValue} numberOfLines={1}>
-                {activeSection ? (activeSection.section_name ?? activeSection.name) : "Select subject"}
+                {activeSection ? (_tx(activeSection.section_name) ?? _tx(activeSection.name)) : _t("Select subject")}
               </Text>
               <Feather name="chevron-down" size={14} color="#64748b" />
             </TouchableOpacity>
@@ -493,8 +505,8 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
                 <Feather name={isFull ? "alert-circle" : "check-circle"} size={12} color={isFull ? "#b91c1c" : "#15803d"} />
                 <Text style={[b.capacityTxt, isFull && b.capacityTxtFull]}>
                   {isFull
-                    ? `Section full — ${count}/${limit} questions added`
-                    : `${remaining} slot${remaining !== 1 ? "s" : ""} remaining (${count}/${limit})`}
+                    ? _t("Section full — {count}/{limit} questions added", { count, limit })
+                    : _t("{remaining} slot{pl} remaining ({count}/{limit})", { remaining, pl: remaining !== 1 ? "s" : "", count, limit })}
                 </Text>
               </View>
             );
@@ -507,11 +519,11 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
               onPress={() => setChapterSheetOpen(true)}
             >
               <Feather name="layers" size={14} color="#6366f1" style={{ marginRight: 6 }} />
-              <Text style={b.filterDropdownLabel}>Chapter</Text>
+              <Text style={b.filterDropdownLabel}>{_t("Chapter")}</Text>
               <Text style={b.filterDropdownValue} numberOfLines={1}>
                 {activeChapterIdx === 0
-                  ? (chapters.length > 0 ? "All chapters" : "No chapters found")
-                  : `Ch.${chapters[activeChapterIdx - 1]?.chapter_no ?? ""} ${chapters[activeChapterIdx - 1]?.chapter_name ?? ""}`}
+                  ? (chapters.length > 0 ? _t("All chapters") : _t("No chapters found"))
+                  : _t("Ch.{v} {v2}", { v: chapters[activeChapterIdx - 1]?.chapter_no ?? "", v2: chapters[activeChapterIdx - 1]?.chapter_name ?? "" })}
               </Text>
               {chapters.length > 0 && <Feather name="chevron-down" size={14} color="#64748b" />}
             </TouchableOpacity>
@@ -523,7 +535,7 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
               style={[b.diffChip, !difficulty && b.diffChipSel]}
               onPress={() => setDifficulty("")}
             >
-              <Text style={[b.diffChipTxt, !difficulty && b.diffChipTxtSel]}>All Levels</Text>
+              <Text style={[b.diffChipTxt, !difficulty && b.diffChipTxtSel]}>{_t("All Levels")}</Text>
             </TouchableOpacity>
             {DIFFICULTIES.map((d) => (
               <TouchableOpacity
@@ -545,7 +557,7 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
         <TouchableOpacity style={b.overlay} activeOpacity={1} onPress={() => setSectionSheetOpen(false)} />
         <View style={b.sheet}>
           <View style={b.handle} />
-          <Text style={b.sheetTitle}>Select Subject / Section</Text>
+          <Text style={b.sheetTitle}>{_t("Select Subject / Section")}</Text>
           {sections.map((sec, idx) => {
             const isActive = idx === activeSectionIdx;
             const count = getSectionCount(sec);
@@ -559,13 +571,13 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
               >
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                   <Text style={[b.sheetItemTxt, isActive && { color: "#1e3a8a", fontWeight: "700" }]}>
-                    {sec.section_name ?? sec.name}
+                    {_tx(sec.section_name) ?? _tx(sec.name)}
                   </Text>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                     {limit > 0 && (
                       <View style={[b.secBadge, isFull && { backgroundColor: "#fee2e2" }]}>
                         <Text style={[b.secBadgeTxt, isFull && { color: "#b91c1c" }]}>
-                          {count}/{limit}
+                          {_tx(count)}/{_tx(limit)}
                         </Text>
                       </View>
                     )}
@@ -583,13 +595,9 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
         <TouchableOpacity style={b.overlay} activeOpacity={1} onPress={() => setChapterSheetOpen(false)} />
         <View style={b.sheet}>
           <View style={b.handle} />
-          <Text style={b.sheetTitle}>
-            Select Chapter{activeSection ? ` — ${activeSection.section_name ?? activeSection.name}` : ""}
-          </Text>
+          <Text style={b.sheetTitle}>{_t("Select Chapter{v}", { v: activeSection ? ` — ${activeSection.section_name ?? activeSection.name}` : "" })}</Text>
           {chapters.length === 0 ? (
-            <Text style={{ color: "#9ca3af", fontSize: 14, textAlign: "center", paddingVertical: 24 }}>
-              No chapters found for this subject.{"\n"}Add chapters in Setup → Chapter Management.
-            </Text>
+            <Text style={{ color: "#9ca3af", fontSize: 14, textAlign: "center", paddingVertical: 24 }}>{_t("No chapters found for this subject.\nAdd chapters in Setup → Chapter Management.")}</Text>
           ) : (
             <>
               <TouchableOpacity
@@ -597,9 +605,7 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
                 onPress={() => { setActiveChapterIdx(0); setChapterSheetOpen(false); }}
               >
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                  <Text style={[b.sheetItemTxt, activeChapterIdx === 0 && { color: "#6366f1", fontWeight: "700" }]}>
-                    All Chapters
-                  </Text>
+                  <Text style={[b.sheetItemTxt, activeChapterIdx === 0 && { color: "#6366f1", fontWeight: "700" }]}>{_t("All Chapters")}</Text>
                   {activeChapterIdx === 0 && <Feather name="check" size={16} color="#6366f1" />}
                 </View>
               </TouchableOpacity>
@@ -613,7 +619,7 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
                   >
                     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                       <Text style={[b.sheetItemTxt, isActive && { color: "#6366f1", fontWeight: "700" }]}>
-                        {ch.chapter_no ? `Ch.${ch.chapter_no}  ` : ""}{ch.chapter_name}
+                        {ch.chapter_no ? `${_t("Ch.{chapter_no}", { chapter_no: ch.chapter_no })}  ` : ""}{_tx(ch.chapter_name)}
                       </Text>
                       {isActive && <Feather name="check" size={16} color="#6366f1" />}
                     </View>
@@ -642,8 +648,8 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
             ListEmptyComponent={
               <Text style={b.empty}>
                 {activeSection
-                  ? `No questions found for ${activeSection.section_name}.\nAdd questions to the bank for this subject first.`
-                  : "No questions in the bank yet."}
+                  ? _t("No questions found for {section_name}.\nAdd questions to the bank for this subject first.", { section_name: activeSection.section_name })
+                  : _t("No questions in the bank yet.")}
               </Text>
             }
           />
@@ -663,19 +669,19 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
                 return (
                   <View style={b.qCard}>
                     <View style={b.qTop}>
-                      <Text style={b.qText} numberOfLines={2}>{item.question_text ?? item.text ?? "—"}</Text>
+                      <Text style={b.qText} numberOfLines={2}>{_tx(item.question_text) ?? _tx(item.text) ?? "—"}</Text>
                       <Feather name="clock" size={16} color="#f59e0b" style={{ marginLeft: 6 }} />
                     </View>
                     <View style={b.qMeta}>
-                      <Badge label={`${item.marks} marks`} colors={{ bg: "#dbeafe", text: "#1d4ed8" }} />
-                      <Badge label="Pending" colors={{ bg: "#fef3c7", text: "#92400e" }} />
+                      <Badge label={_t("{marks} marks", { marks: item.marks })} colors={{ bg: "#dbeafe", text: "#1d4ed8" }} />
+                      <Badge label={_t("Pending")} colors={{ bg: "#fef3c7", text: "#92400e" }} />
                     </View>
                     <TouchableOpacity
                       style={b.removeBtn}
                       onPress={() => removePending(item.question_id ?? item.id)}
                     >
                       <Feather name="x-circle" size={13} color="#dc2626" />
-                      <Text style={b.removeBtnTxt}>Undo</Text>
+                      <Text style={b.removeBtnTxt}>{_t("Undo")}</Text>
                     </TouchableOpacity>
                   </View>
                 );
@@ -684,7 +690,7 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
             }}
             contentContainerStyle={b.list}
             ListEmptyComponent={
-              <Text style={b.empty}>No questions added yet. Go to Bank tab to add some.</Text>
+              <Text style={b.empty}>{_t("No questions added yet. Go to Bank tab to add some.")}</Text>
             }
           />
         )
@@ -692,10 +698,7 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
 
       {/* Bottom action bar */}
       <View style={b.bottomBar}>
-        <Text style={b.bottomCount}>
-          {totalSelected} question{totalSelected !== 1 ? "s" : ""} in test
-          {pendingAdds.length > 0 ? ` · ${pendingAdds.length} unsaved` : ""}
-        </Text>
+        <Text style={b.bottomCount}>{_t("{totalSelected} question{pl} in test{v}", { totalSelected, pl: totalSelected !== 1 ? "s" : "", v: pendingAdds.length > 0 ? ` ${_t("· {length} unsaved", { length: pendingAdds.length })}` : "" })}</Text>
         <TouchableOpacity
           style={[b.doneBtn, saving && { opacity: 0.7 }]}
           onPress={handleDone}
@@ -706,7 +709,7 @@ export default function TestQuestionPickerScreen({ navigation, route }) {
           ) : (
             <>
               <Text style={b.doneBtnTxt}>
-                {pendingAdds.length > 0 ? `Save & Done` : "Done"}
+                {pendingAdds.length > 0 ? _t("Save & Done") : _t("Done")}
               </Text>
               <Feather name="check" size={16} color="#fff" />
             </>

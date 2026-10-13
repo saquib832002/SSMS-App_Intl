@@ -391,7 +391,7 @@ class LibraryMemberApiController extends AppController
             return;
         }
 
-        $validFrom = $this->dateOrNull($body, 'valid_from') ?? date('Y-m-d');
+        $validFrom = $this->dateOrNull($body, 'valid_from') ?? $this->schoolToday();
         $validTo   = $this->dateOrNull($body, 'valid_to');
 
         if ($validTo !== null && strtotime($validTo) < strtotime($validFrom)) {
@@ -516,7 +516,7 @@ class LibraryMemberApiController extends AppController
         }
 
         $note = $reason !== ''
-            ? trim((string)($member['notes'] ?? '') . "\n" . date('Y-m-d') . ' — ' . $status . ': ' . $reason)
+            ? trim((string)($member['notes'] ?? '') . "\n" . $this->schoolToday() . ' — ' . $status . ': ' . $reason)
             : ($member['notes'] ?? null);
 
         $db->execute(
@@ -806,7 +806,7 @@ class LibraryMemberApiController extends AppController
         $db        = $this->db();
         $settings  = $this->settings($clientCode);
         $prefix    = $this->str($body, 'prefix') ?: ((string)($settings['membership_prefix'] ?? '') ?: 'LIB');
-        $validFrom = $this->dateOrNull($body, 'valid_from') ?? date('Y-m-d');
+        $validFrom = $this->dateOrNull($body, 'valid_from') ?? $this->schoolToday();
         $validTo   = $this->dateOrNull($body, 'valid_to');
         $maxBooks  = $this->intOrNull($body, 'max_books') ?? 0;
 

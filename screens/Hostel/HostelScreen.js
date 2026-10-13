@@ -7,7 +7,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
+import { ROUTE_MODULES, ROUTE_KIND } from "../../constants/RouteModules";
 import { useFeatureLock, LockBadge } from "../../components/FeatureLock";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Menu structure ────────────────────────────────────────────────────────────
 // adminOnly    → visible to admin + owner only
@@ -15,28 +17,28 @@ import { useFeatureLock, LockBadge } from "../../components/FeatureLock";
 const SECTIONS = [
   {
     id:          "hostel",
-    label:       "Hostel",
-    description: "Enrollment, buildings, rooms and seats",
+    get label() { return _t("Hostel"); },
+    get description() { return _t("Enrollment, buildings, rooms and seats"); },
     icon:        "home",
     accent:      "#065f46",
     tint:        "#d1fae5",
     adminOnly:   true,
     items: [
-      { label: "Enrolled",   screen: "HostelEnrolledStudents", icon: "users",    desc: "View enrolled students"    },
-      { label: "Buildings",  screen: "HostelBuildings",        icon: "grid",     desc: "Buildings → Rooms → Seats" },
+      { get label() { return _t("Enrolled"); },   screen: "HostelEnrolledStudents", icon: "users",    get desc() { return _t("View enrolled students"); }    },
+      { get label() { return _t("Buildings"); },  screen: "HostelBuildings",        icon: "grid",     get desc() { return _t("Buildings → Rooms → Seats"); } },
     ],
   },
   {
     id:          "finance",
-    label:       "Hostel Finance",
-    description: "Fee structure and collection approvals",
+    get label() { return _t("Hostel Finance"); },
+    get description() { return _t("Fee structure and collection approvals"); },
     icon:        "dollar-sign",
     accent:      "#92400e",
     tint:        "#fef3c7",
     financeOnly: true,
     items: [
-      { label: "Fee Structure", screen: "HostelFeeStructure",    icon: "list",         desc: "Set hostel fee amounts"  },
-      { label: "Approvals",     screen: "FeeCollectionApproval", icon: "check-circle", desc: "Approve fee collections" },
+      { get label() { return _t("Fee Structure"); }, screen: "HostelFeeStructure",    icon: "list",         get desc() { return _t("Set hostel fee amounts"); }  },
+      { get label() { return _t("Approvals"); },     screen: "FeeCollectionApproval", icon: "check-circle", get desc() { return _t("Approve fee collections"); } },
     ],
   },
 ];
@@ -49,11 +51,11 @@ function SectionHeader({ section }) {
         <Feather name={section.icon} size={18} color={section.accent} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={sc.sectionLabel}>{section.label}</Text>
-        <Text style={sc.sectionDesc}>{section.description}</Text>
+        <Text style={sc.sectionLabel}>{_tx(section.label)}</Text>
+        <Text style={sc.sectionDesc}>{_tx(section.description)}</Text>
       </View>
       <View style={sc.sectionCountBadge}>
-        <Text style={sc.sectionCountTxt}>{section.items.length}</Text>
+        <Text style={sc.sectionCountTxt}>{_tx(section.items.length)}</Text>
       </View>
     </View>
   );
@@ -74,7 +76,7 @@ function ItemTile({ item, section, navigation }) {
         {locked && <LockBadge />}
       </View>
       <Text style={[sc.tileLabel, locked && { color: "#94a3b8" }]} numberOfLines={2}>
-        {item.label}
+        {_tx(item.label)}
       </Text>
     </TouchableOpacity>
   );
@@ -101,7 +103,7 @@ function Section({ section, navigation }) {
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function HostelScreen({ navigation }) {
-  const { user } = useContext(AuthContext);
+  const { user, can } = useContext(AuthContext);
 
   const role = (user?.ssmsUserRole ?? user?.role ?? '').toLowerCase().trim();
   const isAdminOrOwner      = useMemo(() => ['admin', 'owner'].includes(role),      [role]);
@@ -112,8 +114,9 @@ export default function HostelScreen({ navigation }) {
       if (s.adminOnly)   return isAdminOrOwner;
       if (s.financeOnly) return isAccountantOrOwner;
       return true;
-    }),
-  [isAdminOrOwner, isAccountantOrOwner]);
+    }).map(s => ({ ...s, items: s.items.filter(i => { const m = ROUTE_MODULES[i.screen]; return !m || !can || can(m, ROUTE_KIND[i.screen] ?? "view"); }) }))
+      .filter(s => s.items.length > 0),
+  [isAdminOrOwner, isAccountantOrOwner, can]);
 
   return (
     <SafeAreaView style={sc.safe} edges={["bottom"]}>

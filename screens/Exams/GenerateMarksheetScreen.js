@@ -19,7 +19,14 @@ import { fetchExams, fetchMarksheet, fetchStudentsForMarksheet, fetchSchoolInfo 
 import { BASE_URL, HOST_NAME } from "../../Environment/EnvironmentConfig";
 import { fetchBranches, fetchClasses, fetchSections, fetchSessions } from "../../services/SetupServiceApi";
 
+import { fmtDate } from "../../services/Locale";
+import { _t, _th, _tx } from "../../services/i18n";
 const { width: SW } = Dimensions.get("window");
+
+// School grading scale (Exams › Grading Scales) sent with the marksheet; null = built-in A+…F.
+const bandFor = (pct, bands) => (bands?.length
+  ? (bands.find((b) => pct + 1e-9 >= Number(b.min_percent)) ?? bands[bands.length - 1])
+  : null);
 
 // ── Dropdown ──────────────────────────────────────────────────────────────────
 function Dropdown({ label, value, options, onChange, disabled, loading }) {
@@ -33,7 +40,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
         activeOpacity={0.75}
       >
         <Text style={[ms.ddTxt, !sel?.value && ms.ddPh]} numberOfLines={1}>
-          {loading ? "Loading…" : (sel?.label ?? label)}
+          {loading ? _t("Loading…") : (_tx(sel?.label) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={13} color="#94a3b8" />
       </TouchableOpacity>
@@ -41,7 +48,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
         <TouchableOpacity style={ms.ddOverlay} activeOpacity={1} onPress={() => setOpen(false)}>
           <View style={ms.ddSheet}>
             <View style={ms.ddHead}>
-              <Text style={ms.ddTitle}>{label}</Text>
+              <Text style={ms.ddTitle}>{_tx(label)}</Text>
               <TouchableOpacity onPress={() => setOpen(false)} style={ms.ddClose}>
                 <Feather name="x" size={14} color="#64748b" />
               </TouchableOpacity>
@@ -55,7 +62,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[ms.ddOptTxt, String(o.value) === String(value) && ms.ddOptTxtAct]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) &&
                     <Feather name="check" size={13} color="#1e40af" />}
@@ -81,7 +88,7 @@ function GradeChip({ grade }) {
   const [bg, fg] = colors[grade] ?? ["#f1f5f9", "#64748b"];
   return (
     <View style={[ms.gradeChip, { backgroundColor: bg }]}>
-      <Text style={[ms.gradeChipTxt, { color: fg }]}>{grade}</Text>
+      <Text style={[ms.gradeChipTxt, { color: fg }]}>{_tx(grade)}</Text>
     </View>
   );
 }
@@ -95,7 +102,9 @@ function buildMarksheetHTML(data, schoolInfo) {
     "B": "#3b82f6",  "C": "#d97706", "D": "#ea580c", "F": "#dc2626"
   }[grade] ?? "#64748b";
 
-  const resultText = percentage >= 90 ? "Outstanding"
+  const _band = bandFor(Number(percentage) || 0, data.grading?.bands);
+  const resultText = _band ? (_band.descriptor || (_band.is_pass ? "Pass" : "Fail"))
+    : percentage >= 90 ? "Outstanding"
     : percentage >= 80 ? "Excellent"   : percentage >= 70 ? "Very Good"
     : percentage >= 60 ? "Good"        : percentage >= 50 ? "Average"
     : percentage >= 40 ? "Below Avg"   : "Fail";
@@ -239,7 +248,7 @@ function buildMarksheetHTML(data, schoolInfo) {
     </tr>
   </table>
   <div style="text-align:center;margin-top:3px;font-size:7px;color:#334155;font-weight:600;">
-    Generated on ${new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"})} · ${schoolInfo.name ?? "School Management System"}
+    Generated on ${fmtDate(new Date(), "full")} · ${schoolInfo.name ?? "School Management System"}
   </div>
 </div>
 
@@ -286,20 +295,25 @@ export default function GenerateMarksheetScreen() {
     (async () => {
       try {
         setLoadingFilters(true);
-        const [brData, exData, seData, clData] = await Promise.all([
+        // allSettled: a 403 on one list must not blank the rest of the filters
+        const settled = await Promise.allSettled([
           fetchBranches(user), fetchExams(user),
           fetchSessions(user), fetchClasses(user),
         ]);
-        const brList = Array.isArray(brData) ? brData : brData?.data ?? [];
-        const seList = Array.isArray(seData) ? seData : seData?.data ?? [];
+        const [brData, exData, seData, clData] = settled.map(r => r.status === "fulfilled" ? r.value : null);
+        const firstErr = settled.find(r => r.status === "rejected");
+        const asArr = (d) => Array.isArray(d) ? d : Array.isArray(d?.data) ? d.data : [];
+        const brList = asArr(brData);
+        const seList = asArr(seData);
         setBranches(brList);
-        setExams(Array.isArray(exData)    ? exData : exData?.data ?? []);
+        setExams(asArr(exData));
         setSessions(seList);
-        setClasses(Array.isArray(clData)  ? clData : clData?.data ?? []);
+        setClasses(asArr(clData));
         if (brList.length) setFilter("branch_id",  String(brList[0].branch_id));
         if (seList.length) setFilter("session_id", String(seList[0].session_id));
+        if (firstErr) Alert.alert(_t("Error"), _tx(firstErr.reason?.message) || _t("Failed to load filters"));
       } catch (e) {
-        Alert.alert("Error", e.message || "Failed to load filters");
+        Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load filters"));
       } finally { setLoadingFilters(false); }
     })();
   }, [user]);
@@ -340,7 +354,7 @@ export default function GenerateMarksheetScreen() {
               logoBase64 = await new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload  = () => resolve(reader.result);
-                reader.onerror = () => reject(new Error('FileReader failed'));
+                reader.onerror = () => reject(new Error(_t("FileReader failed")));
                 reader.readAsDataURL(blob);
               });
             } else {
@@ -363,8 +377,8 @@ export default function GenerateMarksheetScreen() {
   }, [user]);
   // Step 1 → Load students
   const handleLoadStudents = async () => {
-    if (!filters.exam_id)  { Alert.alert("Required", "Please select an exam.");  return; }
-    if (!filters.class_id) { Alert.alert("Required", "Please select a class."); return; }
+    if (!filters.exam_id)  { Alert.alert(_t("Required"), _t("Please select an exam."));  return; }
+    if (!filters.class_id) { Alert.alert(_t("Required"), _t("Please select a class.")); return; }
     try {
       setLoadingStudents(true);
       const rows = await fetchStudentsForMarksheet(user, {
@@ -374,11 +388,11 @@ export default function GenerateMarksheetScreen() {
         classId:   filters.class_id,
         sectionId: filters.section_id,
       });
-      if (!rows.length) { Alert.alert("No Data", "No students found for the selected filters."); return; }
+      if (!Array.isArray(rows) || !rows.length) { Alert.alert(_t("No Data"), _t("No students found for the selected filters.")); return; }
       setStudents(rows);
       setStep(2);
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load students");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load students"));
     } finally { setLoadingStudents(false); }
   };
 
@@ -394,11 +408,11 @@ export default function GenerateMarksheetScreen() {
         branchId:     filters.branch_id,
       });
       const mkData = res?.student ? res : (res?.data ?? null);
-      if (!mkData?.student) { Alert.alert("No Data", "No marksheet data found for this student."); return; }
+      if (!mkData?.student) { Alert.alert(_t("No Data"), _t("No marksheet data found for this student.")); return; }
       setMarksheet(mkData);
       setStep(3);
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load marksheet");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load marksheet"));
     } finally { setLoadingMark(false); }
   };
 
@@ -408,14 +422,14 @@ export default function GenerateMarksheetScreen() {
     try {
       setGenerating(true);
       const html = buildMarksheetHTML(marksheet, schoolInfo);
-      const { uri } = await Print.printToFileAsync({ html, base64: false });
+      const { uri } = await Print.printToFileAsync({ html: _th(html), base64: false });
       await Sharing.shareAsync(uri, {
         mimeType: "application/pdf",
         dialogTitle: `Marksheet — ${marksheet.student?.student_name}`,
         UTI: "com.adobe.pdf",
       });
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to generate PDF");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to generate PDF"));
     } finally { setGenerating(false); }
   };
 
@@ -425,9 +439,9 @@ export default function GenerateMarksheetScreen() {
     try {
       setGenerating(true);
       const html = buildMarksheetHTML(marksheet, schoolInfo);
-      await Print.printAsync({ html });
+      await Print.printAsync({ html: _th(html) });
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to print");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to print"));
     } finally { setGenerating(false); }
   };
 
@@ -435,7 +449,7 @@ export default function GenerateMarksheetScreen() {
   // ── Bulk PDF — all students in class in one PDF ─────────────────────────────
   const handleBulkPDF = async () => {
     if (!filters.exam_id || !filters.class_id) {
-      Alert.alert("Required", "Please go back and select Exam and Class first.");
+      Alert.alert(_t("Required"), _t("Please go back and select Exam and Class first."));
       return;
     }
     try {
@@ -444,6 +458,7 @@ export default function GenerateMarksheetScreen() {
 
       // Fetch marksheet for each student sequentially
       const htmlPages = [];
+      let firstErr = null;
       for (let i = 0; i < students.length; i++) {
         const student = students[i];
         setBulkProgress({ done: i, total: students.length });
@@ -459,11 +474,11 @@ export default function GenerateMarksheetScreen() {
           if (mkData?.student) {
             htmlPages.push(buildMarksheetHTML(mkData, schoolInfo));
           }
-        } catch (_) { /* skip students with no marks */ }
+        } catch (err) { if (!firstErr) firstErr = err; /* skip students with no marks */ }
       }
 
       if (!htmlPages.length) {
-        Alert.alert("No Data", "No marksheet data found for any student in this class.");
+        Alert.alert(firstErr ? _t("Error") : _t("No Data"), _tx(firstErr?.message) || _t("No marksheet data found for any student in this class."));
         return;
       }
 
@@ -496,14 +511,14 @@ export default function GenerateMarksheetScreen() {
       const selExamObj = exams.find(e   => String(e.exam_id)    === String(filters.exam_id));
       const fileName   = `Marksheet_${selClass?.class_name ?? "Class"}_${selExamObj?.exam_name ?? "Exam"}`.replace(/\s+/g, "_");
 
-      const { uri } = await Print.printToFileAsync({ html: combinedHTML, base64: false });
+      const { uri } = await Print.printToFileAsync({ html: _th(combinedHTML), base64: false });
       await Sharing.shareAsync(uri, {
         mimeType:    "application/pdf",
         dialogTitle: `${fileName} — ${htmlPages.length} students`,
         UTI:         "com.adobe.pdf",
       });
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to generate bulk PDF");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to generate bulk PDF"));
     } finally {
       setBulkGenerating(false);
       setBulkProgress({ done: 0, total: 0 });
@@ -514,7 +529,7 @@ export default function GenerateMarksheetScreen() {
   const branchOpts  = branches.map(b => ({ label: b.branch_name,   value: String(b.branch_id)  }));
   const examOpts    = exams.map(e    => ({ label: e.exam_name,     value: String(e.exam_id)    }));
   const sessionOpts = sessions.map(s => ({ label: s.session_name ?? s.session_year, value: String(s.session_id) }));
-  const classOpts   = [{ label: "Select Class", value: "" }, ...classes.map(c  => ({ label: c.class_name,    value: String(c.class_id)   }))];
+  const classOpts   = [{ label: _t("Select Class"), value: "" }, ...classes.map(c  => ({ label: c.class_name,    value: String(c.class_id)   }))];
   const sectionOpts = sections.map(s => ({ label: s.section_name,  value: String(s.section_id) }));
 
   // ── STEP 1 — Filters ────────────────────────────────────────────────────────
@@ -526,24 +541,24 @@ export default function GenerateMarksheetScreen() {
         <View style={ms.pageHead}>
           <View style={ms.pageHeadIcon}><Feather name="file-text" size={20} color="#1e40af" /></View>
           <View>
-            <Text style={ms.pageTitle}>Generate Marksheet</Text>
-            <Text style={ms.pageSub}>Select filters to view student list</Text>
+            <Text style={ms.pageTitle}>{_t("Generate Marksheet")}</Text>
+            <Text style={ms.pageSub}>{_t("Select filters to view student list")}</Text>
           </View>
         </View>
 
         <View style={ms.card}>
-          <Text style={ms.cardSectionTitle}>Step 1 — Select Filters</Text>
+          <Text style={ms.cardSectionTitle}>{_t("Step 1 — Select Filters")}</Text>
           <View style={ms.filterGrid}>
             {[
-              { label: "Branch",  key: "branch_id",  opts: branchOpts,  req: false },
-              { label: "Exam",    key: "exam_id",    opts: examOpts,    req: true  },
-              { label: "Session", key: "session_id", opts: sessionOpts, req: false },
-              { label: "Class",   key: "class_id",   opts: classOpts,   req: true  },
-              { label: "Section", key: "section_id", opts: sectionOpts, req: false, disabled: !filters.class_id, loading: loadingSections },
+              { label: _t("Branch"),  key: "branch_id",  opts: branchOpts,  req: false },
+              { label: _t("Exam"),    key: "exam_id",    opts: examOpts,    req: true  },
+              { label: _t("Session"), key: "session_id", opts: sessionOpts, req: false },
+              { label: _t("Class"),   key: "class_id",   opts: classOpts,   req: true  },
+              { label: _t("Section"), key: "section_id", opts: sectionOpts, req: false, disabled: !filters.class_id, loading: loadingSections },
             ].map(f => (
               <View key={f.key} style={ms.filterHalf}>
-                <Text style={ms.filterLabel}>{f.label}{f.req && <Text style={{ color: "#ef4444" }}> *</Text>}</Text>
-                <Dropdown label={f.label} value={filters[f.key]} options={f.opts}
+                <Text style={ms.filterLabel}>{_tx(f.label)}{f.req && <Text style={{ color: "#ef4444" }}> *</Text>}</Text>
+                <Dropdown label={_tx(f.label)} value={filters[f.key]} options={f.opts}
                   onChange={v => setFilter(f.key, v)}
                   disabled={f.disabled || loadingFilters}
                   loading={f.loading || loadingFilters} />
@@ -557,7 +572,7 @@ export default function GenerateMarksheetScreen() {
           >
             {loadingStudents
               ? <ActivityIndicator color="#fff" size="small" />
-              : <><Text style={ms.proceedBtnTxt}>Load Students</Text><Feather name="arrow-right" size={16} color="#fff" /></>}
+              : <><Text style={ms.proceedBtnTxt}>{_t("Load Students")}</Text><Feather name="arrow-right" size={16} color="#fff" /></>}
           </TouchableOpacity>
         </View>
         <View style={{ height: 40 }} />
@@ -573,8 +588,8 @@ export default function GenerateMarksheetScreen() {
           <Feather name="arrow-left" size={16} color="#1e40af" />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: 10 }}>
-          <Text style={ms.contextTitle}>Select Student</Text>
-          <Text style={ms.contextSub}>{students.length} student{students.length !== 1 ? "s" : ""} found</Text>
+          <Text style={ms.contextTitle}>{_t("Select Student")}</Text>
+          <Text style={ms.contextSub}>{_t("{length} student{pl} found", { length: students.length, pl: students.length !== 1 ? "s" : "" })}</Text>
         </View>
         <TouchableOpacity
           style={[ms.bulkBtn, bulkGenerating && { opacity: 0.6 }]}
@@ -585,11 +600,11 @@ export default function GenerateMarksheetScreen() {
           {bulkGenerating
             ? <>
                 <ActivityIndicator color="#fff" size="small" />
-                <Text style={ms.bulkBtnTxt}>{bulkProgress.done}/{bulkProgress.total}</Text>
+                <Text style={ms.bulkBtnTxt}>{_tx(bulkProgress.done)}/{_tx(bulkProgress.total)}</Text>
               </>
             : <>
                 <Feather name="download" size={14} color="#fff" />
-                <Text style={ms.bulkBtnTxt}>All PDF</Text>
+                <Text style={ms.bulkBtnTxt}>{_t("All PDF")}</Text>
               </>}
         </TouchableOpacity>
       </View>
@@ -597,7 +612,7 @@ export default function GenerateMarksheetScreen() {
       {loadingMark && (
         <View style={ms.loadingOverlay}>
           <ActivityIndicator size="large" color="#1e40af" />
-          <Text style={ms.loadingTxt}>Loading marksheet…</Text>
+          <Text style={ms.loadingTxt}>{_t("Loading marksheet…")}</Text>
         </View>
       )}
 
@@ -618,14 +633,12 @@ export default function GenerateMarksheetScreen() {
               </Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={ms.studentName}>{item.student_name}</Text>
-              <Text style={ms.studentMeta}>
-                Roll: {item.roll_number ?? "—"}  ·  {item.enrollment_id}
-              </Text>
+              <Text style={ms.studentName}>{_tx(item.student_name)}</Text>
+              <Text style={ms.studentMeta}>{_t("Roll: {v}  ·  {enrollment_id}", { v: item.roll_number ?? "—", enrollment_id: item.enrollment_id })}</Text>
             </View>
             <View style={ms.viewBtn}>
               <Feather name="file-text" size={14} color="#1e40af" />
-              <Text style={ms.viewBtnTxt}>View</Text>
+              <Text style={ms.viewBtnTxt}>{_t("View")}</Text>
             </View>
           </TouchableOpacity>
         )}
@@ -643,12 +656,18 @@ export default function GenerateMarksheetScreen() {
     const tot = parseFloat(m.total_marks)       || 0;
     return max > 0 && (tot / max) * 100 < 30;
   });
-  const isPassed       = !hasSubjectFail && pct >= 30;
-  const effectiveGrade = hasSubjectFail ? "F"
+  const gBands         = mk?.grading?.bands ?? null;
+  const gBand          = bandFor(pct, gBands);
+  const gLowest        = gBands?.length ? gBands[gBands.length - 1] : null;
+  const isPassed       = gBand ? (!hasSubjectFail && gBand.is_pass !== false) : (!hasSubjectFail && pct >= 30);
+  const effectiveGrade = gBand ? (hasSubjectFail ? gLowest.label : gBand.label)
+    : hasSubjectFail ? "F"
     : pct >= 90 ? "A+" : pct >= 80 ? "A"  : pct >= 70 ? "B+"
     : pct >= 60 ? "B"  : pct >= 50 ? "C"  : pct >= 40 ? "D"
     : pct >= 30 ? "E"  : "F";
-  const screenResultText = isPassed
+  const screenResultText = gBand
+    ? (isPassed ? (gBand.descriptor || "Pass") : hasSubjectFail ? "Comp. Fail" : (gBand.descriptor || "Fail"))
+    : isPassed
     ? (pct >= 90 ? "Outstanding" : pct >= 80 ? "Excellent"
       : pct >= 70 ? "Very Good"  : pct >= 60 ? "Good"
       : pct >= 50 ? "Average"    : pct >= 40 ? "Below Avg" : "Pass")
@@ -670,8 +689,8 @@ export default function GenerateMarksheetScreen() {
           <Feather name="arrow-left" size={16} color="#1e40af" />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: 10 }}>
-          <Text style={ms.contextTitle} numberOfLines={1}>{mk?.student?.student_name}</Text>
-          <Text style={ms.contextSub}>{mk?.exam?.exam_name}</Text>
+          <Text style={ms.contextTitle} numberOfLines={1}>{_tx(mk?.student?.student_name)}</Text>
+          <Text style={ms.contextSub}>{_tx(mk?.exam?.exam_name)}</Text>
         </View>
         {/* Action buttons */}
         <TouchableOpacity style={ms.actionBtn} onPress={handlePrint} disabled={generating}>
@@ -683,7 +702,7 @@ export default function GenerateMarksheetScreen() {
         >
           {generating
             ? <ActivityIndicator color="#fff" size="small" />
-            : <><Feather name="download" size={14} color="#fff" /><Text style={ms.actionBtnTxt}>PDF</Text></>}
+            : <><Feather name="download" size={14} color="#fff" /><Text style={ms.actionBtnTxt}>{_t("PDF")}</Text></>}
         </TouchableOpacity>
       </View>
 
@@ -698,45 +717,45 @@ export default function GenerateMarksheetScreen() {
                 <Text style={ms.schoolLogoTxt}>{(schoolInfo.name || "S")[0].toUpperCase()}</Text>
               </View>}
           <View style={{ flex: 1 }}>
-            <Text style={ms.schoolName}>{schoolInfo.name || "International School"}</Text>
-            {!!schoolInfo.headerText && <Text style={ms.schoolHeaderTxt}>{schoolInfo.headerText}</Text>}
-            {!!schoolInfo.address && <Text style={ms.schoolAddr}>{schoolInfo.address}</Text>}
+            <Text style={ms.schoolName}>{_tx(schoolInfo.name) || _t("International School")}</Text>
+            {!!schoolInfo.headerText && <Text style={ms.schoolHeaderTxt}>{_tx(schoolInfo.headerText)}</Text>}
+            {!!schoolInfo.address && <Text style={ms.schoolAddr}>{_tx(schoolInfo.address)}</Text>}
           </View>
         </View>
         <View style={ms.examTitleBadge}>
-          <Text style={ms.examTitleTxt}>{mk?.exam?.exam_name?.toUpperCase()} — RESULT SHEET</Text>
+          <Text style={ms.examTitleTxt}>{_t("{v} — RESULT SHEET", { v: mk?.exam?.exam_name?.toUpperCase() })}</Text>
         </View>
 
         {/* ── Student info grid ── */}
         <View style={ms.infoGrid}>
           {[
-            { label: "Student Name", value: mk?.student?.student_name },
-            { label: "Enrollment ID", value: mk?.student?.enrollment_id },
-            { label: "Class",        value: `${mk?.student?.class_name ?? "—"}${mk?.student?.section_name ? " — " + mk.student.section_name : ""}` },
-            { label: "Roll Number",  value: mk?.student?.roll_number ?? "—" },
-            { label: "Session",      value: mk?.student?.session_name ?? "—" },
-            { label: "Branch",       value: mk?.student?.branch_name  ?? "—" },
+            { label: _t("Student Name"), value: mk?.student?.student_name },
+            { label: _t("Enrollment ID"), value: mk?.student?.enrollment_id },
+            { label: _t("Class"),        value: `${mk?.student?.class_name ?? "—"}${mk?.student?.section_name ? " — " + mk.student.section_name : ""}` },
+            { label: _t("Roll Number"),  value: mk?.student?.roll_number ?? "—" },
+            { label: _t("Session"),      value: mk?.student?.session_name ?? "—" },
+            { label: _t("Branch"),       value: mk?.student?.branch_name  ?? "—" },
           ].map(info => (
             <View key={info.label} style={ms.infoCell}>
-              <Text style={ms.infoCellLabel}>{info.label}</Text>
-              <Text style={ms.infoCellValue}>{info.value}</Text>
+              <Text style={ms.infoCellLabel}>{_tx(info.label)}</Text>
+              <Text style={ms.infoCellValue}>{_tx(info.value)}</Text>
             </View>
           ))}
         </View>
 
         {/* ── Marks table ── */}
         <View style={ms.marksCard}>
-          <Text style={ms.sectionTitle}>Subject Marks</Text>
+          <Text style={ms.sectionTitle}>{_t("Subject Marks")}</Text>
 
           {/* Table header */}
           <View style={ms.tableHead}>
-            <Text style={[ms.th, { flex: 2 }]}>Subject</Text>
-            <Text style={[ms.th, ms.thNum]}>Theory</Text>
-            <Text style={[ms.th, ms.thNum]}>Int.</Text>
-            <Text style={[ms.th, ms.thNum]}>Prac.</Text>
-            <Text style={[ms.th, ms.thNum]}>Total</Text>
-            <Text style={[ms.th, ms.thNum]}>Max Marks</Text>
-            <Text style={[ms.th, { width: 32 }]}>Grd</Text>
+            <Text style={[ms.th, { flex: 2 }]}>{_t("Subject")}</Text>
+            <Text style={[ms.th, ms.thNum]}>{_t("Theory")}</Text>
+            <Text style={[ms.th, ms.thNum]}>{_t("Int.")}</Text>
+            <Text style={[ms.th, ms.thNum]}>{_t("Prac.")}</Text>
+            <Text style={[ms.th, ms.thNum]}>{_t("Total")}</Text>
+            <Text style={[ms.th, ms.thNum]}>{_t("Max Marks")}</Text>
+            <Text style={[ms.th, { width: 32 }]}>{_t("Grd")}</Text>
           </View>
 
           {/* Subject rows */}
@@ -745,7 +764,8 @@ export default function GenerateMarksheetScreen() {
             const sTot  = parseFloat(m.total_marks)       || 0;
             const sFail = sMax > 0 && (sTot / sMax) * 100 < 30;
             const sPct  = sMax > 0 ? (sTot / sMax) * 100 : 0;
-            const sGrade = sFail ? "F"
+            const sGrade = gBands ? (sFail ? gLowest.label : bandFor(sPct, gBands).label)
+              : sFail ? "F"
               : sPct >= 90 ? "A+" : sPct >= 80 ? "A"  : sPct >= 70 ? "B+"
               : sPct >= 60 ? "B"  : sPct >= 50 ? "C"  : sPct >= 40 ? "D"
               : sPct >= 30 ? "E"  : "F";
@@ -755,34 +775,34 @@ export default function GenerateMarksheetScreen() {
                 sFail && { backgroundColor: "#fff5f5" }]}>
                 <View style={{ flex: 2 }}>
                   <Text style={[ms.subjectName, sFail && { color: "#dc2626" }]}>
-                    {m.subject_name}{sFail ? " ⚠" : ""}
+                    {_tx(m.subject_name)}{sFail ? " ⚠" : ""}
                   </Text>
-                  {m.subject_code ? <Text style={ms.subjectCode}>{m.subject_code}</Text> : null}
+                  {m.subject_code ? <Text style={ms.subjectCode}>{_tx(m.subject_code)}</Text> : null}
                 </View>
                 {/* Theory */}
                 {parseFloat(m.theory_max_marks) > 0
                   ? <Text style={[ms.tdNum, m.theory_absent ? { color: "#ef4444", fontWeight: "700" } : sFail && { color: "#dc2626", fontWeight: "700" }]}>
-                      {m.theory_absent ? "A" : (m.theory_marks ?? 0)}
+                      {m.theory_absent ? _t("A") : (_tx(m.theory_marks) ?? 0)}
                     </Text>
                   : <Text style={[ms.tdNum, { color: "#cbd5e1" }]}>—</Text>}
                 {/* Internal */}
                 {parseFloat(m.internal_max_marks) > 0
                   ? <Text style={[ms.tdNum, m.internal_absent ? { color: "#ef4444", fontWeight: "700" } : sFail && { color: "#dc2626", fontWeight: "700" }]}>
-                      {m.internal_absent ? "A" : (m.internal_marks ?? 0)}
+                      {m.internal_absent ? _t("A") : (_tx(m.internal_marks) ?? 0)}
                     </Text>
                   : <Text style={[ms.tdNum, { color: "#cbd5e1" }]}>—</Text>}
                 {/* Practical */}
                 {parseFloat(m.practical_max_marks) > 0
                   ? <Text style={[ms.tdNum, m.practical_absent ? { color: "#ef4444", fontWeight: "700" } : sFail && { color: "#dc2626", fontWeight: "700" }]}>
-                      {m.practical_absent ? "A" : (m.practical_marks ?? 0)}
+                      {m.practical_absent ? _t("A") : (_tx(m.practical_marks) ?? 0)}
                     </Text>
                   : <Text style={[ms.tdNum, { color: "#cbd5e1" }]}>—</Text>}
                 <Text style={[ms.tdNum, ms.tdTotal, sFail && { color: "#dc2626" }]}>
-                  {(m.theory_absent && m.internal_absent && m.practical_absent) ? "A" : (m.total_marks ?? 0)}
+                  {(m.theory_absent && m.internal_absent && m.practical_absent) ? _t("A") : (_tx(m.total_marks) ?? 0)}
                 </Text>
-                <Text style={[ms.tdNum, ms.tdMax]}>{m.subject_max_marks ?? "—"}</Text>
+                <Text style={[ms.tdNum, ms.tdMax]}>{_tx(m.subject_max_marks) ?? "—"}</Text>
                 <View style={[ms.subjectGradeBadge, { backgroundColor: sGradeColor + "22" }]}>
-                  <Text style={[ms.subjectGradeTxt, { color: sGradeColor }]}>{sGrade}</Text>
+                  <Text style={[ms.subjectGradeTxt, { color: sGradeColor }]}>{_tx(sGrade)}</Text>
                 </View>
               </View>
             );
@@ -790,28 +810,28 @@ export default function GenerateMarksheetScreen() {
 
           {/* Totals row */}
           <View style={ms.totalRow}>
-            <Text style={[ms.totalCell, { flex: 2 }]}>TOTAL</Text>
-            <Text style={ms.totalCell}>{mk?.total_obtained ?? 0}</Text>
-            <Text style={[ms.totalCell, ms.tdMax]}>/ {mk?.total_max ?? 0}</Text>
+            <Text style={[ms.totalCell, { flex: 2 }]}>{_t("TOTAL")}</Text>
+            <Text style={ms.totalCell}>{_tx(mk?.total_obtained) ?? 0}</Text>
+            <Text style={[ms.totalCell, ms.tdMax]}>/ {_tx(mk?.total_max) ?? 0}</Text>
           </View>
         </View>
 
         {/* ── Result summary ── */}
         <View style={ms.summaryRow}>
           <View style={[ms.summaryChip, { backgroundColor: "#eff6ff", borderColor: "#dbeafe" }]}>
-            <Text style={ms.summaryLabel}>Obtained</Text>
-            <Text style={[ms.summaryValue, { color: "#1e40af" }]}>{mk?.total_obtained ?? 0}</Text>
-            <Text style={ms.summaryMax}>of {mk?.total_max ?? 0}</Text>
+            <Text style={ms.summaryLabel}>{_t("Obtained")}</Text>
+            <Text style={[ms.summaryValue, { color: "#1e40af" }]}>{_tx(mk?.total_obtained) ?? 0}</Text>
+            <Text style={ms.summaryMax}>{_t("of {v}", { v: mk?.total_max ?? 0 })}</Text>
           </View>
           <View style={[ms.summaryChip, { backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" }]}>
-            <Text style={ms.summaryLabel}>Percentage</Text>
-            <Text style={[ms.summaryValue, { color: "#16a34a" }]}>{pct}%</Text>
-            <Text style={ms.summaryMax}>{(mk?.marks ?? []).length} subjects</Text>
+            <Text style={ms.summaryLabel}>{_t("Percentage")}</Text>
+            <Text style={[ms.summaryValue, { color: "#16a34a" }]}>{_tx(pct)}%</Text>
+            <Text style={ms.summaryMax}>{_t("{length} subjects", { length: (mk?.marks ?? []).length })}</Text>
           </View>
           <View style={[ms.summaryChip, { backgroundColor: "#fff", borderColor: gc, borderWidth: 2 }]}>
-            <Text style={ms.summaryLabel}>Grade</Text>
-            <Text style={[ms.summaryValue, { color: gc, fontSize: 28 }]}>{grd}</Text>
-            <Text style={[ms.summaryMax, { color: gc }]}>{screenResultText}</Text>
+            <Text style={ms.summaryLabel}>{_t("Grade")}</Text>
+            <Text style={[ms.summaryValue, { color: gc, fontSize: 28 }]}>{_tx(grd)}</Text>
+            <Text style={[ms.summaryMax, { color: gc }]}>{_tx(screenResultText)}</Text>
           </View>
         </View>
 
@@ -820,7 +840,7 @@ export default function GenerateMarksheetScreen() {
           {["Class Teacher", "Examiner", "Principal"].map(role => (
             <View key={role} style={ms.sigItem}>
               <View style={ms.sigLine} />
-              <Text style={ms.sigLabel}>{role}</Text>
+              <Text style={ms.sigLabel}>{_tx(role)}</Text>
             </View>
           ))}
         </View>
@@ -832,7 +852,7 @@ export default function GenerateMarksheetScreen() {
         >
           {generating
             ? <ActivityIndicator color="#fff" size="small" />
-            : <><Feather name="download" size={18} color="#fff" /><Text style={ms.pdfBtnTxt}>Download PDF</Text></>}
+            : <><Feather name="download" size={18} color="#fff" /><Text style={ms.pdfBtnTxt}>{_t("Download PDF")}</Text></>}
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />

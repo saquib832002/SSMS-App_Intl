@@ -17,10 +17,12 @@ import {
 } from "../../services/TestSeriesServiceApi";
 import { fetchSubjects } from "../../services/SubjectServiceApi";
 
+import { fmtDate, fmtTime } from "../../services/Locale";
+import { _t, _tx } from "../../services/i18n";
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
 const NEG_OPTIONS = [
-  { label: "None",     value: 0 },
+  { get label() { return _t("None"); },     value: 0 },
   { label: "−¼",      value: -0.25 },
   { label: "−⅓",      value: -0.333 },
   { label: "−½",      value: -0.5 },
@@ -49,7 +51,7 @@ function SectionModal({ visible, testId, classId, onClose }) {
       const res = await getSections(user, testId);
       setSections(Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []);
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     } finally {
       setLoading(false);
     }
@@ -71,9 +73,9 @@ function SectionModal({ visible, testId, classId, onClose }) {
 
   const handleAdd = async () => {
     const name = (selectedSubject?.subject_name ?? "").trim();
-    if (!name) { Alert.alert("Validation", "Please select a subject."); return; }
+    if (!name) { Alert.alert(_t("Validation"), _t("Please select a subject.")); return; }
     if (existingNames.has(name.toLowerCase())) {
-      Alert.alert("Already added", `"${name}" is already a section.`); return;
+      Alert.alert(_t("Already added"), _t("\"{name}\" is already a section.", { name })); return;
     }
     setSaving(true);
     try {
@@ -87,19 +89,19 @@ function SectionModal({ visible, testId, classId, onClose }) {
       setSelectedSubject(null);
       load();
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = (sec) => {
-    Alert.alert("Delete Section", `Delete "${sec.section_name ?? sec.name}"?`, [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(_t("Delete Section"), _t("Delete \"{v}\"?", { v: sec.section_name ?? sec.name }), [
+      { text: _t("Cancel"), style: "cancel" },
       {
-        text: "Delete", style: "destructive",
+        text: _t("Delete"), style: "destructive",
         onPress: async () => {
-          try { await deleteSection(user, sec.id); load(); } catch (e) { Alert.alert("Error", e.message); }
+          try { await deleteSection(user, sec.id); load(); } catch (e) { Alert.alert(_t("Error"), _tx(e.message)); }
         },
       },
     ]);
@@ -115,12 +117,12 @@ function SectionModal({ visible, testId, classId, onClose }) {
       <TouchableOpacity style={ss.overlay} activeOpacity={1} onPress={onClose} />
       <View style={ss.sheet}>
         <View style={ss.handle} />
-        <Text style={ss.title}>Manage Sections</Text>
-        <Text style={ss.subtitle}>Each section maps to a subject (e.g. Physics, Chemistry).</Text>
+        <Text style={ss.title}>{_t("Manage Sections")}</Text>
+        <Text style={ss.subtitle}>{_t("Each section maps to a subject (e.g. Physics, Chemistry).")}</Text>
 
         {/* ── Subject dropdown ── */}
         <View style={ss.addBlock}>
-          <Text style={ss.fieldLabel}>Subject (Section Name)</Text>
+          <Text style={ss.fieldLabel}>{_t("Subject (Section Name)")}</Text>
           <TouchableOpacity
             style={ss.selectBtn}
             onPress={() => setShowSubjPicker(true)}
@@ -129,10 +131,10 @@ function SectionModal({ visible, testId, classId, onClose }) {
             <Feather name="book-open" size={14} color="#2563eb" />
             <Text style={[ss.selectTxt, !selectedSubject && ss.selectPlaceholder]}>
               {selectedSubject
-                ? selectedSubject.subject_name
+                ? _tx(selectedSubject.subject_name)
                 : availableSubjects.length === 0
-                  ? "All subjects already added"
-                  : "Select subject…"}
+                  ? _t("All subjects already added")
+                  : _t("Select subject…")}
             </Text>
             <Feather name="chevron-down" size={14} color="#64748b" />
           </TouchableOpacity>
@@ -140,10 +142,10 @@ function SectionModal({ visible, testId, classId, onClose }) {
           {/* Row 1: No. of Questions + Marks/Q */}
           <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
             <View style={{ flex: 1 }}>
-              <Text style={ss.fieldLabel}>No. of Questions</Text>
+              <Text style={ss.fieldLabel}>{_t("No. of Questions")}</Text>
               <TextInput
                 style={ss.input}
-                placeholder="e.g. 30"
+                placeholder={_t("e.g. 30")}
                 placeholderTextColor="#94a3b8"
                 value={secNumQ}
                 onChangeText={setSecNumQ}
@@ -151,10 +153,10 @@ function SectionModal({ visible, testId, classId, onClose }) {
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={ss.fieldLabel}>Marks / Question</Text>
+              <Text style={ss.fieldLabel}>{_t("Marks / Question")}</Text>
               <TextInput
                 style={ss.input}
-                placeholder="e.g. 4"
+                placeholder={_t("e.g. 4")}
                 placeholderTextColor="#94a3b8"
                 value={secMarks}
                 onChangeText={setSecMarks}
@@ -165,10 +167,10 @@ function SectionModal({ visible, testId, classId, onClose }) {
           {/* Row 2: Neg. Marks + auto-total */}
           <View style={{ flexDirection: "row", gap: 8, marginTop: 8, alignItems: "flex-end" }}>
             <View style={{ flex: 1 }}>
-              <Text style={ss.fieldLabel}>Neg. Marks / Question</Text>
+              <Text style={ss.fieldLabel}>{_t("Neg. Marks / Question")}</Text>
               <TextInput
                 style={ss.input}
-                placeholder="0 or -0.25"
+                placeholder={_t("0 or -0.25")}
                 placeholderTextColor="#94a3b8"
                 value={secNeg}
                 onChangeText={setSecNeg}
@@ -178,14 +180,14 @@ function SectionModal({ visible, testId, classId, onClose }) {
             <View style={{ flex: 1, paddingBottom: 2 }}>
               {(parseFloat(secNumQ) > 0 && parseFloat(secMarks) > 0) ? (
                 <View style={ss.totalBadge}>
-                  <Text style={ss.totalBadgeLabel}>Total Marks</Text>
+                  <Text style={ss.totalBadgeLabel}>{_t("Total Marks")}</Text>
                   <Text style={ss.totalBadgeValue}>
                     {(parseInt(secNumQ) || 0) * (parseFloat(secMarks) || 0)}
                   </Text>
                 </View>
               ) : (
                 <View style={[ss.totalBadge, { backgroundColor: "#f1f5f9", borderColor: "#e2e8f0" }]}>
-                  <Text style={[ss.totalBadgeLabel, { color: "#94a3b8" }]}>Total Marks</Text>
+                  <Text style={[ss.totalBadgeLabel, { color: "#94a3b8" }]}>{_t("Total Marks")}</Text>
                   <Text style={[ss.totalBadgeValue, { color: "#94a3b8" }]}>—</Text>
                 </View>
               )}
@@ -200,7 +202,7 @@ function SectionModal({ visible, testId, classId, onClose }) {
           >
             {saving
               ? <ActivityIndicator color="#fff" size="small" />
-              : <><Feather name="plus" size={16} color="#fff" /><Text style={ss.addBtnTxt}>Add Section</Text></>
+              : <><Feather name="plus" size={16} color="#fff" /><Text style={ss.addBtnTxt}>{_t("Add Section")}</Text></>
             }
           </TouchableOpacity>
         </View>
@@ -221,10 +223,10 @@ function SectionModal({ visible, testId, classId, onClose }) {
                   <View style={ss.secRow}>
                     <Feather name="layers" size={13} color="#6b7280" />
                     <View style={{ flex: 1 }}>
-                      <Text style={ss.secName}>{item.section_name ?? item.name}</Text>
+                      <Text style={ss.secName}>{_tx(item.section_name) ?? _tx(item.name)}</Text>
                       <Text style={ss.secMeta}>
-                        {nQ > 0 ? `${nQ} Qs` : "—"} · +{mPQ} / {item.negative_per_question ?? item.negative_marks ?? 0}
-                        {total > 0 ? `  ·  Total: ${total} marks` : ""}
+                        {nQ > 0 ? _t("{nQ} Qs", { nQ }) : "—"} · +{_tx(mPQ)} / {_tx(item.negative_per_question) ?? _tx(item.negative_marks) ?? 0}
+                        {total > 0 ? `  ${_t("·  Total: {total} marks", { total })}` : ""}
                       </Text>
                     </View>
                     <TouchableOpacity onPress={() => handleDelete(item)}>
@@ -234,13 +236,13 @@ function SectionModal({ visible, testId, classId, onClose }) {
                 );
               }}
               ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: "#f1f5f9" }} />}
-              ListEmptyComponent={<Text style={ss.empty}>No sections yet. Select a subject above.</Text>}
+              ListEmptyComponent={<Text style={ss.empty}>{_t("No sections yet. Select a subject above.")}</Text>}
             />
           )
         }
 
         <TouchableOpacity style={ss.doneBtn} onPress={onClose}>
-          <Text style={ss.doneBtnTxt}>Done</Text>
+          <Text style={ss.doneBtnTxt}>{_t("Done")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -249,7 +251,7 @@ function SectionModal({ visible, testId, classId, onClose }) {
         <TouchableOpacity style={ss.overlay} activeOpacity={1} onPress={() => setShowSubjPicker(false)} />
         <View style={ss.pickerSheet}>
           <View style={ss.handle} />
-          <Text style={ss.pickerTitle}>Select Subject</Text>
+          <Text style={ss.pickerTitle}>{_t("Select Subject")}</Text>
           <FlatList
             data={availableSubjects}
             keyExtractor={s => String(s.subject_id ?? s.id)}
@@ -261,14 +263,14 @@ function SectionModal({ visible, testId, classId, onClose }) {
                   onPress={() => { setSelectedSubject(item); setShowSubjPicker(false); }}
                 >
                   <Text style={[ss.pickerItemTxt, isSel && ss.pickerItemTxtSel]}>
-                    {item.subject_name ?? item.name}
+                    {_tx(item.subject_name) ?? _tx(item.name)}
                   </Text>
                   {isSel && <Feather name="check" size={15} color="#2563eb" />}
                 </TouchableOpacity>
               );
             }}
             ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: "#f1f5f9", marginHorizontal: 16 }} />}
-            ListEmptyComponent={<Text style={ss.empty}>No subjects available for this class.</Text>}
+            ListEmptyComponent={<Text style={ss.empty}>{_t("No subjects available for this class.")}</Text>}
             style={{ maxHeight: 320 }}
           />
         </View>
@@ -312,7 +314,7 @@ export default function TestCreateScreen({ navigation, route }) {
   // ── Save ──────────────────────────────────────────────────────────────────────
 
   const handleSave = async ({ thenNavigate = false } = {}) => {
-    if (!title.trim()) { Alert.alert("Validation", "Title is required."); return; }
+    if (!title.trim()) { Alert.alert(_t("Validation"), _t("Title is required.")); return; }
 
     const payload = {
       series_id:                series?.id,
@@ -345,14 +347,14 @@ export default function TestCreateScreen({ navigation, route }) {
         navigation.navigate("TestQuestionPicker", { test: resultTest, sections: [] });
       } else {
         Alert.alert(
-          savedTestId ? "Updated" : "Test Created",
+          savedTestId ? _t("Updated") : _t("Test Created"),
           savedTestId
-            ? "Test updated successfully."
-            : "Test saved! You can now manage sections and questions below, or tap Back to return to the list.",
+            ? _t("Test updated successfully.")
+            : _t("Test saved! You can now manage sections and questions below, or tap Back to return to the list."),
         );
       }
     } catch (e) {
-      Alert.alert("Error", e.message || "Save failed");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Save failed"));
     } finally {
       setSaving(false);
     }
@@ -361,17 +363,17 @@ export default function TestCreateScreen({ navigation, route }) {
   // ── Publish ───────────────────────────────────────────────────────────────────
 
   const handlePublish = async () => {
-    if (!savedTestId) { Alert.alert("Save First", "Save the test before publishing."); return; }
-    Alert.alert("Publish Test", "This will make the test visible to enrolled students. Continue?", [
-      { text: "Cancel", style: "cancel" },
+    if (!savedTestId) { Alert.alert(_t("Save First"), _t("Save the test before publishing.")); return; }
+    Alert.alert(_t("Publish Test"), _t("This will make the test visible to enrolled students. Continue?"), [
+      { text: _t("Cancel"), style: "cancel" },
       {
-        text: "Publish", onPress: async () => {
+        text: _t("Publish"), onPress: async () => {
           setPublishing(true);
           try {
             await publishTest(user, savedTestId);
-            Alert.alert("Published!", "The test is now live.", [{ text: "OK", onPress: () => navigation.goBack() }]);
+            Alert.alert(_t("Published!"), _t("The test is now live."), [{ text: _t("OK"), onPress: () => navigation.goBack() }]);
           } catch (e) {
-            Alert.alert("Error", e.message);
+            Alert.alert(_t("Error"), _tx(e.message));
           } finally {
             setPublishing(false);
           }
@@ -384,7 +386,7 @@ export default function TestCreateScreen({ navigation, route }) {
 
   const formatDT = (dt) => {
     if (!dt) return "Not set";
-    return dt.toLocaleDateString() + "  " + dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return fmtDate(dt) + "  " + fmtTime(dt);
   };
 
   const onStartChange = (event, selectedDate) => {
@@ -436,10 +438,10 @@ export default function TestCreateScreen({ navigation, route }) {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={st.headerTitle} numberOfLines={1}>
-            {isEdit ? "Edit Test" : "New Test"}
+            {isEdit ? _t("Edit Test") : _t("New Test")}
           </Text>
           {!!series?.title && (
-            <Text style={st.headerSub} numberOfLines={1}>{series.title}</Text>
+            <Text style={st.headerSub} numberOfLines={1}>{_tx(series.title)}</Text>
           )}
         </View>
         {saving && <ActivityIndicator color="#fff" style={{ marginRight: 4 }} />}
@@ -448,20 +450,20 @@ export default function TestCreateScreen({ navigation, route }) {
       <ScrollView style={st.scroll} contentContainerStyle={st.content} keyboardShouldPersistTaps="handled">
 
         {/* Title */}
-        <Text style={st.label}>Test Title *</Text>
+        <Text style={st.label}>{_t("Test Title *")}</Text>
         <TextInput
           style={st.input}
-          placeholder="e.g. Full Syllabus Mock Test 1"
+          placeholder={_t("e.g. Full Syllabus Mock Test 1")}
           placeholderTextColor="#94a3b8"
           value={title}
           onChangeText={setTitle}
         />
 
         {/* Instructions */}
-        <Text style={st.label}>Instructions for Students</Text>
+        <Text style={st.label}>{_t("Instructions for Students")}</Text>
         <TextInput
           style={[st.input, st.inputMulti]}
-          placeholder="Read all questions carefully. Each correct answer carries 4 marks…"
+          placeholder={_t("Read all questions carefully. Each correct answer carries 4 marks…")}
           placeholderTextColor="#94a3b8"
           value={instructions}
           onChangeText={setInstructions}
@@ -473,7 +475,7 @@ export default function TestCreateScreen({ navigation, route }) {
         {/* Numeric row: Duration / Total Marks / Passing Marks */}
         <View style={st.numRow}>
           <View style={st.numField}>
-            <Text style={st.label}>Duration (min)</Text>
+            <Text style={st.label}>{_t("Duration (min)")}</Text>
             <TextInput
               style={st.input}
               keyboardType="number-pad"
@@ -484,7 +486,7 @@ export default function TestCreateScreen({ navigation, route }) {
             />
           </View>
           <View style={st.numField}>
-            <Text style={st.label}>Total Marks</Text>
+            <Text style={st.label}>{_t("Total Marks")}</Text>
             <TextInput
               style={st.input}
               keyboardType="number-pad"
@@ -495,7 +497,7 @@ export default function TestCreateScreen({ navigation, route }) {
             />
           </View>
           <View style={st.numField}>
-            <Text style={st.label}>Passing Marks</Text>
+            <Text style={st.label}>{_t("Passing Marks")}</Text>
             <TextInput
               style={st.input}
               keyboardType="number-pad"
@@ -508,7 +510,7 @@ export default function TestCreateScreen({ navigation, route }) {
         </View>
 
         {/* Negative Marking chips */}
-        <Text style={st.label}>Negative Marking</Text>
+        <Text style={st.label}>{_t("Negative Marking")}</Text>
         <View style={st.chipRow}>
           {NEG_OPTIONS.map((o) => {
             const isSelected = Math.abs(parseFloat(negMarking) - o.value) < 0.001;
@@ -518,7 +520,7 @@ export default function TestCreateScreen({ navigation, route }) {
                 style={[st.chip, isSelected && st.chipSel]}
                 onPress={() => setNegMarking(o.value)}
               >
-                <Text style={[st.chipTxt, isSelected && st.chipTxtSel]}>{o.label}</Text>
+                <Text style={[st.chipTxt, isSelected && st.chipTxtSel]}>{_tx(o.label)}</Text>
               </TouchableOpacity>
             );
           })}
@@ -526,15 +528,15 @@ export default function TestCreateScreen({ navigation, route }) {
 
         {/* Toggle switches */}
         <View style={st.toggleCard}>
-          <ToggleRow label="Randomize Questions"       value={randomizeQ}    onChange={setRandomizeQ} />
+          <ToggleRow label={_t("Randomize Questions")}       value={randomizeQ}    onChange={setRandomizeQ} />
           <View style={st.divider} />
-          <ToggleRow label="Randomize Answer Options"  value={randomizeOpts} onChange={setRandomizeOpts} />
+          <ToggleRow label={_t("Randomize Answer Options")}  value={randomizeOpts} onChange={setRandomizeOpts} />
           <View style={st.divider} />
-          <ToggleRow label="Show Result Immediately"   value={showResult}    onChange={setShowResult} />
+          <ToggleRow label={_t("Show Result Immediately")}   value={showResult}    onChange={setShowResult} />
         </View>
 
         {/* Scheduled Start */}
-        <Text style={st.label}>Scheduled Start</Text>
+        <Text style={st.label}>{_t("Scheduled Start")}</Text>
         <TouchableOpacity
           style={st.dateBtn}
           onPress={() => { setStartPickerMode("date"); setShowStartPicker(true); }}
@@ -551,7 +553,7 @@ export default function TestCreateScreen({ navigation, route }) {
         </TouchableOpacity>
 
         {/* Scheduled End */}
-        <Text style={st.label}>Scheduled End</Text>
+        <Text style={st.label}>{_t("Scheduled End")}</Text>
         <TouchableOpacity
           style={st.dateBtn}
           onPress={() => { setEndPickerMode("date"); setShowEndPicker(true); }}
@@ -592,7 +594,7 @@ export default function TestCreateScreen({ navigation, route }) {
           <View style={st.editActions}>
             <TouchableOpacity style={st.actionBtn} onPress={() => setSectionModal(true)}>
               <Feather name="layers" size={15} color="#2563eb" />
-              <Text style={st.actionBtnTxt}>Manage Sections</Text>
+              <Text style={st.actionBtnTxt}>{_t("Manage Sections")}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -602,7 +604,7 @@ export default function TestCreateScreen({ navigation, route }) {
               })}
             >
               <Feather name="list" size={15} color="#2563eb" />
-              <Text style={st.actionBtnTxt}>Manage Questions</Text>
+              <Text style={st.actionBtnTxt}>{_t("Manage Questions")}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -616,7 +618,7 @@ export default function TestCreateScreen({ navigation, route }) {
           >
             {saving
               ? <ActivityIndicator color="#fff" />
-              : <Text style={st.saveBtnTxt}>{savedTestId ? "Update Test" : "Save Test"}</Text>
+              : <Text style={st.saveBtnTxt}>{savedTestId ? _t("Update Test") : _t("Save Test")}</Text>
             }
           </TouchableOpacity>
 
@@ -625,7 +627,7 @@ export default function TestCreateScreen({ navigation, route }) {
             onPress={() => handleSave({ thenNavigate: true })}
             disabled={saving}
           >
-            <Text style={st.qBtnTxt}>Save & Add Questions</Text>
+            <Text style={st.qBtnTxt}>{_t("Save & Add Questions")}</Text>
             <Feather name="arrow-right" size={15} color="#2563eb" />
           </TouchableOpacity>
         </View>
@@ -642,7 +644,7 @@ export default function TestCreateScreen({ navigation, route }) {
               : (
                 <>
                   <Feather name="upload" size={16} color="#fff" />
-                  <Text style={st.publishBtnTxt}>Publish Test</Text>
+                  <Text style={st.publishBtnTxt}>{_t("Publish Test")}</Text>
                 </>
               )
             }
@@ -666,7 +668,7 @@ export default function TestCreateScreen({ navigation, route }) {
 function ToggleRow({ label, value, onChange }) {
   return (
     <View style={st.toggleRow}>
-      <Text style={st.toggleLabel}>{label}</Text>
+      <Text style={st.toggleLabel}>{_tx(label)}</Text>
       <Switch
         value={value}
         onValueChange={onChange}

@@ -1,4 +1,6 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { deviceDialCode, defaultDialFor } from '../../constants/Countries';
+const DEFAULT_DIAL = deviceDialCode('+91');
 import {
   View,
   Text,
@@ -22,210 +24,212 @@ import { fetchBranches } from "../../services/SetupServiceApi";
 import { fetchUsers, createUser, updateUser, deleteUser } from "../../services/UserServiceApi";
 import { fetchHiredStaff } from "../../services/StaffServiceApi";
 
+import { fmtDateTime } from "../../services/Locale";
+import { _t, _tx } from "../../services/i18n";
 const { width } = Dimensions.get("window");
 const isTablet = width >= 768;
 
 const COUNTRY_CODES = [
-  { label: '🇮🇳 India (+91)',                         value: '+91'   },
-  { label: '🇦🇫 Afghanistan (+93)',                   value: '+93'   },
-  { label: '🇦🇱 Albania (+355)',                      value: '+355'  },
-  { label: '🇩🇿 Algeria (+213)',                      value: '+213'  },
-  { label: '🇦🇩 Andorra (+376)',                      value: '+376'  },
-  { label: '🇦🇴 Angola (+244)',                       value: '+244'  },
-  { label: '🇦🇬 Antigua & Barbuda (+1268)',           value: '+1268' },
-  { label: '🇦🇷 Argentina (+54)',                     value: '+54'   },
-  { label: '🇦🇲 Armenia (+374)',                      value: '+374'  },
-  { label: '🇦🇺 Australia (+61)',                     value: '+61'   },
-  { label: '🇦🇹 Austria (+43)',                       value: '+43'   },
-  { label: '🇦🇿 Azerbaijan (+994)',                   value: '+994'  },
-  { label: '🇧🇸 Bahamas (+1242)',                     value: '+1242' },
-  { label: '🇧🇭 Bahrain (+973)',                      value: '+973'  },
-  { label: '🇧🇩 Bangladesh (+880)',                   value: '+880'  },
-  { label: '🇧🇧 Barbados (+1246)',                    value: '+1246' },
-  { label: '🇧🇾 Belarus (+375)',                      value: '+375'  },
-  { label: '🇧🇪 Belgium (+32)',                       value: '+32'   },
-  { label: '🇧🇿 Belize (+501)',                       value: '+501'  },
-  { label: '🇧🇯 Benin (+229)',                        value: '+229'  },
-  { label: '🇧🇹 Bhutan (+975)',                       value: '+975'  },
-  { label: '🇧🇴 Bolivia (+591)',                      value: '+591'  },
-  { label: '🇧🇦 Bosnia & Herzegovina (+387)',         value: '+387'  },
-  { label: '🇧🇼 Botswana (+267)',                     value: '+267'  },
-  { label: '🇧🇷 Brazil (+55)',                        value: '+55'   },
-  { label: '🇧🇳 Brunei (+673)',                       value: '+673'  },
-  { label: '🇧🇬 Bulgaria (+359)',                     value: '+359'  },
-  { label: '🇧🇫 Burkina Faso (+226)',                 value: '+226'  },
-  { label: '🇧🇮 Burundi (+257)',                      value: '+257'  },
-  { label: '🇨🇻 Cabo Verde (+238)',                   value: '+238'  },
-  { label: '🇰🇭 Cambodia (+855)',                     value: '+855'  },
-  { label: '🇨🇲 Cameroon (+237)',                     value: '+237'  },
-  { label: '🇨🇦 Canada (+1)',                         value: '+1'    },
-  { label: '🇨🇫 Central African Republic (+236)',     value: '+236'  },
-  { label: '🇹🇩 Chad (+235)',                         value: '+235'  },
-  { label: '🇨🇱 Chile (+56)',                         value: '+56'   },
-  { label: '🇨🇳 China (+86)',                         value: '+86'   },
-  { label: '🇨🇴 Colombia (+57)',                      value: '+57'   },
-  { label: '🇰🇲 Comoros (+269)',                      value: '+269'  },
-  { label: '🇨🇩 Congo (DRC) (+243)',                  value: '+243'  },
-  { label: '🇨🇬 Congo (Republic) (+242)',             value: '+242'  },
-  { label: '🇨🇷 Costa Rica (+506)',                   value: '+506'  },
-  { label: "🇨🇮 Côte d'Ivoire (+225)",               value: '+225'  },
-  { label: '🇭🇷 Croatia (+385)',                      value: '+385'  },
-  { label: '🇨🇺 Cuba (+53)',                          value: '+53'   },
-  { label: '🇨🇾 Cyprus (+357)',                       value: '+357'  },
-  { label: '🇨🇿 Czech Republic (+420)',               value: '+420'  },
-  { label: '🇩🇰 Denmark (+45)',                       value: '+45'   },
-  { label: '🇩🇯 Djibouti (+253)',                     value: '+253'  },
-  { label: '🇩🇲 Dominica (+1767)',                    value: '+1767' },
-  { label: '🇩🇴 Dominican Republic (+1809)',          value: '+1809' },
-  { label: '🇪🇨 Ecuador (+593)',                      value: '+593'  },
-  { label: '🇪🇬 Egypt (+20)',                         value: '+20'   },
-  { label: '🇸🇻 El Salvador (+503)',                  value: '+503'  },
-  { label: '🇬🇶 Equatorial Guinea (+240)',            value: '+240'  },
-  { label: '🇪🇷 Eritrea (+291)',                      value: '+291'  },
-  { label: '🇪🇪 Estonia (+372)',                      value: '+372'  },
-  { label: '🇸🇿 Eswatini (+268)',                     value: '+268'  },
-  { label: '🇪🇹 Ethiopia (+251)',                     value: '+251'  },
-  { label: '🇫🇯 Fiji (+679)',                         value: '+679'  },
-  { label: '🇫🇮 Finland (+358)',                      value: '+358'  },
-  { label: '🇫🇷 France (+33)',                        value: '+33'   },
-  { label: '🇬🇦 Gabon (+241)',                        value: '+241'  },
-  { label: '🇬🇲 Gambia (+220)',                       value: '+220'  },
-  { label: '🇬🇪 Georgia (+995)',                      value: '+995'  },
-  { label: '🇩🇪 Germany (+49)',                       value: '+49'   },
-  { label: '🇬🇭 Ghana (+233)',                        value: '+233'  },
-  { label: '🇬🇷 Greece (+30)',                        value: '+30'   },
-  { label: '🇬🇩 Grenada (+1473)',                     value: '+1473' },
-  { label: '🇬🇹 Guatemala (+502)',                    value: '+502'  },
-  { label: '🇬🇳 Guinea (+224)',                       value: '+224'  },
-  { label: '🇬🇼 Guinea-Bissau (+245)',                value: '+245'  },
-  { label: '🇬🇾 Guyana (+592)',                       value: '+592'  },
-  { label: '🇭🇹 Haiti (+509)',                        value: '+509'  },
-  { label: '🇭🇳 Honduras (+504)',                     value: '+504'  },
-  { label: '🇭🇺 Hungary (+36)',                       value: '+36'   },
-  { label: '🇮🇸 Iceland (+354)',                      value: '+354'  },
-  { label: '🇮🇳 India (+91)',                         value: '+91'   },
-  { label: '🇮🇩 Indonesia (+62)',                     value: '+62'   },
-  { label: '🇮🇷 Iran (+98)',                          value: '+98'   },
-  { label: '🇮🇶 Iraq (+964)',                         value: '+964'  },
-  { label: '🇮🇪 Ireland (+353)',                      value: '+353'  },
-  { label: '🇮🇱 Israel (+972)',                       value: '+972'  },
-  { label: '🇮🇹 Italy (+39)',                         value: '+39'   },
-  { label: '🇯🇲 Jamaica (+1876)',                     value: '+1876' },
-  { label: '🇯🇵 Japan (+81)',                         value: '+81'   },
-  { label: '🇯🇴 Jordan (+962)',                       value: '+962'  },
-  { label: '🇰🇿 Kazakhstan (+7)',                     value: '+7'    },
-  { label: '🇰🇪 Kenya (+254)',                        value: '+254'  },
-  { label: '🇰🇮 Kiribati (+686)',                     value: '+686'  },
-  { label: '🇽🇰 Kosovo (+383)',                       value: '+383'  },
-  { label: '🇰🇼 Kuwait (+965)',                       value: '+965'  },
-  { label: '🇰🇬 Kyrgyzstan (+996)',                   value: '+996'  },
-  { label: '🇱🇦 Laos (+856)',                         value: '+856'  },
-  { label: '🇱🇻 Latvia (+371)',                       value: '+371'  },
-  { label: '🇱🇧 Lebanon (+961)',                      value: '+961'  },
-  { label: '🇱🇸 Lesotho (+266)',                      value: '+266'  },
-  { label: '🇱🇷 Liberia (+231)',                      value: '+231'  },
-  { label: '🇱🇾 Libya (+218)',                        value: '+218'  },
-  { label: '🇱🇮 Liechtenstein (+423)',                value: '+423'  },
-  { label: '🇱🇹 Lithuania (+370)',                    value: '+370'  },
-  { label: '🇱🇺 Luxembourg (+352)',                   value: '+352'  },
-  { label: '🇲🇬 Madagascar (+261)',                   value: '+261'  },
-  { label: '🇲🇼 Malawi (+265)',                       value: '+265'  },
-  { label: '🇲🇾 Malaysia (+60)',                      value: '+60'   },
-  { label: '🇲🇻 Maldives (+960)',                     value: '+960'  },
-  { label: '🇲🇱 Mali (+223)',                         value: '+223'  },
-  { label: '🇲🇹 Malta (+356)',                        value: '+356'  },
-  { label: '🇲🇭 Marshall Islands (+692)',             value: '+692'  },
-  { label: '🇲🇷 Mauritania (+222)',                   value: '+222'  },
-  { label: '🇲🇺 Mauritius (+230)',                    value: '+230'  },
-  { label: '🇲🇽 Mexico (+52)',                        value: '+52'   },
-  { label: '🇫🇲 Micronesia (+691)',                   value: '+691'  },
-  { label: '🇲🇩 Moldova (+373)',                      value: '+373'  },
-  { label: '🇲🇨 Monaco (+377)',                       value: '+377'  },
-  { label: '🇲🇳 Mongolia (+976)',                     value: '+976'  },
-  { label: '🇲🇪 Montenegro (+382)',                   value: '+382'  },
-  { label: '🇲🇦 Morocco (+212)',                      value: '+212'  },
-  { label: '🇲🇿 Mozambique (+258)',                   value: '+258'  },
-  { label: '🇲🇲 Myanmar (+95)',                       value: '+95'   },
-  { label: '🇳🇦 Namibia (+264)',                      value: '+264'  },
-  { label: '🇳🇷 Nauru (+674)',                        value: '+674'  },
-  { label: '🇳🇵 Nepal (+977)',                        value: '+977'  },
-  { label: '🇳🇱 Netherlands (+31)',                   value: '+31'   },
-  { label: '🇳🇿 New Zealand (+64)',                   value: '+64'   },
-  { label: '🇳🇮 Nicaragua (+505)',                    value: '+505'  },
-  { label: '🇳🇪 Niger (+227)',                        value: '+227'  },
-  { label: '🇳🇬 Nigeria (+234)',                      value: '+234'  },
-  { label: '🇲🇰 North Macedonia (+389)',              value: '+389'  },
-  { label: '🇳🇴 Norway (+47)',                        value: '+47'   },
-  { label: '🇴🇲 Oman (+968)',                         value: '+968'  },
-  { label: '🇵🇰 Pakistan (+92)',                      value: '+92'   },
-  { label: '🇵🇼 Palau (+680)',                        value: '+680'  },
-  { label: '🇵🇸 Palestine (+970)',                    value: '+970'  },
-  { label: '🇵🇦 Panama (+507)',                       value: '+507'  },
-  { label: '🇵🇬 Papua New Guinea (+675)',             value: '+675'  },
-  { label: '🇵🇾 Paraguay (+595)',                     value: '+595'  },
-  { label: '🇵🇪 Peru (+51)',                          value: '+51'   },
-  { label: '🇵🇭 Philippines (+63)',                   value: '+63'   },
-  { label: '🇵🇱 Poland (+48)',                        value: '+48'   },
-  { label: '🇵🇹 Portugal (+351)',                     value: '+351'  },
-  { label: '🇶🇦 Qatar (+974)',                        value: '+974'  },
-  { label: '🇷🇴 Romania (+40)',                       value: '+40'   },
-  { label: '🇷🇺 Russia (+7)',                         value: '+7'    },
-  { label: '🇷🇼 Rwanda (+250)',                       value: '+250'  },
-  { label: '🇰🇳 Saint Kitts & Nevis (+1869)',        value: '+1869' },
-  { label: '🇱🇨 Saint Lucia (+1758)',                 value: '+1758' },
-  { label: '🇻🇨 Saint Vincent & Grenadines (+1784)', value: '+1784' },
-  { label: '🇼🇸 Samoa (+685)',                        value: '+685'  },
-  { label: '🇸🇲 San Marino (+378)',                   value: '+378'  },
-  { label: '🇸🇹 São Tomé & Príncipe (+239)',          value: '+239'  },
-  { label: '🇸🇦 Saudi Arabia (+966)',                 value: '+966'  },
-  { label: '🇸🇳 Senegal (+221)',                      value: '+221'  },
-  { label: '🇷🇸 Serbia (+381)',                       value: '+381'  },
-  { label: '🇸🇨 Seychelles (+248)',                   value: '+248'  },
-  { label: '🇸🇱 Sierra Leone (+232)',                 value: '+232'  },
-  { label: '🇸🇬 Singapore (+65)',                     value: '+65'   },
-  { label: '🇸🇰 Slovakia (+421)',                     value: '+421'  },
-  { label: '🇸🇮 Slovenia (+386)',                     value: '+386'  },
-  { label: '🇸🇧 Solomon Islands (+677)',              value: '+677'  },
-  { label: '🇸🇴 Somalia (+252)',                      value: '+252'  },
-  { label: '🇿🇦 South Africa (+27)',                  value: '+27'   },
-  { label: '🇸🇸 South Sudan (+211)',                  value: '+211'  },
-  { label: '🇪🇸 Spain (+34)',                         value: '+34'   },
-  { label: '🇱🇰 Sri Lanka (+94)',                     value: '+94'   },
-  { label: '🇸🇩 Sudan (+249)',                        value: '+249'  },
-  { label: '🇸🇷 Suriname (+597)',                     value: '+597'  },
-  { label: '🇸🇪 Sweden (+46)',                        value: '+46'   },
-  { label: '🇨🇭 Switzerland (+41)',                   value: '+41'   },
-  { label: '🇸🇾 Syria (+963)',                        value: '+963'  },
-  { label: '🇹🇼 Taiwan (+886)',                       value: '+886'  },
-  { label: '🇹🇯 Tajikistan (+992)',                   value: '+992'  },
-  { label: '🇹🇿 Tanzania (+255)',                     value: '+255'  },
-  { label: '🇹🇭 Thailand (+66)',                      value: '+66'   },
-  { label: '🇹🇱 Timor-Leste (+670)',                  value: '+670'  },
-  { label: '🇹🇬 Togo (+228)',                         value: '+228'  },
-  { label: '🇹🇴 Tonga (+676)',                        value: '+676'  },
-  { label: '🇹🇹 Trinidad & Tobago (+1868)',           value: '+1868' },
-  { label: '🇹🇳 Tunisia (+216)',                      value: '+216'  },
-  { label: '🇹🇷 Turkey (+90)',                        value: '+90'   },
-  { label: '🇹🇲 Turkmenistan (+993)',                 value: '+993'  },
-  { label: '🇹🇻 Tuvalu (+688)',                       value: '+688'  },
-  { label: '🇺🇬 Uganda (+256)',                       value: '+256'  },
-  { label: '🇺🇦 Ukraine (+380)',                      value: '+380'  },
-  { label: '🇦🇪 UAE (+971)',                          value: '+971'  },
-  { label: '🇬🇧 United Kingdom (+44)',                value: '+44'   },
-  { label: '🇺🇸 USA (+1)',                            value: '+1'    },
-  { label: '🇺🇾 Uruguay (+598)',                      value: '+598'  },
-  { label: '🇺🇿 Uzbekistan (+998)',                   value: '+998'  },
-  { label: '🇻🇺 Vanuatu (+678)',                      value: '+678'  },
-  { label: '🇻🇦 Vatican City (+39)',                  value: '+39'   },
-  { label: '🇻🇪 Venezuela (+58)',                     value: '+58'   },
-  { label: '🇻🇳 Vietnam (+84)',                       value: '+84'   },
-  { label: '🇾🇪 Yemen (+967)',                        value: '+967'  },
-  { label: '🇿🇲 Zambia (+260)',                       value: '+260'  },
-  { label: '🇿🇼 Zimbabwe (+263)',                     value: '+263'  },
+  { get label() { return _t("🇮🇳 India (+91)"); },                         value: '+91'   },
+  { get label() { return _t("🇦🇫 Afghanistan (+93)"); },                   value: '+93'   },
+  { get label() { return _t("🇦🇱 Albania (+355)"); },                      value: '+355'  },
+  { get label() { return _t("🇩🇿 Algeria (+213)"); },                      value: '+213'  },
+  { get label() { return _t("🇦🇩 Andorra (+376)"); },                      value: '+376'  },
+  { get label() { return _t("🇦🇴 Angola (+244)"); },                       value: '+244'  },
+  { get label() { return _t("🇦🇬 Antigua & Barbuda (+1268)"); },           value: '+1268' },
+  { get label() { return _t("🇦🇷 Argentina (+54)"); },                     value: '+54'   },
+  { get label() { return _t("🇦🇲 Armenia (+374)"); },                      value: '+374'  },
+  { get label() { return _t("🇦🇺 Australia (+61)"); },                     value: '+61'   },
+  { get label() { return _t("🇦🇹 Austria (+43)"); },                       value: '+43'   },
+  { get label() { return _t("🇦🇿 Azerbaijan (+994)"); },                   value: '+994'  },
+  { get label() { return _t("🇧🇸 Bahamas (+1242)"); },                     value: '+1242' },
+  { get label() { return _t("🇧🇭 Bahrain (+973)"); },                      value: '+973'  },
+  { get label() { return _t("🇧🇩 Bangladesh (+880)"); },                   value: '+880'  },
+  { get label() { return _t("🇧🇧 Barbados (+1246)"); },                    value: '+1246' },
+  { get label() { return _t("🇧🇾 Belarus (+375)"); },                      value: '+375'  },
+  { get label() { return _t("🇧🇪 Belgium (+32)"); },                       value: '+32'   },
+  { get label() { return _t("🇧🇿 Belize (+501)"); },                       value: '+501'  },
+  { get label() { return _t("🇧🇯 Benin (+229)"); },                        value: '+229'  },
+  { get label() { return _t("🇧🇹 Bhutan (+975)"); },                       value: '+975'  },
+  { get label() { return _t("🇧🇴 Bolivia (+591)"); },                      value: '+591'  },
+  { get label() { return _t("🇧🇦 Bosnia & Herzegovina (+387)"); },         value: '+387'  },
+  { get label() { return _t("🇧🇼 Botswana (+267)"); },                     value: '+267'  },
+  { get label() { return _t("🇧🇷 Brazil (+55)"); },                        value: '+55'   },
+  { get label() { return _t("🇧🇳 Brunei (+673)"); },                       value: '+673'  },
+  { get label() { return _t("🇧🇬 Bulgaria (+359)"); },                     value: '+359'  },
+  { get label() { return _t("🇧🇫 Burkina Faso (+226)"); },                 value: '+226'  },
+  { get label() { return _t("🇧🇮 Burundi (+257)"); },                      value: '+257'  },
+  { get label() { return _t("🇨🇻 Cabo Verde (+238)"); },                   value: '+238'  },
+  { get label() { return _t("🇰🇭 Cambodia (+855)"); },                     value: '+855'  },
+  { get label() { return _t("🇨🇲 Cameroon (+237)"); },                     value: '+237'  },
+  { get label() { return _t("🇨🇦 Canada (+1)"); },                         value: '+1'    },
+  { get label() { return _t("🇨🇫 Central African Republic (+236)"); },     value: '+236'  },
+  { get label() { return _t("🇹🇩 Chad (+235)"); },                         value: '+235'  },
+  { get label() { return _t("🇨🇱 Chile (+56)"); },                         value: '+56'   },
+  { get label() { return _t("🇨🇳 China (+86)"); },                         value: '+86'   },
+  { get label() { return _t("🇨🇴 Colombia (+57)"); },                      value: '+57'   },
+  { get label() { return _t("🇰🇲 Comoros (+269)"); },                      value: '+269'  },
+  { get label() { return _t("🇨🇩 Congo (DRC) (+243)"); },                  value: '+243'  },
+  { get label() { return _t("🇨🇬 Congo (Republic) (+242)"); },             value: '+242'  },
+  { get label() { return _t("🇨🇷 Costa Rica (+506)"); },                   value: '+506'  },
+  { get label() { return _t("🇨🇮 Côte d'Ivoire (+225)"); },               value: '+225'  },
+  { get label() { return _t("🇭🇷 Croatia (+385)"); },                      value: '+385'  },
+  { get label() { return _t("🇨🇺 Cuba (+53)"); },                          value: '+53'   },
+  { get label() { return _t("🇨🇾 Cyprus (+357)"); },                       value: '+357'  },
+  { get label() { return _t("🇨🇿 Czech Republic (+420)"); },               value: '+420'  },
+  { get label() { return _t("🇩🇰 Denmark (+45)"); },                       value: '+45'   },
+  { get label() { return _t("🇩🇯 Djibouti (+253)"); },                     value: '+253'  },
+  { get label() { return _t("🇩🇲 Dominica (+1767)"); },                    value: '+1767' },
+  { get label() { return _t("🇩🇴 Dominican Republic (+1809)"); },          value: '+1809' },
+  { get label() { return _t("🇪🇨 Ecuador (+593)"); },                      value: '+593'  },
+  { get label() { return _t("🇪🇬 Egypt (+20)"); },                         value: '+20'   },
+  { get label() { return _t("🇸🇻 El Salvador (+503)"); },                  value: '+503'  },
+  { get label() { return _t("🇬🇶 Equatorial Guinea (+240)"); },            value: '+240'  },
+  { get label() { return _t("🇪🇷 Eritrea (+291)"); },                      value: '+291'  },
+  { get label() { return _t("🇪🇪 Estonia (+372)"); },                      value: '+372'  },
+  { get label() { return _t("🇸🇿 Eswatini (+268)"); },                     value: '+268'  },
+  { get label() { return _t("🇪🇹 Ethiopia (+251)"); },                     value: '+251'  },
+  { get label() { return _t("🇫🇯 Fiji (+679)"); },                         value: '+679'  },
+  { get label() { return _t("🇫🇮 Finland (+358)"); },                      value: '+358'  },
+  { get label() { return _t("🇫🇷 France (+33)"); },                        value: '+33'   },
+  { get label() { return _t("🇬🇦 Gabon (+241)"); },                        value: '+241'  },
+  { get label() { return _t("🇬🇲 Gambia (+220)"); },                       value: '+220'  },
+  { get label() { return _t("🇬🇪 Georgia (+995)"); },                      value: '+995'  },
+  { get label() { return _t("🇩🇪 Germany (+49)"); },                       value: '+49'   },
+  { get label() { return _t("🇬🇭 Ghana (+233)"); },                        value: '+233'  },
+  { get label() { return _t("🇬🇷 Greece (+30)"); },                        value: '+30'   },
+  { get label() { return _t("🇬🇩 Grenada (+1473)"); },                     value: '+1473' },
+  { get label() { return _t("🇬🇹 Guatemala (+502)"); },                    value: '+502'  },
+  { get label() { return _t("🇬🇳 Guinea (+224)"); },                       value: '+224'  },
+  { get label() { return _t("🇬🇼 Guinea-Bissau (+245)"); },                value: '+245'  },
+  { get label() { return _t("🇬🇾 Guyana (+592)"); },                       value: '+592'  },
+  { get label() { return _t("🇭🇹 Haiti (+509)"); },                        value: '+509'  },
+  { get label() { return _t("🇭🇳 Honduras (+504)"); },                     value: '+504'  },
+  { get label() { return _t("🇭🇺 Hungary (+36)"); },                       value: '+36'   },
+  { get label() { return _t("🇮🇸 Iceland (+354)"); },                      value: '+354'  },
+  { get label() { return _t("🇮🇳 India (+91)"); },                         value: '+91'   },
+  { get label() { return _t("🇮🇩 Indonesia (+62)"); },                     value: '+62'   },
+  { get label() { return _t("🇮🇷 Iran (+98)"); },                          value: '+98'   },
+  { get label() { return _t("🇮🇶 Iraq (+964)"); },                         value: '+964'  },
+  { get label() { return _t("🇮🇪 Ireland (+353)"); },                      value: '+353'  },
+  { get label() { return _t("🇮🇱 Israel (+972)"); },                       value: '+972'  },
+  { get label() { return _t("🇮🇹 Italy (+39)"); },                         value: '+39'   },
+  { get label() { return _t("🇯🇲 Jamaica (+1876)"); },                     value: '+1876' },
+  { get label() { return _t("🇯🇵 Japan (+81)"); },                         value: '+81'   },
+  { get label() { return _t("🇯🇴 Jordan (+962)"); },                       value: '+962'  },
+  { get label() { return _t("🇰🇿 Kazakhstan (+7)"); },                     value: '+7'    },
+  { get label() { return _t("🇰🇪 Kenya (+254)"); },                        value: '+254'  },
+  { get label() { return _t("🇰🇮 Kiribati (+686)"); },                     value: '+686'  },
+  { get label() { return _t("🇽🇰 Kosovo (+383)"); },                       value: '+383'  },
+  { get label() { return _t("🇰🇼 Kuwait (+965)"); },                       value: '+965'  },
+  { get label() { return _t("🇰🇬 Kyrgyzstan (+996)"); },                   value: '+996'  },
+  { get label() { return _t("🇱🇦 Laos (+856)"); },                         value: '+856'  },
+  { get label() { return _t("🇱🇻 Latvia (+371)"); },                       value: '+371'  },
+  { get label() { return _t("🇱🇧 Lebanon (+961)"); },                      value: '+961'  },
+  { get label() { return _t("🇱🇸 Lesotho (+266)"); },                      value: '+266'  },
+  { get label() { return _t("🇱🇷 Liberia (+231)"); },                      value: '+231'  },
+  { get label() { return _t("🇱🇾 Libya (+218)"); },                        value: '+218'  },
+  { get label() { return _t("🇱🇮 Liechtenstein (+423)"); },                value: '+423'  },
+  { get label() { return _t("🇱🇹 Lithuania (+370)"); },                    value: '+370'  },
+  { get label() { return _t("🇱🇺 Luxembourg (+352)"); },                   value: '+352'  },
+  { get label() { return _t("🇲🇬 Madagascar (+261)"); },                   value: '+261'  },
+  { get label() { return _t("🇲🇼 Malawi (+265)"); },                       value: '+265'  },
+  { get label() { return _t("🇲🇾 Malaysia (+60)"); },                      value: '+60'   },
+  { get label() { return _t("🇲🇻 Maldives (+960)"); },                     value: '+960'  },
+  { get label() { return _t("🇲🇱 Mali (+223)"); },                         value: '+223'  },
+  { get label() { return _t("🇲🇹 Malta (+356)"); },                        value: '+356'  },
+  { get label() { return _t("🇲🇭 Marshall Islands (+692)"); },             value: '+692'  },
+  { get label() { return _t("🇲🇷 Mauritania (+222)"); },                   value: '+222'  },
+  { get label() { return _t("🇲🇺 Mauritius (+230)"); },                    value: '+230'  },
+  { get label() { return _t("🇲🇽 Mexico (+52)"); },                        value: '+52'   },
+  { get label() { return _t("🇫🇲 Micronesia (+691)"); },                   value: '+691'  },
+  { get label() { return _t("🇲🇩 Moldova (+373)"); },                      value: '+373'  },
+  { get label() { return _t("🇲🇨 Monaco (+377)"); },                       value: '+377'  },
+  { get label() { return _t("🇲🇳 Mongolia (+976)"); },                     value: '+976'  },
+  { get label() { return _t("🇲🇪 Montenegro (+382)"); },                   value: '+382'  },
+  { get label() { return _t("🇲🇦 Morocco (+212)"); },                      value: '+212'  },
+  { get label() { return _t("🇲🇿 Mozambique (+258)"); },                   value: '+258'  },
+  { get label() { return _t("🇲🇲 Myanmar (+95)"); },                       value: '+95'   },
+  { get label() { return _t("🇳🇦 Namibia (+264)"); },                      value: '+264'  },
+  { get label() { return _t("🇳🇷 Nauru (+674)"); },                        value: '+674'  },
+  { get label() { return _t("🇳🇵 Nepal (+977)"); },                        value: '+977'  },
+  { get label() { return _t("🇳🇱 Netherlands (+31)"); },                   value: '+31'   },
+  { get label() { return _t("🇳🇿 New Zealand (+64)"); },                   value: '+64'   },
+  { get label() { return _t("🇳🇮 Nicaragua (+505)"); },                    value: '+505'  },
+  { get label() { return _t("🇳🇪 Niger (+227)"); },                        value: '+227'  },
+  { get label() { return _t("🇳🇬 Nigeria (+234)"); },                      value: '+234'  },
+  { get label() { return _t("🇲🇰 North Macedonia (+389)"); },              value: '+389'  },
+  { get label() { return _t("🇳🇴 Norway (+47)"); },                        value: '+47'   },
+  { get label() { return _t("🇴🇲 Oman (+968)"); },                         value: '+968'  },
+  { get label() { return _t("🇵🇰 Pakistan (+92)"); },                      value: '+92'   },
+  { get label() { return _t("🇵🇼 Palau (+680)"); },                        value: '+680'  },
+  { get label() { return _t("🇵🇸 Palestine (+970)"); },                    value: '+970'  },
+  { get label() { return _t("🇵🇦 Panama (+507)"); },                       value: '+507'  },
+  { get label() { return _t("🇵🇬 Papua New Guinea (+675)"); },             value: '+675'  },
+  { get label() { return _t("🇵🇾 Paraguay (+595)"); },                     value: '+595'  },
+  { get label() { return _t("🇵🇪 Peru (+51)"); },                          value: '+51'   },
+  { get label() { return _t("🇵🇭 Philippines (+63)"); },                   value: '+63'   },
+  { get label() { return _t("🇵🇱 Poland (+48)"); },                        value: '+48'   },
+  { get label() { return _t("🇵🇹 Portugal (+351)"); },                     value: '+351'  },
+  { get label() { return _t("🇶🇦 Qatar (+974)"); },                        value: '+974'  },
+  { get label() { return _t("🇷🇴 Romania (+40)"); },                       value: '+40'   },
+  { get label() { return _t("🇷🇺 Russia (+7)"); },                         value: '+7'    },
+  { get label() { return _t("🇷🇼 Rwanda (+250)"); },                       value: '+250'  },
+  { get label() { return _t("🇰🇳 Saint Kitts & Nevis (+1869)"); },        value: '+1869' },
+  { get label() { return _t("🇱🇨 Saint Lucia (+1758)"); },                 value: '+1758' },
+  { get label() { return _t("🇻🇨 Saint Vincent & Grenadines (+1784)"); }, value: '+1784' },
+  { get label() { return _t("🇼🇸 Samoa (+685)"); },                        value: '+685'  },
+  { get label() { return _t("🇸🇲 San Marino (+378)"); },                   value: '+378'  },
+  { get label() { return _t("🇸🇹 São Tomé & Príncipe (+239)"); },          value: '+239'  },
+  { get label() { return _t("🇸🇦 Saudi Arabia (+966)"); },                 value: '+966'  },
+  { get label() { return _t("🇸🇳 Senegal (+221)"); },                      value: '+221'  },
+  { get label() { return _t("🇷🇸 Serbia (+381)"); },                       value: '+381'  },
+  { get label() { return _t("🇸🇨 Seychelles (+248)"); },                   value: '+248'  },
+  { get label() { return _t("🇸🇱 Sierra Leone (+232)"); },                 value: '+232'  },
+  { get label() { return _t("🇸🇬 Singapore (+65)"); },                     value: '+65'   },
+  { get label() { return _t("🇸🇰 Slovakia (+421)"); },                     value: '+421'  },
+  { get label() { return _t("🇸🇮 Slovenia (+386)"); },                     value: '+386'  },
+  { get label() { return _t("🇸🇧 Solomon Islands (+677)"); },              value: '+677'  },
+  { get label() { return _t("🇸🇴 Somalia (+252)"); },                      value: '+252'  },
+  { get label() { return _t("🇿🇦 South Africa (+27)"); },                  value: '+27'   },
+  { get label() { return _t("🇸🇸 South Sudan (+211)"); },                  value: '+211'  },
+  { get label() { return _t("🇪🇸 Spain (+34)"); },                         value: '+34'   },
+  { get label() { return _t("🇱🇰 Sri Lanka (+94)"); },                     value: '+94'   },
+  { get label() { return _t("🇸🇩 Sudan (+249)"); },                        value: '+249'  },
+  { get label() { return _t("🇸🇷 Suriname (+597)"); },                     value: '+597'  },
+  { get label() { return _t("🇸🇪 Sweden (+46)"); },                        value: '+46'   },
+  { get label() { return _t("🇨🇭 Switzerland (+41)"); },                   value: '+41'   },
+  { get label() { return _t("🇸🇾 Syria (+963)"); },                        value: '+963'  },
+  { get label() { return _t("🇹🇼 Taiwan (+886)"); },                       value: '+886'  },
+  { get label() { return _t("🇹🇯 Tajikistan (+992)"); },                   value: '+992'  },
+  { get label() { return _t("🇹🇿 Tanzania (+255)"); },                     value: '+255'  },
+  { get label() { return _t("🇹🇭 Thailand (+66)"); },                      value: '+66'   },
+  { get label() { return _t("🇹🇱 Timor-Leste (+670)"); },                  value: '+670'  },
+  { get label() { return _t("🇹🇬 Togo (+228)"); },                         value: '+228'  },
+  { get label() { return _t("🇹🇴 Tonga (+676)"); },                        value: '+676'  },
+  { get label() { return _t("🇹🇹 Trinidad & Tobago (+1868)"); },           value: '+1868' },
+  { get label() { return _t("🇹🇳 Tunisia (+216)"); },                      value: '+216'  },
+  { get label() { return _t("🇹🇷 Turkey (+90)"); },                        value: '+90'   },
+  { get label() { return _t("🇹🇲 Turkmenistan (+993)"); },                 value: '+993'  },
+  { get label() { return _t("🇹🇻 Tuvalu (+688)"); },                       value: '+688'  },
+  { get label() { return _t("🇺🇬 Uganda (+256)"); },                       value: '+256'  },
+  { get label() { return _t("🇺🇦 Ukraine (+380)"); },                      value: '+380'  },
+  { get label() { return _t("🇦🇪 UAE (+971)"); },                          value: '+971'  },
+  { get label() { return _t("🇬🇧 United Kingdom (+44)"); },                value: '+44'   },
+  { get label() { return _t("🇺🇸 USA (+1)"); },                            value: '+1'    },
+  { get label() { return _t("🇺🇾 Uruguay (+598)"); },                      value: '+598'  },
+  { get label() { return _t("🇺🇿 Uzbekistan (+998)"); },                   value: '+998'  },
+  { get label() { return _t("🇻🇺 Vanuatu (+678)"); },                      value: '+678'  },
+  { get label() { return _t("🇻🇦 Vatican City (+39)"); },                  value: '+39'   },
+  { get label() { return _t("🇻🇪 Venezuela (+58)"); },                     value: '+58'   },
+  { get label() { return _t("🇻🇳 Vietnam (+84)"); },                       value: '+84'   },
+  { get label() { return _t("🇾🇪 Yemen (+967)"); },                        value: '+967'  },
+  { get label() { return _t("🇿🇲 Zambia (+260)"); },                       value: '+260'  },
+  { get label() { return _t("🇿🇼 Zimbabwe (+263)"); },                     value: '+263'  },
 ];
 
 function parseMobileNumber(stored) {
-  if (!stored) return { countryCode: '+91', mobileNumber: '' };
+  if (!stored) return { countryCode: DEFAULT_DIAL, mobileNumber: '' };
   const normalized = stored.startsWith('+') ? stored : '+' + stored;
   const sorted = [...COUNTRY_CODES].sort((a, b) => b.value.length - a.value.length);
   for (const cc of sorted) {
@@ -249,14 +253,14 @@ function Dropdown({ label, value, options, onChange, disabled }) {
         activeOpacity={0.7}
       >
         <Text style={[ddSt.triggerTxt, !selected?.value && ddSt.placeholder]} numberOfLines={1}>
-          {selected?.label ?? label}
+          {_tx(selected?.label) ?? _tx(label)}
         </Text>
         <Feather name="chevron-down" size={16} color="#475569" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={ddSt.overlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={ddSt.sheet}>
-            <Text style={ddSt.title}>{label}</Text>
+            <Text style={ddSt.title}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={(o, i) => String(o.value) + i}
@@ -266,7 +270,7 @@ function Dropdown({ label, value, options, onChange, disabled }) {
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[ddSt.optionTxt, String(o.value) === String(value) && ddSt.optionTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) && <Feather name="check" size={14} color="#1e40af" />}
                 </TouchableOpacity>
@@ -303,7 +307,7 @@ export default function UserSetupScreen() {
   const [saving, setSaving] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [countryCode, setCountryCode] = useState('+91');
+  const [countryCode, setCountryCode] = useState(() => defaultDialFor(user));
   const [mobileNumber, setMobileNumber] = useState('');
   const [ccPickerVisible, setCcPickerVisible] = useState(false);
 
@@ -362,18 +366,23 @@ export default function UserSetupScreen() {
     if (!user) return;
     try {
       setLoading(true);
-      const [userData, branchData, staffData] = await Promise.all([
+      // allSettled: a denied branch/staff lookup must not hide the user list
+      const [rUsers, rBranch, rStaff] = await Promise.allSettled([
         fetchUsers(user),
         fetchBranches(user),
         fetchHiredStaff(user).catch(() => []),
       ]);
-      const allUsers = Array.isArray(userData) ? userData : userData?.data || [];
+      const userData   = rUsers.status  === "fulfilled" ? rUsers.value  : null;
+      const branchData = rBranch.status === "fulfilled" ? rBranch.value : null;
+      const staffData  = rStaff.status  === "fulfilled" ? rStaff.value  : null;
+      const allUsers = Array.isArray(userData) ? userData : Array.isArray(userData?.data) ? userData.data : [];
       const EXCLUDED = ['student', 'parent'];
-      setUsers(allUsers.filter(u => !EXCLUDED.includes((u.ssms_user_role ?? '').toLowerCase().trim())));
-      setBranches(Array.isArray(branchData.data) ? branchData.data : []);
+      setUsers(allUsers.filter(u => !EXCLUDED.includes((u?.ssms_user_role ?? '').toLowerCase().trim())));
+      setBranches(Array.isArray(branchData?.data) ? branchData.data : []);
       setStaffList(Array.isArray(staffData) ? staffData : []);
+      if (rUsers.status === "rejected") Alert.alert(_t("Error"), _tx(rUsers.reason?.message) || _t("Failed to load users"));
     } catch (error) {
-      Alert.alert("Error", error.message || "Failed to load users");
+      Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to load users"));
     } finally {
       setLoading(false);
     }
@@ -395,7 +404,7 @@ export default function UserSetupScreen() {
       branch_id: "",
       ssms_user_status: "Active",
     });
-    setCountryCode('+91');
+    setCountryCode(defaultDialFor(user));
     setMobileNumber('');
     setEditingUser(null);
   };
@@ -427,7 +436,7 @@ export default function UserSetupScreen() {
 
   const handleSave = async () => {
     if (!form.ssms_user_name || !form.ssms_user_firstname || !form.ssms_user_email) {
-      Alert.alert("Validation", "Please fill all required fields");
+      Alert.alert(_t("Validation"), _t("Please fill all required fields"));
       return;
     }
     try {
@@ -439,34 +448,34 @@ export default function UserSetupScreen() {
       const payload = { ...form, mobile_number: mobile || null };
       if (editingUser) {
         await updateUser(editingUser.ssms_user_name, payload, user);
-        Alert.alert("Success", "User updated successfully");
+        Alert.alert(_t("Success"), _t("User updated successfully"));
       } else {
         await createUser(payload, user);
-        Alert.alert("Success", "User created successfully");
+        Alert.alert(_t("Success"), _t("User created successfully"));
       }
       setModalVisible(false);
       resetForm();
       loadData();
     } catch (error) {
-      Alert.alert("Error", error.message || "Failed to save user");
+      Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to save user"));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = (userName) => {
-    Alert.alert("Delete User", "Are you sure you want to delete this user?", [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(_t("Delete User"), _t("Are you sure you want to delete this user?"), [
+      { text: _t("Cancel"), style: "cancel" },
       {
-        text: "Delete",
+        text: _t("Delete"),
         style: "destructive",
         onPress: async () => {
           try {
             await deleteUser(userName, user);
-            Alert.alert("Success", "User deleted successfully");
+            Alert.alert(_t("Success"), _t("User deleted successfully"));
             loadData();
           } catch (error) {
-            Alert.alert("Error", error.message || "Failed to delete user");
+            Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to delete user"));
           }
         },
       },
@@ -506,14 +515,12 @@ export default function UserSetupScreen() {
       contentContainerStyle={styles.contentContainer}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.pageTitle}>List of Users</Text>
-      <Text style={styles.pageSubtitle}>
-        Manage school users, staff roles and permissions.
-      </Text>
+      <Text style={styles.pageTitle}>{_t("List of Users")}</Text>
+      <Text style={styles.pageSubtitle}>{_t("Manage school users, staff roles and permissions.")}</Text>
 
       <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
         <MaterialIcons name="person-add-alt-1" size={20} color="#fff" />
-        <Text style={styles.addButtonText}>Add New User</Text>
+        <Text style={styles.addButtonText}>{_t("Add New User")}</Text>
       </TouchableOpacity>
 
       {loading ? (
@@ -521,8 +528,8 @@ export default function UserSetupScreen() {
       ) : users.length === 0 ? (
         <View style={styles.emptyCard}>
           <MaterialIcons name="group" size={60} color="#94a3b8" />
-          <Text style={styles.emptyTitle}>No Users Found</Text>
-          <Text style={styles.emptyText}>Start by creating your first user account.</Text>
+          <Text style={styles.emptyTitle}>{_t("No Users Found")}</Text>
+          <Text style={styles.emptyText}>{_t("Start by creating your first user account.")}</Text>
         </View>
       ) : (
         renderUserCards()
@@ -560,12 +567,12 @@ export default function UserSetupScreen() {
               </View>
               <View>
                 <Text style={styles.drawerTitle}>
-                  {editingUser ? "Edit User" : "Add New User"}
+                  {editingUser ? _t("Edit User") : _t("Add New User")}
                 </Text>
                 <Text style={styles.drawerSubtitle}>
                   {editingUser
-                    ? `Editing @${editingUser.ssms_user_name}`
-                    : "Fill in the details below"}
+                    ? _t("Editing @{ssms_user_name}", { ssms_user_name: editingUser.ssms_user_name })
+                    : _t("Fill in the details below")}
                 </Text>
               </View>
             </View>
@@ -591,18 +598,17 @@ export default function UserSetupScreen() {
             scrollEventThrottle={16}
           >
             {/* ── ACCOUNT INFO ──────────────────────────────────────────────── */}
-            <Text style={styles.sectionLabel}>ACCOUNT INFO</Text>
+            <Text style={styles.sectionLabel}>{_t("ACCOUNT INFO")}</Text>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>
-                Username <Text style={styles.required}>*</Text>
+              <Text style={styles.inputLabel}>{_t("Username")}{" "}<Text style={styles.required}>*</Text>
               </Text>
               <View style={[styles.inputWrap, editingUser ? styles.inputWrapDisabled : null]}>
                 <MaterialIcons name="alternate-email" size={18} color="#94a3b8" style={styles.inputIcon} />
                 <TextInput
                   onFocus={scrollToFocused}
                   style={styles.inputInner}
-                  placeholder="e.g. john_doe"
+                  placeholder={_t("e.g. john_doe")}
                   placeholderTextColor="#94a3b8"
                   value={form.ssms_user_name}
                   onChangeText={(v) => setForm((p) => ({ ...p, ssms_user_name: v }))}
@@ -618,15 +624,14 @@ export default function UserSetupScreen() {
 
             <View style={styles.inputRow}>
               <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
-                <Text style={styles.inputLabel}>
-                  First Name <Text style={styles.required}>*</Text>
+                <Text style={styles.inputLabel}>{_t("First Name")}{" "}<Text style={styles.required}>*</Text>
                 </Text>
                 <View style={styles.inputWrap}>
                   <MaterialIcons name="person-outline" size={18} color="#94a3b8" style={styles.inputIcon} />
                   <TextInput
                   onFocus={scrollToFocused}
                     style={styles.inputInner}
-                    placeholder="First name"
+                    placeholder={_t("First name")}
                     placeholderTextColor="#94a3b8"
                     value={form.ssms_user_firstname}
                     onChangeText={(v) => setForm((p) => ({ ...p, ssms_user_firstname: v }))}
@@ -635,13 +640,13 @@ export default function UserSetupScreen() {
                 </View>
               </View>
               <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={styles.inputLabel}>Last Name</Text>
+                <Text style={styles.inputLabel}>{_t("Last Name")}</Text>
                 <View style={styles.inputWrap}>
                   <MaterialIcons name="person-outline" size={18} color="#94a3b8" style={styles.inputIcon} />
                   <TextInput
                   onFocus={scrollToFocused}
                     style={styles.inputInner}
-                    placeholder="Last name"
+                    placeholder={_t("Last name")}
                     placeholderTextColor="#94a3b8"
                     value={form.ssms_user_lastname}
                     onChangeText={(v) => setForm((p) => ({ ...p, ssms_user_lastname: v }))}
@@ -652,8 +657,7 @@ export default function UserSetupScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>
-                Email <Text style={styles.required}>*</Text>
+              <Text style={styles.inputLabel}>{_t("Email")}{" "}<Text style={styles.required}>*</Text>
               </Text>
               <View style={styles.inputWrap}>
                 <MaterialIcons name="mail-outline" size={18} color="#94a3b8" style={styles.inputIcon} />
@@ -673,14 +677,14 @@ export default function UserSetupScreen() {
 
             {/* ── MOBILE NUMBER ─────────────────────────────────────────────── */}
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Mobile Number</Text>
+              <Text style={styles.inputLabel}>{_t("Mobile Number")}</Text>
               <View style={styles.mobileRow}>
                 <TouchableOpacity
                   style={styles.ccBtn}
                   onPress={() => setCcPickerVisible(true)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.ccBtnTxt}>{countryCode}</Text>
+                  <Text style={styles.ccBtnTxt}>{_tx(countryCode)}</Text>
                   <Feather name="chevron-down" size={14} color="#475569" />
                 </TouchableOpacity>
                 <View style={[styles.inputWrap, { flex: 1 }]}>
@@ -712,7 +716,7 @@ export default function UserSetupScreen() {
                 activeOpacity={1}
               >
                 <View style={styles.ccSheet}>
-                  <Text style={styles.ccSheetTitle}>Select Country Code</Text>
+                  <Text style={styles.ccSheetTitle}>{_t("Select Country Code")}</Text>
                   <FlatList
                     data={COUNTRY_CODES}
                     keyExtractor={(item, i) => item.value + i}
@@ -722,7 +726,7 @@ export default function UserSetupScreen() {
                         onPress={() => { setCountryCode(cc.value); setCcPickerVisible(false); }}
                       >
                         <Text style={[styles.ccOptionTxt, cc.value === countryCode && styles.ccOptionTxtActive]}>
-                          {cc.label}
+                          {_tx(cc.label)}
                         </Text>
                         {cc.value === countryCode && <Feather name="check" size={14} color="#1e40af" />}
                       </TouchableOpacity>
@@ -735,10 +739,10 @@ export default function UserSetupScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>
-                {editingUser ? "New Password" : "Password"}
+                {editingUser ? _t("New Password") : _t("Password")}
               </Text>
               {editingUser && (
-                <Text style={styles.inputHint}>Leave blank to keep current password</Text>
+                <Text style={styles.inputHint}>{_t("Leave blank to keep current password")}</Text>
               )}
               <View style={styles.inputWrap}>
                 <MaterialIcons name="lock-outline" size={18} color="#94a3b8" style={styles.inputIcon} />
@@ -759,12 +763,12 @@ export default function UserSetupScreen() {
             {/* ── ROLE & ASSIGNMENT ─────────────────────────────────────────── */}
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Staff Member</Text>
+              <Text style={styles.inputLabel}>{_t("Staff Member")}</Text>
               <Dropdown
-                label="Select Staff"
+                label={_t("Select Staff")}
                 value={form.staff_id}
                 options={[
-                  { label: "— None (Admin / Owner) —", value: "" },
+                  { label: _t("— None (Admin / Owner) —"), value: "" },
                   ...staffList.map(s => ({
                     value: String(s.staff_id),
                     label: `${s.full_name?.trim() || `${s.first_name} ${s.last_name}`.trim()}`,
@@ -776,16 +780,16 @@ export default function UserSetupScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Role</Text>
+              <Text style={styles.inputLabel}>{_t("Role")}</Text>
               <Dropdown
-                label="Select Role"
+                label={_t("Select Role")}
                 value={form.ssms_user_role}
                 options={[
-                  { label: "Select Role",      value: ""           },
-                  { label: "Teacher / User",   value: "user"       },
-                  { label: "Admin",            value: "admin"      },
-                  { label: "Accountant",       value: "accountant" },
-                  { label: "Owner",            value: "owner"      },
+                  { label: _t("Select Role"),      value: ""           },
+                  { label: _t("Teacher / User"),   value: "user"       },
+                  { label: _t("Admin"),            value: "admin"      },
+                  { label: _t("Accountant"),       value: "accountant" },
+                  { label: _t("Owner"),            value: "owner"      },
                 ]}
                 onChange={(v) => setForm((p) => ({ ...p, ssms_user_role: v }))}
                 disabled={saving}
@@ -793,12 +797,12 @@ export default function UserSetupScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Branch</Text>
+              <Text style={styles.inputLabel}>{_t("Branch")}</Text>
               <Dropdown
-                label="Select Branch"
+                label={_t("Select Branch")}
                 value={form.branch_id}
                 options={[
-                  { label: "Select Branch", value: "" },
+                  { label: _t("Select Branch"), value: "" },
                   ...branches.map(b => ({ label: b.branch_name, value: String(b.branch_id) })),
                 ]}
                 onChange={(v) => setForm((p) => ({ ...p, branch_id: v }))}
@@ -807,7 +811,7 @@ export default function UserSetupScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Status</Text>
+              <Text style={styles.inputLabel}>{_t("Status")}</Text>
               <View style={styles.statusToggleRow}>
                 {["Active", "Inactive"].map((s) => (
                   <TouchableOpacity
@@ -837,7 +841,7 @@ export default function UserSetupScreen() {
                         },
                       ]}
                     >
-                      {s}
+                      {_tx(s)}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -851,7 +855,7 @@ export default function UserSetupScreen() {
                 onPress={() => { setModalVisible(false); resetForm(); }}
               >
                 <MaterialIcons name="close" size={18} color="#475569" style={{ marginRight: 6 }} />
-                <Text style={styles.footerCancelText}>Cancel</Text>
+                <Text style={styles.footerCancelText}>{_t("Cancel")}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -870,7 +874,7 @@ export default function UserSetupScreen() {
                       style={{ marginRight: 8 }}
                     />
                     <Text style={styles.footerSaveText}>
-                      {editingUser ? "Update User" : "Save User"}
+                      {editingUser ? _t("Update User") : _t("Save User")}
                     </Text>
                   </>
                 )}
@@ -897,10 +901,10 @@ function UserCard({ item, onEdit, onDelete }) {
         />
         <View style={{ flex: 1 }}>
           <Text style={styles.userName}>
-            {item.ssms_user_firstname} {item.ssms_user_lastname}
+            {_tx(item.ssms_user_firstname)} {_tx(item.ssms_user_lastname)}
           </Text>
-          <Text style={styles.userRole}>{item.ssms_user_role}</Text>
-          <Text style={styles.userEmail}>{item.ssms_user_email}</Text>
+          <Text style={styles.userRole}>{_tx(item.ssms_user_role)}</Text>
+          <Text style={styles.userEmail}>{_tx(item.ssms_user_email)}</Text>
         </View>
         <View
           style={[
@@ -915,30 +919,24 @@ function UserCard({ item, onEdit, onDelete }) {
               fontSize: 12,
             }}
           >
-            {item.ssms_user_status}
+            {_tx(item.ssms_user_status)}
           </Text>
         </View>
       </View>
-      <Text style={styles.infoText}>Username: {item.ssms_user_name}</Text>
-      <Text style={styles.infoText}>Branch: {item.branch_name || "N/A"}</Text>
-      <Text style={styles.infoText}>Staff: {item.staff_name?.trim() || "N/A"}</Text>
-      <Text style={styles.infoText}>
-        Last Login:{" "}
-        {item.last_login_date
-          ? new Date(item.last_login_date.replace(" ", "T") + "Z").toLocaleString("en-GB", {
-              day: "2-digit", month: "short", year: "numeric",
-              hour: "2-digit", minute: "2-digit", hour12: true,
-            })
-          : "Never"}
-      </Text>
+      <Text style={styles.infoText}>{_t("Username: {ssms_user_name}", { ssms_user_name: item.ssms_user_name })}</Text>
+      <Text style={styles.infoText}>{_t("Branch: {v}", { v: item.branch_name || "N/A" })}</Text>
+      <Text style={styles.infoText}>{_t("Staff: {v}", { v: item.staff_name?.trim() || "N/A" })}</Text>
+      <Text style={styles.infoText}>{_t("Last Login: {v}", { v: item.last_login_date
+          ? fmtDateTime(new Date(item.last_login_date.replace(" ", "T") + "Z"))
+          : _t("Never") })}</Text>
       <View style={styles.footerButtons}>
         <TouchableOpacity style={styles.editButton} onPress={() => onEdit(item)}>
           <MaterialIcons name="edit" size={18} color="#1e40af" />
-          <Text style={styles.editButtonText}>Edit</Text>
+          <Text style={styles.editButtonText}>{_t("Edit")}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.deleteButton} onPress={() => onDelete(item.ssms_user_name)}>
           <MaterialIcons name="delete-outline" size={18} color="#dc2626" />
-          <Text style={styles.deleteButtonText}>Delete</Text>
+          <Text style={styles.deleteButtonText}>{_t("Delete")}</Text>
         </TouchableOpacity>
       </View>
     </View>

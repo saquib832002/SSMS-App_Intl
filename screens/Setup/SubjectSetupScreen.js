@@ -12,6 +12,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { MaterialIcons, Feather } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
 import { fetchSubjects, createSubject, updateSubject, deleteSubject } from "../../services/SubjectServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 export default function SubjectSetupScreen({ navigation }) {
   const { user } = useContext(AuthContext);
@@ -31,7 +32,7 @@ export default function SubjectSetupScreen({ navigation }) {
       const data = await fetchSubjects(user);
       setSubjects(Array.isArray(data) ? data : []);
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load subjects");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load subjects"));
     } finally {
       setLoading(false);
     }
@@ -48,7 +49,7 @@ export default function SubjectSetupScreen({ navigation }) {
           onPress={() => navigation.navigate("ClassSubject")}
         >
           <Feather name="layers" size={13} color="#6b21a8" />
-          <Text style={st.headerBtnTxt}>Class Subjects</Text>
+          <Text style={st.headerBtnTxt}>{_t("Class Subjects")}</Text>
         </TouchableOpacity>
       ),
     });
@@ -69,7 +70,7 @@ export default function SubjectSetupScreen({ navigation }) {
 
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!subjectName.trim()) { Alert.alert("Validation", "Subject name is required."); return; }
+    if (!subjectName.trim()) { Alert.alert(_t("Validation"), _t("Subject name is required.")); return; }
     try {
       setSaving(true);
       if (editingSubject) {
@@ -79,9 +80,9 @@ export default function SubjectSetupScreen({ navigation }) {
       }
       setModalVisible(false);
       load();
-      Alert.alert("Success", editingSubject ? "Subject updated." : "Subject added.");
+      Alert.alert(_t("Success"), editingSubject ? _t("Subject updated.") : _t("Subject added."));
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to save subject");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to save subject"));
     } finally {
       setSaving(false);
     }
@@ -90,18 +91,18 @@ export default function SubjectSetupScreen({ navigation }) {
   // ── Delete ────────────────────────────────────────────────────────────────
   const handleDelete = (item) => {
     Alert.alert(
-      "Delete Subject",
-      `Delete "${item.subject_name}"?\n\nNote: subjects assigned to classes cannot be deleted.`,
+      _t("Delete Subject"),
+      _t("Delete \"{subject_name}\"?\n\nNote: subjects assigned to classes cannot be deleted.", { subject_name: item.subject_name }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Delete", style: "destructive",
+          text: _t("Delete"), style: "destructive",
           onPress: async () => {
             try {
               await deleteSubject(user, item.subject_id);
               load();
             } catch (e) {
-              Alert.alert("Error", e.message || "Failed to delete");
+              Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to delete"));
             }
           },
         },
@@ -122,15 +123,15 @@ export default function SubjectSetupScreen({ navigation }) {
             </Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={st.subjectName}>{item.subject_name}</Text>
+            <Text style={st.subjectName}>{_tx(item.subject_name)}</Text>
             <View style={st.badgeRow}>
               {count > 0
                 ? <View style={st.badgeBlue}>
                     <Feather name="layers" size={9} color="#1e40af" />
-                    <Text style={st.badgeBlueTxt}>{count} class{count !== 1 ? "es" : ""}</Text>
+                    <Text style={st.badgeBlueTxt}>{_t("{count} class{pl}", { count, pl: count !== 1 ? "es" : "" })}</Text>
                   </View>
                 : <View style={st.badgeGray}>
-                    <Text style={st.badgeGrayTxt}>Unassigned</Text>
+                    <Text style={st.badgeGrayTxt}>{_t("Unassigned")}</Text>
                   </View>}
             </View>
           </View>
@@ -155,7 +156,7 @@ export default function SubjectSetupScreen({ navigation }) {
       {loading
         ? <View style={st.loader}>
             <ActivityIndicator size="large" color="#1e40af" />
-            <Text style={st.loaderTxt}>Loading subjects…</Text>
+            <Text style={st.loaderTxt}>{_t("Loading subjects…")}</Text>
           </View>
         : <FlatList
             data={subjects}
@@ -166,8 +167,8 @@ export default function SubjectSetupScreen({ navigation }) {
             ListEmptyComponent={
               <View style={st.empty}>
                 <Feather name="book" size={38} color="#cbd5e1" />
-                <Text style={st.emptyTxt}>No subjects yet</Text>
-                <Text style={st.emptySubTxt}>Tap "Add Subject" to create one</Text>
+                <Text style={st.emptyTxt}>{_t("No subjects yet")}</Text>
+                <Text style={st.emptySubTxt}>{_t("Tap \"Add Subject\" to create one")}</Text>
               </View>
             }
           />}
@@ -176,7 +177,7 @@ export default function SubjectSetupScreen({ navigation }) {
       <View style={st.bottomBar}>
         <TouchableOpacity style={st.addBtn} onPress={openAdd}>
           <Feather name="plus" size={16} color="#fff" />
-          <Text style={st.addBtnTxt}>Add Subject</Text>
+          <Text style={st.addBtnTxt}>{_t("Add Subject")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -186,16 +187,16 @@ export default function SubjectSetupScreen({ navigation }) {
           <View style={st.modalCard}>
 
             <View style={st.modalHeader}>
-              <Text style={st.modalTitle}>{editingSubject ? "Edit Subject" : "Add Subject"}</Text>
+              <Text style={st.modalTitle}>{editingSubject ? _t("Edit Subject") : _t("Add Subject")}</Text>
               <TouchableOpacity style={st.modalClose} onPress={() => setModalVisible(false)} disabled={saving}>
                 <Feather name="x" size={15} color="#64748b" />
               </TouchableOpacity>
             </View>
 
-            <Text style={st.fieldLabel}>Subject Name <Text style={{ color: "#ef4444" }}>*</Text></Text>
+            <Text style={st.fieldLabel}>{_t("Subject Name")}{" "}<Text style={{ color: "#ef4444" }}>*</Text></Text>
             <TextInput
               style={st.input}
-              placeholder="e.g. Mathematics"
+              placeholder={_t("e.g. Mathematics")}
               placeholderTextColor="#94a3b8"
               value={subjectName}
               onChangeText={setSubjectName}
@@ -205,14 +206,14 @@ export default function SubjectSetupScreen({ navigation }) {
 
             <View style={st.modalBtns}>
               <TouchableOpacity style={st.cancelBtn} onPress={() => setModalVisible(false)} disabled={saving}>
-                <Text style={st.cancelBtnTxt}>Cancel</Text>
+                <Text style={st.cancelBtnTxt}>{_t("Cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[st.saveBtn, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>
                 {saving
                   ? <ActivityIndicator color="#fff" size="small" />
                   : <>
                       <Feather name="check" size={14} color="#fff" />
-                      <Text style={st.saveBtnTxt}>{editingSubject ? "Update" : "Save"}</Text>
+                      <Text style={st.saveBtnTxt}>{editingSubject ? _t("Update") : _t("Save")}</Text>
                     </>}
               </TouchableOpacity>
             </View>

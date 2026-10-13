@@ -9,6 +9,7 @@ import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { AuthContext } from "../context/AuthContext";
 import { changePassword } from "../services/UserServiceApi";
+import { _t, _tx } from "../services/i18n";
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const C = {
@@ -34,11 +35,11 @@ function getStrength(pw) {
   if (/[0-9]/.test(pw))         score++;
   if (/[^A-Za-z0-9]/.test(pw)) score++;
 
-  if (score <= 1) return { level: 1, label: 'Weak',      color: '#ef4444' };
-  if (score === 2) return { level: 2, label: 'Fair',      color: '#f97316' };
-  if (score === 3) return { level: 3, label: 'Good',      color: '#eab308' };
-  if (score === 4) return { level: 4, label: 'Strong',    color: '#22c55e' };
-                   return { level: 5, label: 'Very Strong', color: '#16a34a' };
+  if (score <= 1) return { level: 1, label: _t("Weak"),      color: '#ef4444' };
+  if (score === 2) return { level: 2, label: _t("Fair"),      color: '#f97316' };
+  if (score === 3) return { level: 3, label: _t("Good"),      color: '#eab308' };
+  if (score === 4) return { level: 4, label: _t("Strong"),    color: '#22c55e' };
+                   return { level: 5, label: _t("Very Strong"), color: '#16a34a' };
 }
 
 function StrengthBar({ password }) {
@@ -54,7 +55,7 @@ function StrengthBar({ password }) {
           />
         ))}
       </View>
-      <Text style={[sb.label, { color }]}>{label}</Text>
+      <Text style={[sb.label, { color }]}>{_tx(label)}</Text>
     </View>
   );
 }
@@ -71,7 +72,7 @@ function PasswordField({ label, value, onChangeText, error, inputRef, onSubmitEd
   const hasError = !!error;
   return (
     <View style={pf.wrap}>
-      <Text style={pf.label}>{label}</Text>
+      <Text style={pf.label}>{_tx(label)}</Text>
       <View style={[pf.row, hasError && pf.rowError]}>
         <MaterialIcons name="lock-outline" size={18} color={hasError ? C.error : C.muted} style={pf.icon} />
         <TextInput
@@ -85,7 +86,7 @@ function PasswordField({ label, value, onChangeText, error, inputRef, onSubmitEd
           returnKeyType={returnKeyType ?? 'next'}
           onSubmitEditing={onSubmitEditing}
           placeholderTextColor={C.muted}
-          placeholder={label}
+          placeholder={_tx(label)}
         />
         <TouchableOpacity onPress={() => setShow(s => !s)} style={pf.eye} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Feather name={show ? 'eye-off' : 'eye'} size={17} color={C.muted} />
@@ -94,7 +95,7 @@ function PasswordField({ label, value, onChangeText, error, inputRef, onSubmitEd
       {hasError && (
         <View style={pf.errorRow}>
           <Feather name="alert-circle" size={12} color={C.error} />
-          <Text style={pf.errorTxt}>{error}</Text>
+          <Text style={pf.errorTxt}>{_tx(error)}</Text>
         </View>
       )}
       {children}
@@ -118,7 +119,7 @@ function RuleItem({ met, text }) {
   return (
     <View style={rl.row}>
       <Feather name={met ? 'check-circle' : 'circle'} size={13} color={met ? C.success : C.muted} />
-      <Text style={[rl.txt, met && rl.met]}>{text}</Text>
+      <Text style={[rl.txt, met && rl.met]}>{_tx(text)}</Text>
     </View>
   );
 }
@@ -184,7 +185,7 @@ export default function ChangePasswordScreen({ navigation }) {
       if (err.message?.toLowerCase().includes('current password')) {
         setErrors({ current: err.message });
       } else {
-        Alert.alert('Error', err.message || 'Failed to change password');
+        Alert.alert(_t("Error"), _tx(err.message) || _t("Failed to change password"));
       }
     } finally {
       setLoading(false);
@@ -200,12 +201,10 @@ export default function ChangePasswordScreen({ navigation }) {
           <View style={s.successIcon}>
             <Feather name="check-circle" size={52} color={C.success} />
           </View>
-          <Text style={s.successTitle}>Password Changed!</Text>
-          <Text style={s.successSub}>
-            Your password has been updated successfully. Use your new password next time you sign in.
-          </Text>
+          <Text style={s.successTitle}>{_t("Password Changed!")}</Text>
+          <Text style={s.successSub}>{_t("Your password has been updated successfully. Use your new password next time you sign in.")}</Text>
           <TouchableOpacity style={s.doneBtn} onPress={() => navigation.goBack()}>
-            <Text style={s.doneBtnTxt}>Done</Text>
+            <Text style={s.doneBtnTxt}>{_t("Done")}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -221,8 +220,8 @@ export default function ChangePasswordScreen({ navigation }) {
           <MaterialIcons name="lock-reset" size={22} color="#fff" />
         </View>
         <View>
-          <Text style={s.heroTitle}>Change Password</Text>
-          <Text style={s.heroSub}>Keep your account secure</Text>
+          <Text style={s.heroTitle}>{_t("Change Password")}</Text>
+          <Text style={s.heroSub}>{_t("Keep your account secure")}</Text>
         </View>
       </LinearGradient>
 
@@ -241,7 +240,7 @@ export default function ChangePasswordScreen({ navigation }) {
 
           {/* Current password */}
           <PasswordField
-            label="Current Password"
+            label={_t("Current Password")}
             value={current}
             onChangeText={v => { setCurrent(v); if (errors.current) setErrors(e => ({ ...e, current: '' })); }}
             error={errors.current}
@@ -253,7 +252,7 @@ export default function ChangePasswordScreen({ navigation }) {
 
           {/* New password */}
           <PasswordField
-            label="New Password"
+            label={_t("New Password")}
             value={newPw}
             onChangeText={v => { setNewPw(v); if (errors.newPw) setErrors(e => ({ ...e, newPw: '' })); }}
             error={errors.newPw}
@@ -266,15 +265,15 @@ export default function ChangePasswordScreen({ navigation }) {
           {/* Rules checklist — visible once user starts typing new pw */}
           {newPw.length > 0 && (
             <View style={s.rulesBox}>
-              <RuleItem met={rules.minLen}  text="At least 8 characters" />
-              <RuleItem met={rules.hasNum}  text="At least one number (0–9)" />
-              <RuleItem met={rules.noSpace} text="No spaces" />
+              <RuleItem met={rules.minLen}  text={_t("At least 8 characters")} />
+              <RuleItem met={rules.hasNum}  text={_t("At least one number (0–9)")} />
+              <RuleItem met={rules.noSpace} text={_t("No spaces")} />
             </View>
           )}
 
           {/* Confirm password */}
           <PasswordField
-            label="Confirm New Password"
+            label={_t("Confirm New Password")}
             value={confirm}
             onChangeText={v => { setConfirm(v); if (errors.confirm) setErrors(e => ({ ...e, confirm: '' })); }}
             error={errors.confirm}
@@ -291,7 +290,7 @@ export default function ChangePasswordScreen({ navigation }) {
                   color={rules.matches ? C.success : C.error}
                 />
                 <Text style={[pf.errorTxt, { color: rules.matches ? C.success : C.error }]}>
-                  {rules.matches ? 'Passwords match' : 'Passwords do not match'}
+                  {rules.matches ? _t("Passwords match") : _t("Passwords do not match")}
                 </Text>
               </View>
             )}
@@ -309,7 +308,7 @@ export default function ChangePasswordScreen({ navigation }) {
               : (
                 <>
                   <Feather name="shield" size={17} color="#fff" />
-                  <Text style={s.submitTxt}>Update Password</Text>
+                  <Text style={s.submitTxt}>{_t("Update Password")}</Text>
                 </>
               )
             }

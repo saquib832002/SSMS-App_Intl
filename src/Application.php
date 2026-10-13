@@ -102,13 +102,17 @@ class Application extends BaseApplication implements AuthenticationServiceProvid
             // https://book.cakephp.org/5/en/security/csrf.html#cross-site-request-forgery-csrf-middleware
     
             ->add(new \App\Middleware\JwtAuthMiddleware())
+            // audit log: records every successful change (runs inside the JWT check so it knows who)
+            ->add(new \App\Middleware\AuditMiddleware())
             ->add(function ($request, $handler) use ($csrf) {
                 $path = $request->getUri()->getPath();
                 // Skip CSRF for ALL API routes — JWT handles auth for these
                 $isApi = (bool) preg_match(
-                    '#/(UserServiceApi|StudentApi|FeeApi|SetupServiceApi|HostelServiceApi|StaffServiceApi|SubjectServiceApi|ExamServiceApi|TransportServiceApi|TimeTableServiceApi|SchoolEventsApi|HomeworkApi|NoticeApi|SchoolGalleryApi|SchoolSettingsServiceApi|DatesheetApi|QuestionPaperApi|QuestionBankApi|TestSeriesApi|ChatApi|CertificateApi|LeaveApi|LibraryCatalogApi|LibraryMemberApi|LibraryCirculationApi|LibraryFineApi|LibraryAdminApi|LibraryFacilityApi|LibrarySerialApi|LibraryAcquisitionApi|LibraryProgramApi|LibraryUserApi|SubscriptionApi)/#i',
+                    '#/(UserServiceApi|StudentApi|FeeApi|SetupServiceApi|HostelServiceApi|StaffServiceApi|SubjectServiceApi|ExamServiceApi|TransportServiceApi|TimeTableServiceApi|SchoolEventsApi|HomeworkApi|NoticeApi|SchoolGalleryApi|SchoolSettingsServiceApi|DatesheetApi|QuestionPaperApi|QuestionBankApi|TestSeriesApi|ChatApi|CertificateApi|LeaveApi|LibraryCatalogApi|LibraryMemberApi|LibraryCirculationApi|LibraryFineApi|LibraryAdminApi|LibraryFacilityApi|LibrarySerialApi|LibraryAcquisitionApi|LibraryProgramApi|LibraryUserApi|SubscriptionApi|OnlinePayApi|ReportCardApi|StudentLeaveApi|StaffAttendanceApi|SecurityApi|AuditApi|RolesApi|PrivacyApi|StudentRecordApi|MeetingApi|AnalyticsApi|ExamLogisticsApi|CoverApi|CalendarApi|SafetyApi|BusTrackingApi|LocaleApi|NotifyApi)/#i',
                     $path
                 );
+                // Public payment pages + webhooks: the pay token / webhook signature is the protection
+                $isApi = $isApi || str_starts_with($path, '/pay/') || str_starts_with($path, '/hooks/') || str_starts_with($path, '/cal/');
                 // Skip CSRF for superuser AJAX endpoints (session-protected)
                 $isAdminAjax = in_array($path, [
                     '/admin/toggle-user-status',
@@ -206,9 +210,9 @@ class Application extends BaseApplication implements AuthenticationServiceProvid
         // attribute (required by AuthenticationComponent on web controllers).
         // For API routes: unauthenticatedRedirect = null prevents any redirect.
         $isApi = (bool) preg_match(
-            '#/(UserServiceApi|StudentApi|FeeApi|SetupServiceApi|HostelServiceApi|StaffServiceApi|DashboardServiceApi|SubjectServiceApi|ExamServiceApi|TransportServiceApi|TimeTableServiceApi|SchoolEventsApi|HomeworkApi|NoticeApi|SchoolGalleryApi|SchoolSettingsServiceApi|DatesheetApi|QuestionPaperApi|QuestionBankApi|TestSeriesApi|ChatApi|CertificateApi|LeaveApi|LibraryCatalogApi|LibraryMemberApi|LibraryCirculationApi|LibraryFineApi|LibraryAdminApi|LibraryFacilityApi|LibrarySerialApi|LibraryAcquisitionApi|LibraryProgramApi|SubscriptionApi)/#i',
+            '#/(UserServiceApi|StudentApi|FeeApi|SetupServiceApi|HostelServiceApi|StaffServiceApi|DashboardServiceApi|SubjectServiceApi|ExamServiceApi|TransportServiceApi|TimeTableServiceApi|SchoolEventsApi|HomeworkApi|NoticeApi|SchoolGalleryApi|SchoolSettingsServiceApi|DatesheetApi|QuestionPaperApi|QuestionBankApi|TestSeriesApi|ChatApi|CertificateApi|LeaveApi|LibraryCatalogApi|LibraryMemberApi|LibraryCirculationApi|LibraryFineApi|LibraryAdminApi|LibraryFacilityApi|LibrarySerialApi|LibraryAcquisitionApi|LibraryProgramApi|SubscriptionApi|OnlinePayApi|ReportCardApi|StudentLeaveApi|StaffAttendanceApi|SecurityApi|AuditApi|RolesApi|PrivacyApi|StudentRecordApi|MeetingApi|AnalyticsApi|ExamLogisticsApi|CoverApi|CalendarApi|SafetyApi|BusTrackingApi|LocaleApi|NotifyApi)/#i',
             $path
-        );
+        ) || str_starts_with($path, '/pay/') || str_starts_with($path, '/hooks/') || str_starts_with($path, '/cal/');   // public payment pages / webhooks / calendar feeds
 
         // Public student registration page — no redirect (matches /students/studReg or /students/stud-reg)
         $isPublicStudReg = (bool) preg_match('#/students/stud.?reg#i', $path);

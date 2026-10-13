@@ -251,7 +251,8 @@ class FinPayrollController extends AppController
 
                 foreach ($structures as $s) {
                     $staffId    = $s['staff_id'];
-                    $daysPresent = (int)($d['attendance'][$staffId] ?? $workingDays);
+                    // half days allowed (payable days from staff attendance can be e.g. 24.5)
+                    $daysPresent = round((float)($d['attendance'][$staffId] ?? $workingDays), 1);
                     $ratio       = $workingDays > 0 ? $daysPresent / $workingDays : 1;
 
                     // Gross components (pro-rated by attendance)
@@ -369,7 +370,27 @@ class FinPayrollController extends AppController
             }
         }
 
-        $this->set(compact('fy','structures'));
+        // Pre-fill days from Staff Attendance (payable days = working days − absent − unpaid leave − ½ half days)
+        $attMonth = (string)($this->request->getQuery('month') ?: date('Y-m'));
+        if (!preg_match('/^\d{4}-\d{2}$/', $attMonth)) {
+            $attMonth = date('Y-m');
+        }
+        $att = null;
+        try {
+            $att = \App\Service\StaffAttendance::payrollDays($this->code(), $attMonth);
+            // only useful when someone has actually been marked this month
+            $marked = (int)$this->db()->execute(
+                'SELECT COUNT(*) AS n FROM ssms_staff_attendance WHERE ssms_client_code = ? AND att_date BETWEEN ? AND ?',
+                [$this->code(), $attMonth . '-01', date('Y-m-t', strtotime($attMonth . '-01'))]
+            )->fetch('assoc')['n'];
+            if ($marked === 0) {
+                $att = null;
+            }
+        } catch (\Throwable $e) {
+            $att = null;   // staff attendance not set up yet
+        }
+
+        $this->set(compact('fy','structures','att','attMonth'));
     }
 
     public function view(int $id)

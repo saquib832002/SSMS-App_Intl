@@ -44,6 +44,7 @@ import * as Sharing from "expo-sharing";
 import { read as xlsxRead, utils as xlsxUtils, write as xlsxWrite } from "xlsx";
 import { AuthContext } from "../../context/AuthContext";
 import { getImportReference, importQuestions } from "../../services/QuestionPaperServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Column definitions ────────────────────────────────────────────────────────
 const COLUMNS = [
@@ -74,7 +75,7 @@ function validateRow(row, refData) {
   const validTypes = ["mcq", "multi_correct", "true_false", "short", "long",
                       "fill_blank", "passage", "figure", "match"];
   if (!type)                     errs.push("Type is required");
-  else if (!validTypes.includes(type)) errs.push(`Unknown type "${row.type}"`);
+  else if (!validTypes.includes(type)) errs.push(_t("Unknown type \"{type}\"", { type: row.type }));
   if (!(row.question_text ?? "").trim()) errs.push("Question text is required");
 
   const subjectNames = (refData?.subjects ?? []).map(s => s.name.toLowerCase());
@@ -83,10 +84,10 @@ function validateRow(row, refData) {
   const cn = (row.class_name   ?? "").toLowerCase().trim();
   if (!sn) errs.push("Subject name is required");
   else if (refData && subjectNames.length && !subjectNames.includes(sn))
-    errs.push(`Subject "${row.subject_name}" not found — check Reference sheet`);
+    errs.push(_t("Subject \"{subject_name}\" not found — check Reference sheet", { subject_name: row.subject_name }));
   if (!cn) errs.push("Class name is required");
   else if (refData && className.length && !className.includes(cn))
-    errs.push(`Class "${row.class_name}" not found — check Reference sheet`);
+    errs.push(_t("Class \"{class_name}\" not found — check Reference sheet", { class_name: row.class_name }));
 
   if (["mcq", "multi_correct", "true_false"].includes(type)) {
     if (!(row.option_a ?? "").trim()) errs.push("Option A is required");
@@ -111,7 +112,7 @@ export default function ImportQuestionsScreen({ navigation }) {
   // ── Load reference data ────────────────────────────────────────────────────
   useEffect(() => {
     getImportReference(user)
-      .then(data => setRefData(data))
+      .then(data => setRefData(data && typeof data === "object" && !Array.isArray(data) ? data : {}))
       .catch(() => setRefData({}))
       .finally(() => setRefLoading(false));
   }, [user]);
@@ -168,10 +169,10 @@ export default function ImportQuestionsScreen({ navigation }) {
           dialogTitle: "Save Question Import Template",
         });
       } else {
-        Alert.alert("Saved", "Template saved to app cache:\n" + path);
+        Alert.alert(_t("Saved"), _t("Template saved to app cache:\n{path}", { path }));
       }
     } catch (e) {
-      Alert.alert("Error", "Could not generate template: " + e.message);
+      Alert.alert(_t("Error"), _t("Could not generate template: {message}", { message: e.message }));
     }
   }, [refData]);
 
@@ -211,7 +212,7 @@ export default function ImportQuestionsScreen({ navigation }) {
       }).filter(r => Object.values(r).some(v => v !== ""));
 
       if (rows.length === 0) {
-        Alert.alert("Empty file", "No data rows found. Make sure the Questions sheet has data below the header.");
+        Alert.alert(_t("Empty file"), _t("No data rows found. Make sure the Questions sheet has data below the header."));
         return;
       }
 
@@ -225,7 +226,7 @@ export default function ImportQuestionsScreen({ navigation }) {
       setParsedRows(rows);
       setRowErrors(errs);
     } catch (e) {
-      Alert.alert("Error", "Could not read file: " + e.message);
+      Alert.alert(_t("Error"), _t("Could not read file: {message}", { message: e.message }));
     }
   }, [refData]);
 
@@ -235,11 +236,11 @@ export default function ImportQuestionsScreen({ navigation }) {
     const errorCount = Object.keys(rowErrors).length;
     if (errorCount > 0) {
       Alert.alert(
-        "Validation errors",
-        `${errorCount} row(s) have errors and will be skipped. Import the remaining ${parsedRows.length - errorCount} valid rows?`,
+        _t("Validation errors"),
+        _t("{errorCount} row(s) have errors and will be skipped. Import the remaining {v} valid rows?", { errorCount, v: parsedRows.length - errorCount }),
         [
-          { text: "Cancel", style: "cancel" },
-          { text: "Import valid rows", onPress: doImport },
+          { text: _t("Cancel"), style: "cancel" },
+          { text: _t("Import valid rows"), onPress: doImport },
         ],
       );
     } else {
@@ -254,7 +255,7 @@ export default function ImportQuestionsScreen({ navigation }) {
       setResult(res);
       if (res.imported > 0) setParsedRows(null);
     } catch (e) {
-      Alert.alert("Import failed", e.message);
+      Alert.alert(_t("Import failed"), _tx(e.message));
     } finally {
       setImporting(false);
     }
@@ -274,19 +275,17 @@ export default function ImportQuestionsScreen({ navigation }) {
         <View style={s.card}>
           <View style={s.stepRow}>
             <View style={s.stepBadge}><Text style={s.stepNum}>1</Text></View>
-            <Text style={s.stepTitle}>Download the Template</Text>
+            <Text style={s.stepTitle}>{_t("Download the Template")}</Text>
           </View>
-          <Text style={s.stepDesc}>
-            Get the Excel template with two sheets:{"\n"}
-            • <Text style={s.bold}>Questions</Text> — fill in your questions here{"\n"}
-            • <Text style={s.bold}>Reference</Text> — lists valid names for subject, class, branch &amp; session
-          </Text>
+          <Text style={s.stepDesc}>{_t("Get the Excel template with two sheets:")}{"\n"}
+            • <Text style={s.bold}>{_t("Questions")}</Text>{" "}{_t("— fill in your questions here")}{"\n"}
+            • <Text style={s.bold}>{_t("Reference")}</Text>{" "}{_t("— lists valid names for subject, class, branch & session")}</Text>
           {refLoading
             ? <ActivityIndicator color="#2563eb" style={{ marginTop: 12 }} />
             : (
               <TouchableOpacity style={s.btn} onPress={handleDownloadTemplate}>
                 <Feather name="download" size={16} color="#fff" />
-                <Text style={s.btnTxt}>Download Template (.xlsx)</Text>
+                <Text style={s.btnTxt}>{_t("Download Template (.xlsx)")}</Text>
               </TouchableOpacity>
             )}
         </View>
@@ -295,21 +294,19 @@ export default function ImportQuestionsScreen({ navigation }) {
         <View style={s.card}>
           <View style={s.stepRow}>
             <View style={s.stepBadge}><Text style={s.stepNum}>2</Text></View>
-            <Text style={s.stepTitle}>Fill in &amp; Pick your File</Text>
+            <Text style={s.stepTitle}>{_t("Fill in & Pick your File")}</Text>
           </View>
-          <Text style={s.stepDesc}>
-            Fill in the template and save it. Then tap below to pick the file.
-          </Text>
+          <Text style={s.stepDesc}>{_t("Fill in the template and save it. Then tap below to pick the file.")}</Text>
           <TouchableOpacity style={[s.btn, s.btnSecondary]} onPress={handlePickFile}>
             <Feather name="upload" size={16} color="#2563eb" />
             <Text style={[s.btnTxt, { color: "#2563eb" }]}>
-              {fileName ? `Re-pick file` : "Pick Excel File"}
+              {fileName ? _t("Re-pick file") : _t("Pick Excel File")}
             </Text>
           </TouchableOpacity>
           {!!fileName && (
             <View style={s.fileNameRow}>
               <Feather name="file-text" size={13} color="#64748b" />
-              <Text style={s.fileNameTxt} numberOfLines={1}>{fileName}</Text>
+              <Text style={s.fileNameTxt} numberOfLines={1}>{_tx(fileName)}</Text>
             </View>
           )}
         </View>
@@ -319,21 +316,21 @@ export default function ImportQuestionsScreen({ navigation }) {
           <View style={s.card}>
             <View style={s.stepRow}>
               <View style={s.stepBadge}><Text style={s.stepNum}>3</Text></View>
-              <Text style={s.stepTitle}>Preview &amp; Validate</Text>
+              <Text style={s.stepTitle}>{_t("Preview & Validate")}</Text>
             </View>
 
             {/* Summary chips */}
             <View style={s.chipRow}>
               <View style={[s.chip, { backgroundColor: "#dcfce7" }]}>
-                <Text style={[s.chipTxt, { color: "#16a34a" }]}>✓ {validRows} valid</Text>
+                <Text style={[s.chipTxt, { color: "#16a34a" }]}>{_t("✓ {validRows} valid", { validRows })}</Text>
               </View>
               {errorRows > 0 && (
                 <View style={[s.chip, { backgroundColor: "#fee2e2" }]}>
-                  <Text style={[s.chipTxt, { color: "#dc2626" }]}>✗ {errorRows} errors</Text>
+                  <Text style={[s.chipTxt, { color: "#dc2626" }]}>{_t("✗ {errorRows} errors", { errorRows })}</Text>
                 </View>
               )}
               <View style={[s.chip, { backgroundColor: "#f1f5f9" }]}>
-                <Text style={[s.chipTxt, { color: "#475569" }]}>{totalRows} total rows</Text>
+                <Text style={[s.chipTxt, { color: "#475569" }]}>{_t("{totalRows} total rows", { totalRows })}</Text>
               </View>
             </View>
 
@@ -344,9 +341,9 @@ export default function ImportQuestionsScreen({ navigation }) {
                 <View style={[s.tableRow, s.tableHeader]}>
                   <Text style={[s.cell, s.cellNum, s.headerTxt]}>#</Text>
                   {["Type","Question","Opt A","Opt B","Answer","Marks","Subject","Class"].map(h => (
-                    <Text key={h} style={[s.cell, s.headerTxt]}>{h}</Text>
+                    <Text key={h} style={[s.cell, s.headerTxt]}>{_tx(h)}</Text>
                   ))}
-                  <Text style={[s.cell, s.cellStatus, s.headerTxt]}>Status</Text>
+                  <Text style={[s.cell, s.cellStatus, s.headerTxt]}>{_t("Status")}</Text>
                 </View>
                 {parsedRows.map((row, i) => {
                   const errs = rowErrors[i];
@@ -354,16 +351,16 @@ export default function ImportQuestionsScreen({ navigation }) {
                   return (
                     <View key={i} style={[s.tableRow, hasErr && s.tableRowErr]}>
                       <Text style={[s.cell, s.cellNum]}>{i + 2}</Text>
-                      <Text style={s.cell} numberOfLines={1}>{row.type ?? ""}</Text>
-                      <Text style={s.cell} numberOfLines={1}>{row.question_text ?? ""}</Text>
-                      <Text style={s.cell} numberOfLines={1}>{row.option_a ?? ""}</Text>
-                      <Text style={s.cell} numberOfLines={1}>{row.option_b ?? ""}</Text>
-                      <Text style={s.cell} numberOfLines={1}>{row.answer ?? ""}</Text>
-                      <Text style={s.cell} numberOfLines={1}>{row.marks ?? ""}</Text>
-                      <Text style={s.cell} numberOfLines={1}>{row.subject_name ?? ""}</Text>
-                      <Text style={s.cell} numberOfLines={1}>{row.class_name ?? ""}</Text>
+                      <Text style={s.cell} numberOfLines={1}>{_tx(row.type) ?? ""}</Text>
+                      <Text style={s.cell} numberOfLines={1}>{_tx(row.question_text) ?? ""}</Text>
+                      <Text style={s.cell} numberOfLines={1}>{_tx(row.option_a) ?? ""}</Text>
+                      <Text style={s.cell} numberOfLines={1}>{_tx(row.option_b) ?? ""}</Text>
+                      <Text style={s.cell} numberOfLines={1}>{_tx(row.answer) ?? ""}</Text>
+                      <Text style={s.cell} numberOfLines={1}>{_tx(row.marks) ?? ""}</Text>
+                      <Text style={s.cell} numberOfLines={1}>{_tx(row.subject_name) ?? ""}</Text>
+                      <Text style={s.cell} numberOfLines={1}>{_tx(row.class_name) ?? ""}</Text>
                       <Text style={[s.cell, s.cellStatus, hasErr ? s.errTxt : s.okTxt]}>
-                        {hasErr ? "✗ Error" : "✓ OK"}
+                        {hasErr ? _t("✗ Error") : _t("✓ OK")}
                       </Text>
                     </View>
                   );
@@ -374,12 +371,10 @@ export default function ImportQuestionsScreen({ navigation }) {
             {/* Error details */}
             {errorRows > 0 && (
               <View style={s.errBox}>
-                <Text style={s.errBoxTitle}>Errors to fix before importing:</Text>
+                <Text style={s.errBoxTitle}>{_t("Errors to fix before importing:")}</Text>
                 {Object.entries(rowErrors).map(([idx, errs]) =>
                   errs.map((msg, j) => (
-                    <Text key={`${idx}-${j}`} style={s.errItem}>
-                      Row {Number(idx) + 2}: {msg}
-                    </Text>
+                    <Text key={`${idx}-${j}`} style={s.errItem}>{_t("Row {v}: {msg}", { v: Number(idx) + 2, msg })}</Text>
                   ))
                 )}
               </View>
@@ -396,8 +391,8 @@ export default function ImportQuestionsScreen({ navigation }) {
                 : <Feather name="upload-cloud" size={16} color="#fff" />}
               <Text style={s.btnTxt}>
                 {importing
-                  ? "Importing…"
-                  : `Import ${validRows} Question${validRows !== 1 ? "s" : ""}`}
+                  ? _t("Importing…")
+                  : _t("Import {validRows} Question{pl}", { validRows, pl: validRows !== 1 ? "s" : "" })}
               </Text>
             </TouchableOpacity>
           </View>
@@ -406,22 +401,22 @@ export default function ImportQuestionsScreen({ navigation }) {
         {/* ── Step 4: Result ────────────────────────────────────────────── */}
         {result && (
           <View style={[s.card, s.resultCard]}>
-            <Text style={s.resultTitle}>Import Complete</Text>
+            <Text style={s.resultTitle}>{_t("Import Complete")}</Text>
             <View style={s.resultRow}>
               <View style={[s.resultBadge, { backgroundColor: "#dcfce7" }]}>
-                <Text style={[s.resultNum, { color: "#16a34a" }]}>{result.imported}</Text>
-                <Text style={s.resultLabel}>Imported</Text>
+                <Text style={[s.resultNum, { color: "#16a34a" }]}>{_tx(result.imported)}</Text>
+                <Text style={s.resultLabel}>{_t("Imported")}</Text>
               </View>
               <View style={[s.resultBadge, { backgroundColor: "#fee2e2" }]}>
-                <Text style={[s.resultNum, { color: "#dc2626" }]}>{result.failed ?? 0}</Text>
-                <Text style={s.resultLabel}>Failed</Text>
+                <Text style={[s.resultNum, { color: "#dc2626" }]}>{_tx(result.failed) ?? 0}</Text>
+                <Text style={s.resultLabel}>{_t("Failed")}</Text>
               </View>
             </View>
-            {result.errors?.length > 0 && (
+            {Array.isArray(result.errors) && result.errors.length > 0 && (
               <View style={s.errBox}>
-                <Text style={s.errBoxTitle}>Server-side errors:</Text>
+                <Text style={s.errBoxTitle}>{_t("Server-side errors:")}</Text>
                 {result.errors.map((e, i) => (
-                  <Text key={i} style={s.errItem}>Row {e.row}: {e.message}</Text>
+                  <Text key={i} style={s.errItem}>{_t("Row {row}: {message}", { row: e.row, message: e.message })}</Text>
                 ))}
               </View>
             )}
@@ -431,7 +426,7 @@ export default function ImportQuestionsScreen({ navigation }) {
                 onPress={() => navigation.goBack()}
               >
                 <Feather name="check" size={16} color="#fff" />
-                <Text style={s.btnTxt}>Back to Question Bank</Text>
+                <Text style={s.btnTxt}>{_t("Back to Question Bank")}</Text>
               </TouchableOpacity>
             )}
           </View>

@@ -35,7 +35,7 @@ class FinanceApiController extends AppController
     /** Generate sequential reference numbers: REC-2025-0001 etc. */
     private function nextRef(string $prefix, string $table, string $col): string
     {
-        $year = date('Y');
+        $year = $this->schoolToday('Y');
         $row  = $this->db()->execute(
             "SELECT MAX(CAST(SUBSTRING_INDEX($col,'-',-1) AS UNSIGNED)) AS n
              FROM $table WHERE ssms_client_code = ? AND $col LIKE ?",
@@ -389,7 +389,7 @@ class FinanceApiController extends AppController
     public function getProfitLoss(): \Psr\Http\Message\ResponseInterface
     {
         $from = $this->request->getQuery('from', date('Y-m-01'));
-        $to   = $this->request->getQuery('to',   date('Y-m-d'));
+        $to   = $this->request->getQuery('to',   $this->schoolToday());
         $db   = $this->db();
 
         $income = $db->execute(
@@ -498,7 +498,7 @@ class FinanceApiController extends AppController
     public function getLedger(int $accountId): \Psr\Http\Message\ResponseInterface
     {
         $from = $this->request->getQuery('from', date('Y-m-01'));
-        $to   = $this->request->getQuery('to',   date('Y-m-d'));
+        $to   = $this->request->getQuery('to',   $this->schoolToday());
 
         $account = $this->db()->execute(
             "SELECT * FROM fin_chart_of_accounts WHERE account_id=? AND ssms_client_code=?",

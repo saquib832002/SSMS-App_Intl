@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
 import { fetchSeats, saveSeat, deleteSeat } from "../../services/HostelServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 const SEAT_STATUSES = ["available", "occupied", "reserved", "maintenance"];
 
@@ -31,13 +32,13 @@ function CustomDropdown({ label, value, options, onChange, disabled }) {
       <TouchableOpacity
         style={[fm.input, fm.dropRow, disabled && { opacity: 0.45 }]}
         onPress={() => !disabled && setOpen(true)} activeOpacity={0.7}>
-        <Text style={value ? fm.dropTxt : fm.dropPlaceholder}>{value || label}</Text>
+        <Text style={value ? fm.dropTxt : fm.dropPlaceholder}>{_tx(value) || _tx(label)}</Text>
         <Feather name="chevron-down" size={15} color="#64748b" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={fm.dropOverlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={fm.dropSheet}>
-            <Text style={fm.dropTitle}>{label}</Text>
+            <Text style={fm.dropTitle}>{_tx(label)}</Text>
             {options.map(o => {
               const c = STATUS_COLORS[o] ?? {};
               return (
@@ -77,7 +78,7 @@ function SeatFormModal({ visible, seat, room, building, onClose, onSave }) {
   }, [visible, seat]);
 
   const handleSave = async () => {
-    if (!seatNumber.trim()) { Alert.alert("Validation", "Seat number is required."); return; }
+    if (!seatNumber.trim()) { Alert.alert(_t("Validation"), _t("Seat number is required.")); return; }
     try {
       setSaving(true);
       await onSave({
@@ -90,7 +91,7 @@ function SeatFormModal({ visible, seat, room, building, onClose, onSave }) {
       setSeatNumber("");
       setStatus("available");
     } catch (e) {
-      Alert.alert("Save Failed", e.message ?? "Could not save seat. Please try again.");
+      Alert.alert(_t("Save Failed"), _tx(e.message) ?? _t("Could not save seat. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -106,31 +107,31 @@ function SeatFormModal({ visible, seat, room, building, onClose, onSave }) {
           <TouchableOpacity style={fm.sheet} onPress={() => {}} activeOpacity={1}>
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>
               <View style={fm.handle} />
-              <Text style={fm.title}>{seat ? "Edit Seat" : "Add Seat"}</Text>
+              <Text style={fm.title}>{seat ? _t("Edit Seat") : _t("Add Seat")}</Text>
 
               <View style={fm.breadcrumb}>
                 <Feather name="home" size={11} color="#6366f1" />
-                <Text style={fm.breadcrumbTxt}>{building?.building_name}</Text>
+                <Text style={fm.breadcrumbTxt}>{_tx(building?.building_name)}</Text>
                 <Feather name="chevron-right" size={11} color="#94a3b8" />
                 <Feather name="square" size={11} color="#6366f1" />
-                <Text style={fm.breadcrumbTxt}>{room?.room_name}</Text>
+                <Text style={fm.breadcrumbTxt}>{_tx(room?.room_name)}</Text>
               </View>
 
-              <Text style={fm.label}>Seat Number *</Text>
+              <Text style={fm.label}>{_t("Seat Number *")}</Text>
               <TextInput
                 style={fm.input}
                 value={seatNumber}
                 onChangeText={setSeatNumber}
-                placeholder="e.g. S-01"
+                placeholder={_t("e.g. S-01")}
                 placeholderTextColor="#94a3b8"
                 editable={!saving}
                 returnKeyType="done"
                 autoFocus
               />
 
-              <Text style={fm.label}>Status *</Text>
+              <Text style={fm.label}>{_t("Status *")}</Text>
               <CustomDropdown
-                label="Select status…"
+                label={_t("Select status…")}
                 value={status}
                 options={SEAT_STATUSES}
                 onChange={setStatus}
@@ -140,12 +141,12 @@ function SeatFormModal({ visible, seat, room, building, onClose, onSave }) {
               <TouchableOpacity style={[fm.saveBtn, saving && { opacity: 0.6 }]}
                 onPress={handleSave} disabled={saving}>
                 {saving
-                  ? <><ActivityIndicator color="#fff" size="small" /><Text style={fm.saveTxt}> Saving…</Text></>
-                  : <><Feather name="check-circle" size={18} color="#fff" /><Text style={fm.saveTxt}> {seat ? "Update" : "Add Seat"}</Text></>}
+                  ? <><ActivityIndicator color="#fff" size="small" /><Text style={fm.saveTxt}>{" "}{_t("Saving…")}</Text></>
+                  : <><Feather name="check-circle" size={18} color="#fff" /><Text style={fm.saveTxt}> {seat ? _t("Update") : _t("Add Seat")}</Text></>}
               </TouchableOpacity>
               {!saving && (
                 <TouchableOpacity style={fm.cancelBtn} onPress={onClose}>
-                  <Text style={fm.cancelTxt}>Cancel</Text>
+                  <Text style={fm.cancelTxt}>{_t("Cancel")}</Text>
                 </TouchableOpacity>
               )}
             </ScrollView>
@@ -163,7 +164,7 @@ function SeatCard({ item, isAdmin, onEdit, onDelete }) {
     <View style={[st.card, { backgroundColor: c.bg, borderColor: c.border }]}>
       <View style={st.cardRow}>
         <View style={[st.seatNum, { borderColor: c.border }]}>
-          <Text style={[st.seatNumTxt, { color: c.text }]}>{item.seat_number}</Text>
+          <Text style={[st.seatNumTxt, { color: c.text }]}>{_tx(item.seat_number)}</Text>
         </View>
         <View style={{ flex: 1, marginLeft: 12 }}>
           <View style={st.statusRow}>
@@ -174,10 +175,10 @@ function SeatCard({ item, isAdmin, onEdit, onDelete }) {
           </View>
           {item.student_name ? (
             <Text style={st.studentTxt} numberOfLines={1}>
-              <Feather name="user" size={10} color="#64748b" /> {item.student_name}
+              <Feather name="user" size={10} color="#64748b" /> {_tx(item.student_name)}
             </Text>
           ) : (
-            <Text style={st.noStudentTxt}>Not assigned</Text>
+            <Text style={st.noStudentTxt}>{_t("Not assigned")}</Text>
           )}
         </View>
         {isAdmin && (
@@ -201,17 +202,17 @@ function SummaryBar({ seats }) {
     acc[s.status] = (acc[s.status] ?? 0) + 1; return acc;
   }, {});
   const items = [
-    { label: "Available",   count: counts.available   ?? 0, color: "#16a34a" },
-    { label: "Occupied",    count: counts.occupied    ?? 0, color: "#dc2626" },
-    { label: "Reserved",    count: counts.reserved    ?? 0, color: "#d97706" },
-    { label: "Maintenance", count: counts.maintenance ?? 0, color: "#94a3b8" },
+    { label: _t("Available"),   count: counts.available   ?? 0, color: "#16a34a" },
+    { label: _t("Occupied"),    count: counts.occupied    ?? 0, color: "#dc2626" },
+    { label: _t("Reserved"),    count: counts.reserved    ?? 0, color: "#d97706" },
+    { label: _t("Maintenance"), count: counts.maintenance ?? 0, color: "#94a3b8" },
   ];
   return (
     <View style={sum.wrap}>
       {items.map(i => (
         <View key={i.label} style={sum.item}>
-          <Text style={[sum.count, { color: i.color }]}>{i.count}</Text>
-          <Text style={sum.label}>{i.label}</Text>
+          <Text style={[sum.count, { color: i.color }]}>{_tx(i.count)}</Text>
+          <Text style={sum.label}>{_tx(i.label)}</Text>
         </View>
       ))}
     </View>
@@ -240,9 +241,9 @@ export default function HostelRoomSeatScreen({ navigation, route }) {
     try {
       setLoading(true);
       const data = await fetchSeats(userRef.current, room.room_id);
-      setSeats(data);
+      setSeats(Array.isArray(data) ? data : []);
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e?.message) || _t("Failed to load seats."));
     } finally {
       setLoading(false);
     }
@@ -256,26 +257,26 @@ export default function HostelRoomSeatScreen({ navigation, route }) {
       setModalVisible(false);
       setEditSeat(null);
       load();
-      Alert.alert("✅ Success", formData.seat_id ? "Seat updated." : "Seat added.");
+      Alert.alert(_t("✅ Success"), formData.seat_id ? _t("Seat updated.") : _t("Seat added."));
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     }
   }, [load]);
 
   const handleDelete = useCallback((item) => {
     Alert.alert(
-      "Delete Seat",
-      `Delete seat "${item.seat_number}"? This will fail if a student is assigned to it.`,
+      _t("Delete Seat"),
+      _t("Delete seat \"{seat_number}\"? This will fail if a student is assigned to it.", { seat_number: item.seat_number }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Delete", style: "destructive",
+          text: _t("Delete"), style: "destructive",
           onPress: async () => {
             try {
               await deleteSeat(userRef.current, item.seat_id);
               load();
             } catch (e) {
-              Alert.alert("Cannot Delete", e.message);
+              Alert.alert(_t("Cannot Delete"), _tx(e.message));
             }
           },
         },
@@ -296,13 +297,13 @@ export default function HostelRoomSeatScreen({ navigation, route }) {
           <Feather name="arrow-left" size={20} color="#6366f1" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={sc.headerTitle}>{room.room_name}</Text>
-          <Text style={sc.headerSub}>{building.building_name} • {seats.length} seat{seats.length !== 1 ? "s" : ""}</Text>
+          <Text style={sc.headerTitle}>{_tx(room.room_name)}</Text>
+          <Text style={sc.headerSub}>{_t("{building_name} • {length} seat{pl}", { building_name: building.building_name, length: seats.length, pl: seats.length !== 1 ? "s" : "" })}</Text>
         </View>
         {isAdmin && (
           <TouchableOpacity style={sc.addBtn} onPress={() => { setEditSeat(null); setModalVisible(true); }}>
             <Feather name="plus" size={18} color="#fff" />
-            <Text style={sc.addBtnTxt}>Add</Text>
+            <Text style={sc.addBtnTxt}>{_t("Add")}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -314,7 +315,7 @@ export default function HostelRoomSeatScreen({ navigation, route }) {
       <View style={sc.filterRow}>
         <View style={sc.searchWrap}>
           <Feather name="search" size={14} color="#94a3b8" style={{ marginRight: 6 }} />
-          <TextInput style={sc.searchInput} placeholder="Search seats…"
+          <TextInput style={sc.searchInput} placeholder={_t("Search seats…")}
             placeholderTextColor="#94a3b8" value={search} onChangeText={setSearch} />
           {search.length > 0 && (
             <TouchableOpacity onPress={() => setSearch("")}><Feather name="x" size={14} color="#94a3b8" /></TouchableOpacity>
@@ -328,14 +329,14 @@ export default function HostelRoomSeatScreen({ navigation, route }) {
           <TouchableOpacity key={s || "all"} style={[sc.chip, statusFilter === s && sc.chipActive]}
             onPress={() => setStatusFilter(s)}>
             <Text style={[sc.chipTxt, statusFilter === s && sc.chipTxtActive]}>
-              {s ? s.charAt(0).toUpperCase() + s.slice(1) : "All"}
+              {s ? s.charAt(0).toUpperCase() + s.slice(1) : _t("All")}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
       {loading
-        ? <View style={sc.loader}><ActivityIndicator size="large" color="#6366f1" /><Text style={sc.loaderTxt}>Loading seats…</Text></View>
+        ? <View style={sc.loader}><ActivityIndicator size="large" color="#6366f1" /><Text style={sc.loaderTxt}>{_t("Loading seats…")}</Text></View>
         : <FlatList
             data={filtered}
             keyExtractor={s => String(s.seat_id)}
@@ -352,8 +353,8 @@ export default function HostelRoomSeatScreen({ navigation, route }) {
             ListEmptyComponent={
               <View style={sc.empty}>
                 <Feather name="layout" size={44} color="#cbd5e1" />
-                <Text style={sc.emptyTitle}>No seats yet</Text>
-                <Text style={sc.emptyTxt}>{isAdmin ? 'Tap "Add" to add seats.' : "No seats in this room."}</Text>
+                <Text style={sc.emptyTitle}>{_t("No seats yet")}</Text>
+                <Text style={sc.emptyTxt}>{isAdmin ? _t("Tap \"Add\" to add seats.") : _t("No seats in this room.")}</Text>
               </View>
             }
           />}

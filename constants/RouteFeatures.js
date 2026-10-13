@@ -12,22 +12,27 @@
 export const ROUTE_FEATURES = {
   // Attendance
   Attendance: "attendance", AttendanceReport: "attendance", MyAttendance: "attendance",
+  StudentLeave: "attendance", ArrivalLog: "attendance", MyAbsences: "attendance",
+  MyCheckIn: "attendance", StaffAttendance: "attendance", StaffAttendanceReport: "attendance", OfficeCode: "attendance",
+  VisitorDesk: "attendance", PickupDesk: "attendance", PickupPersons: "attendance", SafetySettings: "attendance", MyVisitors: "attendance", MyPickup: "attendance",
 
   // Notice board & events
-  NoticeBoard: "notices",
+  NoticeBoard: "notices", CalendarSync: "notices",
 
   // Fees
   StudentFee: "fees", FeeDemandSlip: "fees", FeeCollectionApproval: "fees", FeeItem: "fees",
   FeeCollection: "fees", StudentDiscount: "fees", ClassFeeStructure: "fees", MyFee: "fees",
+  OnlinePayments: "fees",
 
   // Exams & results
   QuickTestSetup: "exams", Exam: "exams", AddMarks: "exams", GenerateMarksheet: "exams",
-  ExamResultsRank: "exams", StudentMarks: "exams", ExamDatesheet: "exams", MyDatesheet: "exams",
+  ExamResultsRank: "exams", StudentMarks: "exams", ExamDatesheet: "exams", MyDatesheet: "exams", ExamLogistics: "exams", ExamHalls: "exams", SeatingPlan: "exams", Invigilation: "exams", AdmitCards: "exams", MyAdmitCard: "exams", MyExamDuties: "exams",
   MyMarksheet: "exams", SubjectMaxMarks: "exams",
+  GradingScales: "exams", ReportCardSetup: "exams", ReportComments: "exams", ReportCards: "exams", MyReportCards: "exams",
 
   // Timetable, homework & leave
   PeriodSetup: "academics", Timetable: "academics", TeacherTimetable: "academics",
-  MasterTimetable: "academics", Homework: "academics", HomeworkMark: "academics",
+  MasterTimetable: "academics", Homework: "academics", HomeworkMark: "academics", Cover: "academics", MyCovers: "academics",
   MyHomework: "academics", StaffLeave: "academics", LeaveApproval: "academics", LeaveTypes: "academics",
 
   // Question bank & test series
@@ -45,12 +50,13 @@ export const ROUTE_FEATURES = {
 
   // Transport (tab + screens)
   Transport: "transport", TransportEnrollment: "transport", TransportFeeStructure: "transport",
-  StudentFeeTransport: "transport",
+  StudentFeeTransport: "transport", DriverTrip: "transport", LiveBus: "transport", BusFleet: "transport",
 
   // Chat, gallery, certificates, ID cards
   ChatList: "communication", Chat: "communication", Certificates: "communication",
   StudentIdCard: "communication", StudentIdCardV2: "communication", IdCardSettings: "communication",
   SchoolMemories: "communication", SchoolMemoriesAdmin: "communication",
+  Meetings: "communication", MeetingSession: "communication", MeetingEdit: "communication", MyMeetings: "communication",
 };
 
 export const FEATURE_LABELS = {

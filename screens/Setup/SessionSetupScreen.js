@@ -21,6 +21,7 @@ import {
   updateSession,
   deleteSession,
 } from "../../services/SetupServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Custom Dropdown ───────────────────────────────────────────────────────────
 function Dropdown({ label, value, options, onChange, disabled }) {
@@ -34,14 +35,14 @@ function Dropdown({ label, value, options, onChange, disabled }) {
         activeOpacity={0.7}
       >
         <Text style={[styles.dropTriggerTxt, !selected && styles.dropPlaceholder]} numberOfLines={1}>
-          {selected?.label ?? label}
+          {_tx(selected?.label) ?? _tx(label)}
         </Text>
         <Feather name="chevron-down" size={16} color="#475569" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={styles.dropOverlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={styles.dropSheet}>
-            <Text style={styles.dropTitle}>{label}</Text>
+            <Text style={styles.dropTitle}>{_tx(label)}</Text>
             {options.map(o => (
               <TouchableOpacity
                 key={o.value}
@@ -49,7 +50,7 @@ function Dropdown({ label, value, options, onChange, disabled }) {
                 onPress={() => { onChange(o.value); setOpen(false); }}
               >
                 <Text style={[styles.dropOptionTxt, o.value === value && styles.dropOptionTxtActive]}>
-                  {o.label}
+                  {_tx(o.label)}
                 </Text>
                 {o.value === value && <Feather name="check" size={14} color="#1e40af" />}
               </TouchableOpacity>
@@ -63,13 +64,13 @@ function Dropdown({ label, value, options, onChange, disabled }) {
 
 // ── Options ───────────────────────────────────────────────────────────────────
 const IS_CURRENT_OPTIONS = [
-  { label: "Yes (Current)", value: "Y" },
-  { label: "No",            value: "N" },
+  { get label() { return _t("Yes (Current)"); }, value: "Y" },
+  { get label() { return _t("No"); },            value: "N" },
 ];
 
 const ACTIVE_OPTIONS = [
-  { label: "Yes", value: "Yes" },
-  { label: "No",  value: "No"  },
+  { get label() { return _t("Yes"); }, value: "Yes" },
+  { get label() { return _t("No"); },  value: "No"  },
 ];
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
@@ -95,6 +96,7 @@ export default function SessionSetupScreen() {
     try {
       setLoading(true);
       const data = await fetchSessions(user);
+      if (data?.status === false) throw new Error(data.message || _t("Failed to load sessions"));
       const list = Array.isArray(data?.data)
         ? data.data
         : Array.isArray(data)
@@ -102,7 +104,7 @@ export default function SessionSetupScreen() {
           : [];
       setSessions(list);
     } catch (error) {
-      Alert.alert("Error", error.message || "Failed to load sessions");
+      Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to load sessions"));
     } finally {
       setLoading(false);
     }
@@ -130,7 +132,7 @@ export default function SessionSetupScreen() {
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!form.session_name.trim()) {
-      Alert.alert("Validation", "Session name is required.");
+      Alert.alert(_t("Validation"), _t("Session name is required."));
       return;
     }
     try {
@@ -142,15 +144,17 @@ export default function SessionSetupScreen() {
       };
       if (editingSession) {
         const id = editingSession.session_id ?? editingSession.Session_id;
-        await updateSession(user, id, payload);
+        const res = await updateSession(user, id, payload);
+        if (res?.status === false) throw new Error(res.message || _t("Failed to update session"));
       } else {
-        await createSession(user, payload);
+        const res = await createSession(user, payload);
+        if (res?.status === false) throw new Error(res.message || _t("Failed to create session"));
       }
       setModalVisible(false);
       loadSessions();
-      Alert.alert("Success", editingSession ? "Session updated." : "Session added.");
+      Alert.alert(_t("Success"), editingSession ? _t("Session updated.") : _t("Session added."));
     } catch (error) {
-      Alert.alert("Error", error.message || "Failed to save session");
+      Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to save session"));
     } finally {
       setSaving(false);
     }
@@ -161,19 +165,20 @@ export default function SessionSetupScreen() {
     const id   = session.session_id ?? session.Session_id;
     const name = session.session_name ?? session.Session_name;
     Alert.alert(
-      "Delete Session",
-      `Delete "${name}"?`,
+      _t("Delete Session"),
+      _t("Delete \"{name}\"?", { name }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Delete", style: "destructive",
+          text: _t("Delete"), style: "destructive",
           onPress: async () => {
             try {
-              await deleteSession(user, id);
+              const res = await deleteSession(user, id);
+              if (res?.status === false) throw new Error(res.message || _t("Failed to delete session"));
               loadSessions();
-              Alert.alert("Deleted", "Session deleted successfully.");
+              Alert.alert(_t("Deleted"), _t("Session deleted successfully."));
             } catch (error) {
-              Alert.alert("Error", error.message || "Failed to delete session");
+              Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to delete session"));
             }
           },
         },
@@ -190,10 +195,10 @@ export default function SessionSetupScreen() {
       <View style={styles.card}>
         <View style={{ flex: 1 }}>
           <View style={styles.cardTitleRow}>
-            <Text style={styles.sessionName}>{name}</Text>
+            <Text style={styles.sessionName}>{_tx(name)}</Text>
             {isCurrent === "Y" && (
               <View style={styles.currentBadge}>
-                <Text style={styles.currentBadgeTxt}>Current</Text>
+                <Text style={styles.currentBadgeTxt}>{_t("Current")}</Text>
               </View>
             )}
           </View>
@@ -202,7 +207,7 @@ export default function SessionSetupScreen() {
               { backgroundColor: active === "Yes" ? "#dcfce7" : "#fee2e2" }]}>
               <Text style={[styles.statusBadgeTxt,
                 { color: active === "Yes" ? "#16a34a" : "#dc2626" }]}>
-                {active === "Yes" ? "Active" : "Inactive"}
+                {active === "Yes" ? _t("Active") : _t("Inactive")}
               </Text>
             </View>
           </View>
@@ -229,17 +234,17 @@ export default function SessionSetupScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Sessions</Text>
+        <Text style={styles.title}>{_t("Sessions")}</Text>
         <TouchableOpacity style={styles.addButton} onPress={openAdd}>
           <MaterialIcons name="add" size={22} color="#fff" />
-          <Text style={styles.addButtonText}>Add Session</Text>
+          <Text style={styles.addButtonText}>{_t("Add Session")}</Text>
         </TouchableOpacity>
       </View>
 
       {loading
         ? <View style={styles.loaderWrap}>
             <ActivityIndicator size="large" color="#1e40af" />
-            <Text style={styles.loaderText}>Loading sessions…</Text>
+            <Text style={styles.loaderText}>{_t("Loading sessions…")}</Text>
           </View>
         : <FlatList
             data={sessions}
@@ -247,7 +252,7 @@ export default function SessionSetupScreen() {
             renderItem={renderItem}
             contentContainerStyle={{ paddingBottom: 30 }}
             ListEmptyComponent={
-              <Text style={styles.emptyText}>No sessions found</Text>
+              <Text style={styles.emptyText}>{_t("No sessions found")}</Text>
             }
           />}
 
@@ -256,23 +261,23 @@ export default function SessionSetupScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>
-              {editingSession ? "Edit Session" : "Add Session"}
+              {editingSession ? _t("Edit Session") : _t("Add Session")}
             </Text>
 
             {/* Session Name */}
-            <Text style={styles.fieldLabel}>Session Name *</Text>
+            <Text style={styles.fieldLabel}>{_t("Session Name *")}</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. 2024-25"
+              placeholder={_t("e.g. 2024-25")}
               placeholderTextColor="#94a3b8"
               value={form.session_name}
               onChangeText={v => setField("session_name", v)}
             />
 
             {/* Is Current */}
-            <Text style={styles.fieldLabel}>Is Current Session?</Text>
+            <Text style={styles.fieldLabel}>{_t("Is Current Session?")}</Text>
             <Dropdown
-              label="Select…"
+              label={_t("Select…")}
               value={form.is_current}
               options={IS_CURRENT_OPTIONS}
               onChange={v => setField("is_current", v)}
@@ -280,9 +285,9 @@ export default function SessionSetupScreen() {
             />
 
             {/* Active */}
-            <Text style={styles.fieldLabel}>Active</Text>
+            <Text style={styles.fieldLabel}>{_t("Active")}</Text>
             <Dropdown
-              label="Select…"
+              label={_t("Select…")}
               value={form.active}
               options={ACTIVE_OPTIONS}
               onChange={v => setField("active", v)}
@@ -295,7 +300,7 @@ export default function SessionSetupScreen() {
                 onPress={() => setModalVisible(false)}
                 disabled={saving}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>{_t("Cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.saveButton, saving && { opacity: 0.6 }]}
@@ -305,7 +310,7 @@ export default function SessionSetupScreen() {
                 {saving
                   ? <ActivityIndicator color="#fff" size="small" />
                   : <Text style={styles.saveButtonText}>
-                      {editingSession ? "Update" : "Save"}
+                      {editingSession ? _t("Update") : _t("Save")}
                     </Text>}
               </TouchableOpacity>
             </View>

@@ -22,6 +22,8 @@ import {
   initPlayBilling, getPlayPackages, buyPackage, restorePlayPurchases,
   playBillingUnavailableReason, baseProductId, MANAGE_SUBSCRIPTIONS_URL,
 } from "../services/PlayBilling";
+import { _t, _tx } from "../services/i18n";
+import { fmtDate as fmtLocalDate } from "../services/Locale";
 
 /** true for a yearly Play base plan / RevenueCat annual package */
 const isYearlyPackage = (p) => {
@@ -34,7 +36,7 @@ const isYearlyPackage = (p) => {
 const fmtDate = (d) => {
   if (!d) return "—";
   const dt = new Date(String(d).replace(" ", "T"));
-  return isNaN(dt) ? String(d) : dt.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  return isNaN(dt) ? String(d) : fmtLocalDate(dt, "medium");   // school's date format and language
 };
 
 export default function SubscriptionScreen({ navigation }) {
@@ -53,14 +55,23 @@ export default function SubscriptionScreen({ navigation }) {
   const load = useCallback(async () => {
     setError("");
     try {
-      const [st, pl] = await Promise.all([fetchSubscriptionStatus(user), fetchPlans(user)]);
-      setStatus(st);
-      setPlans(Array.isArray(pl) ? pl.filter(p => p.playProductId) : []);
+      // allSettled: show whatever loaded; one denied call must not hide the other
+      const [rSt, rPl] = await Promise.allSettled([fetchSubscriptionStatus(user), fetchPlans(user)]);
+      const st = rSt.status === "fulfilled" ? rSt.value : null;
+      const pl = rPl.status === "fulfilled" ? rPl.value : null;
+      setStatus(st ?? null);
+      setPlans(Array.isArray(pl) ? pl.filter(p => p?.playProductId) : []);
+      const failed = [rSt, rPl].find(r => r.status === "rejected");
+      if (failed) setError(failed.reason?.message || _t("Could not load plans."));
       if (!unavailable && isAdmin && (await initPlayBilling(user?.ssmsClientCode))) {
-        setPackages(await getPlayPackages());
+        const raw = await getPlayPackages();
+        const pk  = Array.isArray(raw) ? raw : [];
+        // Shows in the Metro console: which Google Play products RevenueCat returned
+        console.log("[Plan&Billing] Play packages:", pk.map(p => p?.product?.identifier));
+        setPackages(pk);
       }
     } catch (e) {
-      setError(e?.message || "Could not load plans.");
+      setError(e?.message || _t("Could not load plans."));
     } finally {
       setLoading(false);
     }
@@ -84,25 +95,25 @@ export default function SubscriptionScreen({ navigation }) {
   const afterStoreChange = useCallback(async (successMsg) => {
     try {
       const st = await syncPlayPurchase(user);
-      setStatus(st);
+      if (st) setStatus(st);
       await refreshEntitlements();
-      Alert.alert("Thank you!", successMsg);
+      Alert.alert(_t("Thank you!"), _tx(successMsg));
     } catch (e) {
       // Payment went through at Google; the webhook will finish the job shortly.
       await refreshEntitlements();
-      Alert.alert("Almost done", "Your payment was received. Features will unlock within a minute.");
+      Alert.alert(_t("Almost done"), _t("Your payment was received. Features will unlock within a minute."));
     }
   }, [user, refreshEntitlements]);
 
   const onSubscribe = useCallback(async (plan) => {
     const pkg = pkgFor(plan);
-    if (!pkg) { Alert.alert("Not available", "This plan is not available in Google Play yet."); return; }
+    if (!pkg) { Alert.alert(_t("Not available"), _t("This plan is not available in Google Play yet.")); return; }
     setBusy(plan.planCode);
     try {
       const res = await buyPackage(pkg, playSub?.status !== "expired" ? playSub?.storeProductId ?? null : null);
-      if (res.ok) await afterStoreChange(`${plan.name} is now active for your school.`);
+      if (res.ok) await afterStoreChange(_t("{name} is now active for your school.", { name: plan.name }));
     } catch (e) {
-      Alert.alert("Purchase failed", e?.message || "The purchase could not be completed.");
+      Alert.alert(_t("Purchase failed"), _tx(e?.message) || _t("The purchase could not be completed."));
     } finally {
       setBusy(null);
     }
@@ -115,7 +126,7 @@ export default function SubscriptionScreen({ navigation }) {
       await restorePlayPurchases();
       await afterStoreChange("Your school's subscription has been restored.");
     } catch (e) {
-      Alert.alert("Restore failed", e?.message || "Could not restore purchases.");
+      Alert.alert(_t("Restore failed"), _tx(e?.message) || _t("Could not restore purchases."));
     } finally {
       setBusy(null);
     }
@@ -125,13 +136,13 @@ export default function SubscriptionScreen({ navigation }) {
   const statusCard = useMemo(() => {
     if (!status) return null;
     if (status.billingModel !== "subscription") {
-      return { icon: "check-circle", title: "Standard plan", line: "Your school is on the standard plan. All modules are included." };
+      return { icon: "check-circle", title: _t("Standard plan"), line: "Your school is on the standard plan. All modules are included." };
     }
     if (sub && hasActive) {
       const ends = sub.cancelAtPeriodEnd ? "Ends on" : "Renews on";
       return {
         icon: sub.status === "past_due" ? "alert-triangle" : "award",
-        title: `${sub.planName ?? sub.planCode} plan`,
+        title: _t("{v} plan", { v: sub.planName ?? sub.planCode }),
         line: `${ends} ${fmtDate(sub.currentPeriodEnd)}`,
         warn: sub.status === "past_due" ? "Google Play couldn't charge the last payment. Update the payment method in Google Play to keep access." : null,
       };
@@ -139,9 +150,9 @@ export default function SubscriptionScreen({ navigation }) {
     if (status.trialEndsAt) {
       const left = Number.isFinite(status.trialDaysLeft) ? status.trialDaysLeft : null;
       const leftTxt = left === null ? "" : left === 0 ? " · last day" : ` · ${left} day${left === 1 ? "" : "s"} left`;
-      return { icon: "gift", title: "Free trial", line: `All features until ${fmtDate(status.trialEndsAt)}${leftTxt}` };
+      return { icon: "gift", title: _t("Free trial"), line: _t("All features until {trialEndsAt}{leftTxt}", { trialEndsAt: fmtDate(status.trialEndsAt), leftTxt }) };
     }
-    return { icon: "lock", title: "Free plan", line: "Student registration and setup are free. Choose a plan to unlock more features." };
+    return { icon: "lock", title: _t("Free plan"), line: "Student registration and setup are free. Choose a plan to unlock more features." };
   }, [status, sub, hasActive]);
 
   if (loading) {
@@ -154,28 +165,28 @@ export default function SubscriptionScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.back}>
           <Feather name="arrow-left" size={20} color="#0f172a" />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Plan & Billing</Text>
+        <Text style={s.headerTitle}>{_t("Plan & Billing")}</Text>
         <View style={{ width: 36 }} />
       </View>
 
       <ScrollView contentContainerStyle={s.body}
         refreshControl={<RefreshControl refreshing={false} onRefresh={load} />}>
-        {!!error && <Text style={s.error}>{error}</Text>}
+        {!!error && <Text style={s.error}>{_tx(error)}</Text>}
 
         {statusCard && (
           <View style={s.card}>
             <View style={s.row}>
               <View style={s.iconWrap}><Feather name={statusCard.icon} size={20} color="#1e40af" /></View>
               <View style={{ flex: 1 }}>
-                <Text style={s.cardTitle}>{statusCard.title}</Text>
-                <Text style={s.cardLine}>{statusCard.line}</Text>
+                <Text style={s.cardTitle}>{_tx(statusCard.title)}</Text>
+                <Text style={s.cardLine}>{_tx(statusCard.line)}</Text>
               </View>
             </View>
-            {!!statusCard.warn && <Text style={s.warn}>{statusCard.warn}</Text>}
+            {!!statusCard.warn && <Text style={s.warn}>{_tx(statusCard.warn)}</Text>}
             {!!playSub && isAdmin && (
               <TouchableOpacity style={s.linkBtn} onPress={() => Linking.openURL(MANAGE_SUBSCRIPTIONS_URL)}>
                 <Feather name="external-link" size={14} color="#1e40af" />
-                <Text style={s.linkTxt}>Manage or cancel in Google Play</Text>
+                <Text style={s.linkTxt}>{_t("Manage or cancel in Google Play")}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -183,9 +194,12 @@ export default function SubscriptionScreen({ navigation }) {
 
         {status?.billingModel === "subscription" && (
           <>
-            <Text style={s.section}>Plans</Text>
-            {!isAdmin && <Text style={s.note}>Only the school owner or admin can change the plan.</Text>}
-            {isAdmin && !!unavailable && <Text style={s.note}>{unavailable}</Text>}
+            <Text style={s.section}>{_t("Plans")}</Text>
+            {!isAdmin && <Text style={s.note}>{_t("Only the school owner or admin can change the plan.")}</Text>}
+            {isAdmin && !!unavailable && <Text style={s.note}>{_tx(unavailable)}</Text>}
+            {isAdmin && !unavailable && !loading && packages.length === 0 && (
+              <Text style={[s.note, { color: "#b45309" }]}>{_t("Google Play didn't return any plans. Check that the yearly base plans are active in Play Console and attached to the \"current\" offering in RevenueCat, and that this app was installed from Google Play.")}</Text>
+            )}
 
             {plans.map((plan) => {
               const pkg      = pkgFor(plan);
@@ -194,16 +208,16 @@ export default function SubscriptionScreen({ navigation }) {
               return (
                 <View key={plan.planCode} style={[s.card, current && s.cardCurrent]}>
                   <View style={s.row}>
-                    <Text style={[s.cardTitle, { flex: 1 }]}>{plan.name}</Text>
-                    {current && <Text style={s.badge}>Current</Text>}
+                    <Text style={[s.cardTitle, { flex: 1 }]}>{_tx(plan.name)}</Text>
+                    {current && <Text style={s.badge}>{_t("Current")}</Text>}
                   </View>
                   <Text style={s.price}>
-                    {pkg?.product?.priceString ? `${pkg.product.priceString} / ${isYearlyPackage(pkg) ? "year" : "month"}` : (isAdmin && !unavailable ? "Not available yet" : "")}
+                    {pkg?.product?.priceString ? `${_tx(pkg.product.priceString)} / ${isYearlyPackage(pkg) ? "year" : "month"}` : (isAdmin && !unavailable ? _t("Not available yet") : "")}
                   </Text>
-                  {!!plan.description && <Text style={s.cardLine}>{plan.description}</Text>}
+                  {!!plan.description && <Text style={s.cardLine}>{_tx(plan.description)}</Text>}
                   <View style={{ marginTop: 8 }}>
-                    <Text style={s.feature}>✓ Student registration & setup (always free)</Text>
-                    {plan.modules.map(m => <Text key={m} style={s.feature}>✓ {FEATURE_LABELS[m] ?? m}</Text>)}
+                    <Text style={s.feature}>{_t("✓ Student registration & setup (always free)")}</Text>
+                    {(Array.isArray(plan.modules) ? plan.modules : []).map(m => <Text key={m} style={s.feature}>✓ {_tx(FEATURE_LABELS[m]) ?? _tx(m)}</Text>)}
                   </View>
                   {isAdmin && (
                     <TouchableOpacity
@@ -214,7 +228,7 @@ export default function SubscriptionScreen({ navigation }) {
                       {busy === plan.planCode
                         ? <ActivityIndicator color="#fff" />
                         : <Text style={s.buyTxt}>
-                            {current ? "Your current plan" : hasActive && playSub ? `Switch to ${plan.name}` : `Subscribe to ${plan.name}`}
+                            {current ? _t("Your current plan") : hasActive && playSub ? _t("Switch to {name}", { name: plan.name }) : _t("Subscribe to {name}", { name: plan.name })}
                           </Text>}
                     </TouchableOpacity>
                   )}
@@ -226,12 +240,10 @@ export default function SubscriptionScreen({ navigation }) {
               <TouchableOpacity style={s.restore} onPress={onRestore} disabled={!!busy}>
                 {busy === "restore"
                   ? <ActivityIndicator color="#1e40af" />
-                  : <Text style={s.linkTxt}>Restore purchases</Text>}
+                  : <Text style={s.linkTxt}>{_t("Restore purchases")}</Text>}
               </TouchableOpacity>
             )}
-            <Text style={s.small}>
-              Payments are handled by Google Play. Plans are billed yearly and renew every year until cancelled in Google Play.
-            </Text>
+            <Text style={s.small}>{_t("Payments are handled by Google Play. Plans are billed yearly and renew every year until cancelled in Google Play.")}</Text>
           </>
         )}
       </ScrollView>

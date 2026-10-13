@@ -11,6 +11,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Feather } from "@expo/vector-icons";
 import { AuthContext } from "../context/AuthContext";
 import { fetchGalleryPhotos } from "../services/GalleryServiceApi";
+import { _t, _tx } from "../services/i18n";
 
 const { width: SW } = Dimensions.get("window");
 const COLS   = 3;
@@ -34,7 +35,7 @@ function Lightbox({ photos, index, onClose }) {
 
         {/* Counter */}
         <View style={[lb.counter, { top: insets.top + 14 }]}>
-          <Text style={lb.counterTxt}>{current + 1} / {photos.length}</Text>
+          <Text style={lb.counterTxt}>{current + 1} / {_tx(photos.length)}</Text>
         </View>
 
         {/* Photo */}
@@ -47,7 +48,7 @@ function Lightbox({ photos, index, onClose }) {
         {/* Caption */}
         {!!photo.caption && (
           <View style={[lb.captionBar, { paddingBottom: insets.bottom + 12 }]}>
-            <Text style={lb.captionTxt}>{photo.caption}</Text>
+            <Text style={lb.captionTxt}>{_tx(photo.caption)}</Text>
           </View>
         )}
 
@@ -74,7 +75,7 @@ const Thumb = React.memo(function Thumb({ photo, onPress }) {
       <Image source={{ uri: photo.url }} style={st.thumb} resizeMode="cover" />
       {!!photo.caption && (
         <View style={st.thumbCaption}>
-          <Text style={st.thumbCaptionTxt} numberOfLines={1}>{photo.caption}</Text>
+          <Text style={st.thumbCaptionTxt} numberOfLines={1}>{_tx(photo.caption)}</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -119,9 +120,9 @@ export default function SchoolMemoriesScreen({ navigation }) {
           <Feather name="arrow-left" size={20} color="#2563eb" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={st.headerTitle}>School Memories</Text>
+          <Text style={st.headerTitle}>{_t("School Memories")}</Text>
           {photos.length > 0 && (
-            <Text style={st.headerSub}>{photos.length} photo{photos.length !== 1 ? "s" : ""}</Text>
+            <Text style={st.headerSub}>{_t("{length} photo{pl}", { length: photos.length, pl: photos.length !== 1 ? "s" : "" })}</Text>
           )}
         </View>
       </View>
@@ -134,8 +135,8 @@ export default function SchoolMemoriesScreen({ navigation }) {
       ) : photos.length === 0 ? (
         <View style={st.center}>
           <Feather name="image" size={56} color="#cbd5e1" />
-          <Text style={st.emptyTitle}>No photos yet</Text>
-          <Text style={st.emptySub}>The school admin hasn't uploaded any photos yet.</Text>
+          <Text style={st.emptyTitle}>{_t("No photos yet")}</Text>
+          <Text style={st.emptySub}>{_t("The school admin hasn't uploaded any photos yet.")}</Text>
         </View>
       ) : (
         <FlatList

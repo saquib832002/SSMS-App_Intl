@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
 import { getResult } from "../../services/TestSeriesServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -59,23 +60,23 @@ function ScoreCard({ result, testTitle }) {
       <View style={s.scoreBgLayer} />
 
       <Text style={s.scoreTitle} numberOfLines={2}>
-        {testTitle}
+        {_tx(testTitle)}
       </Text>
 
       {/* Big score */}
       <View style={s.scoreBig}>
-        <Text style={s.scoreObtained}>{obtained_marks ?? 0}</Text>
+        <Text style={s.scoreObtained}>{_tx(obtained_marks) ?? 0}</Text>
         <Text style={s.scoreSlash}> / </Text>
-        <Text style={s.scoreTotal}>{total_marks ?? 0}</Text>
+        <Text style={s.scoreTotal}>{_tx(total_marks) ?? 0}</Text>
       </View>
 
       {/* Percentage */}
-      <Text style={s.scorePct}>{percentage}%</Text>
+      <Text style={s.scorePct}>{_tx(percentage)}%</Text>
 
       {/* PASS / FAIL badge */}
       <View style={[s.passBadge, passed ? s.passBadgePass : s.passBadgeFail]}>
         <Text style={[s.passBadgeTxt, passed ? s.passBadgeTxtPass : s.passBadgeTxtFail]}>
-          {passed ? "PASSED" : "FAILED"}
+          {passed ? _t("PASSED") : _t("FAILED")}
         </Text>
       </View>
 
@@ -84,15 +85,13 @@ function ScoreCard({ result, testTitle }) {
         {rank != null && (
           <View style={s.scoreMeta}>
             <Feather name="award" size={14} color="rgba(255,255,255,0.75)" />
-            <Text style={s.scoreMetaTxt}>
-              #{rank} of {total_students ?? "?"} students
-            </Text>
+            <Text style={s.scoreMetaTxt}>{_t("#{rank} of {v} students", { rank, v: total_students ?? "?" })}</Text>
           </View>
         )}
         {pctLabel && (
           <View style={s.scoreMeta}>
             <Feather name="trending-up" size={14} color="rgba(255,255,255,0.75)" />
-            <Text style={s.scoreMetaTxt}>{pctLabel}</Text>
+            <Text style={s.scoreMetaTxt}>{_tx(pctLabel)}</Text>
           </View>
         )}
       </View>
@@ -103,9 +102,9 @@ function ScoreCard({ result, testTitle }) {
 function StatCard({ icon, label, value, color }) {
   return (
     <View style={[s.statCard, { borderTopColor: color }]}>
-      <Text style={[s.statIcon]}>{icon}</Text>
-      <Text style={[s.statValue, { color }]}>{value}</Text>
-      <Text style={s.statLabel}>{label}</Text>
+      <Text style={[s.statIcon]}>{_tx(icon)}</Text>
+      <Text style={[s.statValue, { color }]}>{_tx(value)}</Text>
+      <Text style={s.statLabel}>{_tx(label)}</Text>
     </View>
   );
 }
@@ -122,18 +121,18 @@ function SectionRow({ sec }) {
   return (
     <View style={s.sectionRow}>
       <Text style={s.sectionName} numberOfLines={1}>
-        {sec.section_name ?? sec.name}
+        {_tx(sec.section_name) ?? _tx(sec.name)}
       </Text>
       <Text style={s.sectionCell}>
-        {sec.obtained_marks ?? 0}/{sec.total_marks ?? 0}
+        {_tx(sec.obtained_marks) ?? 0}/{_tx(sec.total_marks) ?? 0}
       </Text>
       <Text style={[s.sectionCell, { color: "#16a34a" }]}>
-        {sec.correct_count ?? 0}
+        {_tx(sec.correct_count) ?? 0}
       </Text>
       <Text style={[s.sectionCell, { color: "#dc2626" }]}>
-        {sec.wrong_count ?? 0}
+        {_tx(sec.wrong_count) ?? 0}
       </Text>
-      <Text style={s.sectionCell}>{accuracy}%</Text>
+      <Text style={s.sectionCell}>{_tx(accuracy)}%</Text>
     </View>
   );
 }
@@ -143,17 +142,17 @@ function WrongPreviewCard({ q, index }) {
     <View style={s.wrongCard}>
       <View style={s.wrongHeader}>
         <View style={s.wrongNumBadge}>
-          <Text style={s.wrongNumTxt}>Q.{q.order ?? index + 1}</Text>
+          <Text style={s.wrongNumTxt}>{_t("Q.{v}", { v: q.order ?? index + 1 })}</Text>
         </View>
         <Text style={s.wrongQuestionTxt} numberOfLines={3}>
-          {q.question_text ?? q.text ?? ""}
+          {_tx(q.question_text) ?? _tx(q.text) ?? ""}
         </Text>
       </View>
       <View style={s.wrongAnsRow}>
         <View style={[s.wrongAnsChip, s.wrongAnsChipCorrect]}>
           <Feather name="check" size={10} color="#16a34a" />
           <Text style={s.wrongAnsCorrectTxt}>
-            {q.correct_option_text ?? q.correct_answer ?? "—"}
+            {_tx(q.correct_option_text) ?? _tx(q.correct_answer) ?? "—"}
           </Text>
         </View>
       </View>
@@ -175,7 +174,7 @@ export default function TestResultScreen({ route, navigation }) {
   const [result, setResult] = useState(null);
 
   const load = useCallback(async () => {
-    if (!attemptId) return;
+    if (!attemptId) { setLoading(false); return; }
     try {
       setLoading(true);
       const res = await getResult(effectiveUser, attemptId);
@@ -183,10 +182,10 @@ export default function TestResultScreen({ route, navigation }) {
       // Flatten so ScoreCard can read obtained_marks, total_marks etc. directly
       const raw = res?.data ?? res;
       const attempt  = raw?.attempt  ?? raw;
-      const sections = raw?.sections ?? [];
-      setResult({ ...attempt, sections });
+      const sections = Array.isArray(raw?.sections) ? raw.sections : [];
+      setResult({ ...(attempt && typeof attempt === "object" ? attempt : {}), sections });
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load result");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load result"));
     } finally {
       setLoading(false);
     }
@@ -201,7 +200,7 @@ export default function TestResultScreen({ route, navigation }) {
       <SafeAreaView style={s.safe} edges={["bottom"]}>
         <View style={s.loadWrap}>
           <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={s.loadTxt}>Loading your result…</Text>
+          <Text style={s.loadTxt}>{_t("Loading your result…")}</Text>
         </View>
       </SafeAreaView>
     );
@@ -212,14 +211,15 @@ export default function TestResultScreen({ route, navigation }) {
       <SafeAreaView style={s.safe} edges={["bottom"]}>
         <View style={s.loadWrap}>
           <Feather name="alert-circle" size={40} color="#cbd5e1" />
-          <Text style={s.emptyTxt}>Result not found</Text>
+          <Text style={s.emptyTxt}>{_t("Result not found")}</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  const sections = result.sections ?? [];
-  const wrongQuestions = result.wrong_questions ?? result.incorrect_questions ?? [];
+  const sections = Array.isArray(result.sections) ? result.sections : [];
+  const wrongRaw = result.wrong_questions ?? result.incorrect_questions;
+  const wrongQuestions = Array.isArray(wrongRaw) ? wrongRaw : [];
   const wrongPreview = wrongQuestions.slice(0, 5);
 
   const correct = result.correct_count ?? 0;
@@ -233,9 +233,7 @@ export default function TestResultScreen({ route, navigation }) {
         <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
           <Feather name="arrow-left" size={20} color="#0f172a" />
         </TouchableOpacity>
-        <Text style={s.navTitle} numberOfLines={1}>
-          Test Result
-        </Text>
+        <Text style={s.navTitle} numberOfLines={1}>{_t("Test Result")}</Text>
         <View style={{ width: 36 }} />
       </View>
 
@@ -244,26 +242,26 @@ export default function TestResultScreen({ route, navigation }) {
         contentContainerStyle={s.scroll}
       >
         {/* ── Score Card ── */}
-        <ScoreCard result={result} testTitle={testTitle ?? result.test_title ?? "Test"} />
+        <ScoreCard result={result} testTitle={_tx(testTitle) ?? _tx(result.test_title) ?? _t("Test")} />
 
         {/* ── Stats Row ── */}
         <View style={s.statsRow}>
-          <StatCard icon="✅" label="Correct" value={correct} color="#16a34a" />
-          <StatCard icon="❌" label="Wrong" value={wrong} color="#dc2626" />
-          <StatCard icon="⬜" label="Skipped" value={unattempted} color="#94a3b8" />
+          <StatCard icon="✅" label={_t("Correct")} value={correct} color="#16a34a" />
+          <StatCard icon="❌" label={_t("Wrong")} value={wrong} color="#dc2626" />
+          <StatCard icon="⬜" label={_t("Skipped")} value={unattempted} color="#94a3b8" />
         </View>
 
         {/* ── Section Breakdown ── */}
         {sections.length > 0 && (
           <View style={s.card}>
-            <Text style={s.cardTitle}>Section-wise Breakdown</Text>
+            <Text style={s.cardTitle}>{_t("Section-wise Breakdown")}</Text>
             {/* Table header */}
             <View style={[s.sectionRow, s.sectionHeaderRow]}>
-              <Text style={[s.sectionName, s.sectionHeaderTxt]}>Section</Text>
-              <Text style={[s.sectionCell, s.sectionHeaderTxt]}>Score</Text>
-              <Text style={[s.sectionCell, s.sectionHeaderTxt]}>Correct</Text>
-              <Text style={[s.sectionCell, s.sectionHeaderTxt]}>Wrong</Text>
-              <Text style={[s.sectionCell, s.sectionHeaderTxt]}>Acc%</Text>
+              <Text style={[s.sectionName, s.sectionHeaderTxt]}>{_t("Section")}</Text>
+              <Text style={[s.sectionCell, s.sectionHeaderTxt]}>{_t("Score")}</Text>
+              <Text style={[s.sectionCell, s.sectionHeaderTxt]}>{_t("Correct")}</Text>
+              <Text style={[s.sectionCell, s.sectionHeaderTxt]}>{_t("Wrong")}</Text>
+              <Text style={[s.sectionCell, s.sectionHeaderTxt]}>{_t("Acc%")}</Text>
             </View>
             {sections.map((sec, i) => (
               <SectionRow key={String(sec.section_id ?? i)} sec={sec} />
@@ -284,7 +282,7 @@ export default function TestResultScreen({ route, navigation }) {
             }
           >
             <MaterialIcons name="analytics" size={18} color="#fff" />
-            <Text style={s.primaryBtnTxt}>View Detailed Analysis</Text>
+            <Text style={s.primaryBtnTxt}>{_t("View Detailed Analysis")}</Text>
           </TouchableOpacity>
 
           {["admin", "owner", "super"].includes((user?.ssmsUserRole ?? "").toLowerCase().trim()) && (
@@ -300,7 +298,7 @@ export default function TestResultScreen({ route, navigation }) {
               }
             >
               <Feather name="award" size={16} color="#2563eb" />
-              <Text style={s.secondaryBtnTxt}>View Leaderboard</Text>
+              <Text style={s.secondaryBtnTxt}>{_t("View Leaderboard")}</Text>
             </TouchableOpacity>
           )}
 
@@ -310,7 +308,7 @@ export default function TestResultScreen({ route, navigation }) {
             onPress={() => navigation.popToTop()}
           >
             <Feather name="home" size={16} color="#64748b" />
-            <Text style={s.ghostBtnTxt}>Go to Test Series</Text>
+            <Text style={s.ghostBtnTxt}>{_t("Go to Test Series")}</Text>
           </TouchableOpacity>
         </View>
 
@@ -318,8 +316,8 @@ export default function TestResultScreen({ route, navigation }) {
         {wrongPreview.length > 0 && (
           <View style={s.card}>
             <View style={s.cardTitleRow}>
-              <Text style={s.cardTitle}>Wrong Answers</Text>
-              <Text style={s.cardBadge}>{wrongQuestions.length}</Text>
+              <Text style={s.cardTitle}>{_t("Wrong Answers")}</Text>
+              <Text style={s.cardBadge}>{_tx(wrongQuestions.length)}</Text>
             </View>
 
             {wrongPreview.map((q, i) => (
@@ -338,9 +336,7 @@ export default function TestResultScreen({ route, navigation }) {
                   })
                 }
               >
-                <Text style={s.viewAllLinkTxt}>
-                  View all {wrongQuestions.length} wrong answers in Analysis
-                </Text>
+                <Text style={s.viewAllLinkTxt}>{_t("View all {length} wrong answers in Analysis", { length: wrongQuestions.length })}</Text>
                 <Feather name="arrow-right" size={13} color="#2563eb" />
               </TouchableOpacity>
             )}

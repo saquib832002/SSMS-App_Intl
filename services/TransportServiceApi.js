@@ -4,6 +4,7 @@
  */
 import { BASE_URL as _RAW } from "../Environment/EnvironmentConfig";
 import { fetchWithLockCheck } from "./apiInterceptor";
+import { _t } from "./i18n";
 const BASE_URL = _RAW.replace(/\/+$/, "");
 
 const buildHeaders = (user) => ({
@@ -23,7 +24,7 @@ const api = (user) => ({
   delete: (path)       => fetchWithLockCheck(`${BASE}/${path}`, { method: "DELETE", headers: buildHeaders(user) }).then(r => r.json()),
 });
 
-const ok = (res) => { if (!res || res.status === false) throw new Error(res?.message ?? "Request failed"); return res; };
+const ok = (res) => { if (!res || res.status === false) throw new Error(res?.message ?? _t("Request failed")); return res; };
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 export const fetchRoutes          = (user)              => api(user).get("getRoutes").then(ok).then(r => r.data ?? []);

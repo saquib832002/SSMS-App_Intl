@@ -14,6 +14,7 @@ import { Feather } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
 import { getWordExportUrl } from "../../services/QuestionPaperServiceApi";
 import { HOST_NAME } from "../../Environment/EnvironmentConfig";
+import { _t, _tx } from "../../services/i18n";
 
 // ─── Language label maps ───────────────────────────────────────────────────────
 const PAPER_LABELS = {
@@ -356,7 +357,7 @@ export default function PaperPreviewScreen({ navigation, route }) {
     try {
       await Print.printAsync({ html, base64: false });
     } catch (e) {
-      Alert.alert("Error", e.message || "Print failed");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Print failed"));
     } finally {
       setExporting(false);
     }
@@ -374,7 +375,7 @@ export default function PaperPreviewScreen({ navigation, route }) {
         UTI: "com.adobe.pdf",
       });
     } catch (e) {
-      Alert.alert("Error", e.message || "PDF export failed");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("PDF export failed"));
     } finally {
       setExporting(false);
     }
@@ -387,10 +388,10 @@ export default function PaperPreviewScreen({ navigation, route }) {
       if (supported) {
         await Linking.openURL(url);
       } else {
-        Alert.alert("Cannot open URL", url);
+        Alert.alert(_t("Cannot open URL"), _tx(url));
       }
     } catch (e) {
-      Alert.alert("Error", e.message || "Could not open Word export URL");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Could not open Word export URL"));
     }
   };
 
@@ -398,19 +399,19 @@ export default function PaperPreviewScreen({ navigation, route }) {
     <View style={st.root}>
       {/* Toolbar */}
       <View style={st.toolbar}>
-        <Text style={st.toolbarTitle} numberOfLines={1}>{paper?.title ?? "Paper Preview"}</Text>
+        <Text style={st.toolbarTitle} numberOfLines={1}>{_tx(paper?.title) ?? _t("Paper Preview")}</Text>
         <View style={st.toolbarBtns}>
           <TouchableOpacity style={st.exportBtn} onPress={handlePrint} disabled={exporting}>
             <Feather name="printer" size={15} color="#fff" />
-            <Text style={st.exportTxt}>Print</Text>
+            <Text style={st.exportTxt}>{_t("Print")}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[st.exportBtn, { backgroundColor: "#dc2626" }]} onPress={handleSharePDF} disabled={exporting}>
             <Feather name="share-2" size={15} color="#fff" />
-            <Text style={st.exportTxt}>PDF</Text>
+            <Text style={st.exportTxt}>{_t("PDF")}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[st.exportBtn, { backgroundColor: "#2563eb" }]} onPress={handleWordExport}>
             <Feather name="file-text" size={15} color="#fff" />
-            <Text style={st.exportTxt}>Word</Text>
+            <Text style={st.exportTxt}>{_t("Word")}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -429,7 +430,7 @@ export default function PaperPreviewScreen({ navigation, route }) {
       {exporting && (
         <View style={st.exportingOverlay}>
           <ActivityIndicator size="large" color="#fff" />
-          <Text style={st.exportingTxt}>Generating…</Text>
+          <Text style={st.exportingTxt}>{_t("Generating…")}</Text>
         </View>
       )}
     </View>

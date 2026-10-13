@@ -4,6 +4,9 @@ import { Alert, AppState } from 'react-native';
 import { setExpiredHandler, setLockedHandler, setLoggedOut } from '../services/apiInterceptor';
 import { fetchUserProfile, fetchEntitlements } from '../services/UserServiceApi';
 import { FEATURE_LABELS } from '../constants/RouteFeatures';
+import { serverLogout } from '../services/SecurityApi';
+import * as BusTracker from '../services/BusTracker';
+import { _t } from "../services/i18n";
 
 // Plan feature keys for the international (subscription) app. They come from
 // user.activeFeatures (ssms_client_features). Legacy (Indian) schools have
@@ -32,6 +35,8 @@ export const AuthContext = createContext({
   setActiveEnrollmentId: () => {},
   linkedStudents:        null,   // null = not yet fetched, [] = fetched (0 or 1), [..] = multiple
   setLinkedStudents:     () => {},
+  updateUser:            (_patch) => {},
+  can:                   (_module, _kind) => true,
 });
 
 // ── navigationRef — kept for backwards compat but no longer used for reset ───
@@ -59,11 +64,45 @@ export function AuthProvider({ children }) {
     setUser(userData);
   }, []);
 
+  const userRef = useRef(null);
+  useEffect(() => { userRef.current = user; }, [user]);
+
+  // Live bus tracking: a driver's trip carries on after the app was closed or the driver signed in again
+  useEffect(() => {
+    const role = (user?.ssmsUserRole ?? '').toLowerCase();
+    if (user?.token && role && role !== 'parent' && role !== 'student') BusTracker.resumeIfRunning(user).catch(() => {});
+  }, [user?.token, user?.ssmsUserName, user?.ssmsUserRole]);
+
+  /** Merge fields into the signed-in user (e.g. two-step turned on). */
+  const updateUser = useCallback((patch) => {
+    setUser(prev => (prev ? { ...prev, ...patch } : prev));
+  }, []);
+
+  /**
+   * Roles & permissions (Settings › Roles & permissions).
+   * user.permissions = { module: ['view','edit',…] } from sign-in; missing → allowed (older server).
+   */
+  const can = useCallback((module, kind = 'view') => {
+    const perms = user?.permissions;
+    if (!module || !perms || typeof perms !== 'object') return true;
+    const role = (user?.ssmsUserRole ?? '').toLowerCase();
+    if (role === 'owner' || role === 'parent' || role === 'student') return true;
+    const list = perms[module];
+    if (!Array.isArray(list)) return true;
+    return list.includes(kind);
+  }, [user?.permissions, user?.ssmsUserRole]);
+
   const logout = useCallback(() => {
+    // End this sign-in on the server too (best effort, never blocks)
+    const u = userRef.current;
+    if (u?.token && !isExpiring.current) {
+      serverLogout(u);
+    }
     // Silence all in-flight and post-logout API calls immediately so no
     // "authorization token missing" or "Session Expired" alerts appear.
     isExpiring.current = true;
     setLoggedOut(true);
+    BusTracker.pauseSharing().catch(() => {});
     setUser(null);
     setProfilePhoto(null);
     setActiveEnrollmentId(null);
@@ -81,9 +120,9 @@ export function AuthProvider({ children }) {
     isExpiring.current = true;
     logout(); // sets user = null → AppNavigator auth guard switches to Login stack
     Alert.alert(
-      'Session Expired',
-      'Your session has expired. Please log in again.',
-      [{ text: 'OK' }]
+      _t("Session Expired"),
+      _t("Your session has expired. Please log in again."),
+      [{ text: _t("OK") }]
     );
   }, [logout]);
 
@@ -113,9 +152,9 @@ export function AuthProvider({ children }) {
     const warnMs = Math.max(0, msLeft - 2 * 60 * 1000);
     warnTimer.current = setTimeout(() => {
       if (!isExpiring.current) {
-        Alert.alert('Session Expiring Soon',
-          'Your session will expire in 2 minutes. Please save your work.',
-          [{ text: 'OK' }]
+        Alert.alert(_t("Session Expiring Soon"),
+          _t("Your session will expire in 2 minutes. Please save your work."),
+          [{ text: _t("OK") }]
         );
       }
     }, warnMs);
@@ -174,15 +213,17 @@ export function AuthProvider({ children }) {
       if (!ent || !Array.isArray(ent.activeModules)) return;
       const billingModel   = ent.billingModel === 'subscription' ? 'subscription' : 'legacy';
       const activeFeatures = Array.isArray(ent.activeFeatures) ? ent.activeFeatures : ['core'];
+      const schoolCountry  = typeof ent.schoolCountry === 'string' ? ent.schoolCountry : (user?.schoolCountry ?? '');
       setUser(prev => {
         if (!prev || prev.token !== user.token) return prev;
         // Compare sorted copies so a different order from the server
         // never counts as a change (a change re-renders every screen).
         const key  = (a) => JSON.stringify([...(a ?? [])].sort());
         const same = prev.billingModel === billingModel
+          && (prev.schoolCountry ?? '') === schoolCountry
           && key(prev.activeModules)  === key(ent.activeModules)
           && key(prev.activeFeatures) === key(activeFeatures);
-        return same ? prev : { ...prev, billingModel, activeModules: ent.activeModules, activeFeatures };
+        return same ? prev : { ...prev, billingModel, schoolCountry, activeModules: ent.activeModules, activeFeatures };
       });
       // A feature bought / unlocked since → stop treating it as locked
       if (billingModel === 'subscription') {
@@ -214,15 +255,13 @@ export function AuthProvider({ children }) {
       try { navigationRef.current?.navigate('Subscription'); } catch { /* ignore */ }
     };
     Alert.alert(
-      `\u{1F512} ${label} is locked`,
-      "Your school's subscription or free trial has expired, or this feature "
-        + "isn't included in your current plan.\n\n"
-        + (isOwner
-          ? 'Subscribe or upgrade the plan to unlock it for your whole school.'
-          : 'Please ask your school administrator to renew or upgrade the subscription.'),
+      _t("🔒 {label} is locked", { label }),
+      _t("Your school's subscription or free trial has expired, or this feature isn't included in your current plan.\n\n{v}", { v: isOwner
+          ? _t("Subscribe or upgrade the plan to unlock it for your whole school.")
+          : _t("Please ask your school administrator to renew or upgrade the subscription.") }),
       isOwner
-        ? [{ text: 'Not now', style: 'cancel' }, { text: 'View plans', onPress: openPlans }]
-        : [{ text: 'OK' }]
+        ? [{ text: _t("Not now"), style: 'cancel' }, { text: _t("View plans"), onPress: openPlans }]
+        : [{ text: _t("OK") }]
     );
   }, [user?.ssmsUserRole]);
 
@@ -253,6 +292,7 @@ export function AuthProvider({ children }) {
       hasFeature, isSubscription, refreshEntitlements, showUpgradePrompt,
       activeEnrollmentId, setActiveEnrollmentId,
       linkedStudents, setLinkedStudents,
+      updateUser, can,
     }}>
       {children}
     </AuthContext.Provider>

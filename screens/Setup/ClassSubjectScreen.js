@@ -17,6 +17,7 @@ import {
   fetchSubjects,
 } from "../../services/SubjectServiceApi";
 import { fetchClasses } from "../../services/SetupServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Reusable Dropdown ─────────────────────────────────────────────────────────
 function Dropdown({ label, value, options, onChange, disabled, loading: isLoading }) {
@@ -30,14 +31,14 @@ function Dropdown({ label, value, options, onChange, disabled, loading: isLoadin
         activeOpacity={0.7}
       >
         <Text style={[st.dropTxt, !selected?.value && st.dropPh]} numberOfLines={1}>
-          {isLoading ? "Loading…" : (selected?.label ?? label)}
+          {isLoading ? _t("Loading…") : (_tx(selected?.label) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={14} color="#64748b" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={st.dropOverlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={st.dropSheet}>
-            <Text style={st.dropTitle}>{label}</Text>
+            <Text style={st.dropTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={(o, i) => `${i}_${String(o.value)}`}
@@ -47,7 +48,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading: isLoadin
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[st.dropOptionTxt, String(o.value) === String(value) && st.dropOptionTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) &&
                     <Feather name="check" size={13} color="#6b21a8" />}
@@ -87,17 +88,21 @@ export default function ClassSubjectScreen() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const [asgn, subj, cls] = await Promise.all([
+      // allSettled: one denied call must not leave the whole screen empty
+      const results = await Promise.allSettled([
         fetchClassSubjects(user),
         fetchSubjects(user),
         fetchClasses(user),
       ]);
+      const [asgn, subj, cls] = results.map(r => r.status === "fulfilled" ? r.value : null);
       setAssignments(Array.isArray(asgn) ? asgn : []);
       setSubjects(Array.isArray(subj) ? subj : []);
-      const cl = Array.isArray(cls) ? cls : cls?.data ?? [];
+      const cl = Array.isArray(cls) ? cls : Array.isArray(cls?.data) ? cls.data : [];
       setClasses(cl);
+      const failed = results.find(r => r.status === "rejected");
+      if (failed) Alert.alert(_t("Error"), _tx(failed.reason?.message) || _t("Failed to load data"));
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load data");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load data"));
     } finally {
       setLoading(false);
     }
@@ -125,17 +130,17 @@ export default function ClassSubjectScreen() {
 
   // ── Options ───────────────────────────────────────────────────────────────
   const classOptions = useMemo(() => [
-    { label: "All Classes", value: "" },
+    { label: _t("All Classes"), value: "" },
     ...classes.map(c => ({ label: c.class_name, value: String(c.class_id) })),
   ], [classes]);
 
   const classFormOptions = useMemo(() => [
-    { label: "Select Class", value: "" },
+    { label: _t("Select Class"), value: "" },
     ...classes.map(c => ({ label: c.class_name, value: String(c.class_id) })),
   ], [classes]);
 
   const subjectOptions = useMemo(() => [
-    { label: "Select Subject", value: "" },
+    { label: _t("Select Subject"), value: "" },
     ...subjects.map(s => ({ label: s.subject_name, value: String(s.subject_id) })),
   ], [subjects]);
 
@@ -159,8 +164,8 @@ export default function ClassSubjectScreen() {
 
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!form.class_id)   { Alert.alert("Validation", "Please select a class.");   return; }
-    if (!form.subject_id) { Alert.alert("Validation", "Please select a subject."); return; }
+    if (!form.class_id)   { Alert.alert(_t("Validation"), _t("Please select a class."));   return; }
+    if (!form.subject_id) { Alert.alert(_t("Validation"), _t("Please select a subject.")); return; }
     try {
       setSaving(true);
       const payload = {
@@ -176,9 +181,9 @@ export default function ClassSubjectScreen() {
       }
       setModalVisible(false);
       load();
-      Alert.alert("Success", editingItem ? "Assignment updated." : "Subject assigned to class.");
+      Alert.alert(_t("Success"), editingItem ? _t("Assignment updated.") : _t("Subject assigned to class."));
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to save");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to save"));
     } finally {
       setSaving(false);
     }
@@ -187,18 +192,18 @@ export default function ClassSubjectScreen() {
   // ── Delete ────────────────────────────────────────────────────────────────
   const handleDelete = (item) => {
     Alert.alert(
-      "Remove Assignment",
-      `Remove "${item.subject_name}" from ${item.class_name ?? "this class"}?`,
+      _t("Remove Assignment"),
+      _t("Remove \"{subject_name}\" from {v}?", { subject_name: item.subject_name, v: item.class_name ?? _t("this class") }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Remove", style: "destructive",
+          text: _t("Remove"), style: "destructive",
           onPress: async () => {
             try {
               await deleteClassSubject(user, item.id);
               load();
             } catch (e) {
-              Alert.alert("Error", e.message || "Failed to delete");
+              Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to delete"));
             }
           },
         },
@@ -212,19 +217,19 @@ export default function ClassSubjectScreen() {
 
       {/* Header */}
       <View style={st.headerBlock}>
-        <Text style={st.title}>Class Subjects</Text>
-        <Text style={st.subtitle}>{filtered.length} assignment{filtered.length !== 1 ? "s" : ""}</Text>
+        <Text style={st.title}>{_t("Class Subjects")}</Text>
+        <Text style={st.subtitle}>{_t("{length} assignment{pl}", { length: filtered.length, pl: filtered.length !== 1 ? "s" : "" })}</Text>
         <TouchableOpacity style={st.addBtn} onPress={openAdd}>
           <Feather name="plus" size={16} color="#fff" />
-          <Text style={st.addBtnTxt}>Assign Subject</Text>
+          <Text style={st.addBtnTxt}>{_t("Assign Subject")}</Text>
         </TouchableOpacity>
       </View>
 
       {/* Class filter */}
       <View style={st.filterWrap}>
-        <Text style={st.filterLabel}>Filter by Class</Text>
+        <Text style={st.filterLabel}>{_t("Filter by Class")}</Text>
         <Dropdown
-          label="All Classes"
+          label={_t("All Classes")}
           value={filterClassId}
           options={classOptions}
           onChange={setFilterClassId}
@@ -236,14 +241,14 @@ export default function ClassSubjectScreen() {
       {loading
         ? <View style={st.loader}>
             <ActivityIndicator size="large" color="#6b21a8" />
-            <Text style={st.loaderTxt}>Loading assignments…</Text>
+            <Text style={st.loaderTxt}>{_t("Loading assignments…")}</Text>
           </View>
         : grouped.length === 0
           ? <View style={st.empty}>
               <Feather name="layers" size={38} color="#cbd5e1" />
-              <Text style={st.emptyTxt}>No assignments found</Text>
+              <Text style={st.emptyTxt}>{_t("No assignments found")}</Text>
               <Text style={st.emptySubTxt}>
-                {filterClassId ? "No subjects assigned to this class yet" : "Tap \"Assign Subject\" to get started"}
+                {filterClassId ? _t("No subjects assigned to this class yet") : _t("Tap \"Assign Subject\" to get started")}
               </Text>
             </View>
           : <FlatList
@@ -255,9 +260,9 @@ export default function ClassSubjectScreen() {
                   {/* Class header */}
                   <View style={st.groupHeader}>
                     <Feather name="book-open" size={13} color="#6b21a8" />
-                    <Text style={st.groupTitle}>{className}</Text>
+                    <Text style={st.groupTitle}>{_tx(className)}</Text>
                     <View style={st.groupCount}>
-                      <Text style={st.groupCountTxt}>{rows.length}</Text>
+                      <Text style={st.groupCountTxt}>{_tx(rows.length)}</Text>
                     </View>
                   </View>
                   {/* Subject rows */}
@@ -265,12 +270,12 @@ export default function ClassSubjectScreen() {
                     <View key={String(item.id)} style={[st.row, idx === rows.length - 1 && { borderBottomWidth: 0 }]}>
                       <View style={st.rowLeft}>
                         <View style={st.orderBadge}>
-                          <Text style={st.orderTxt}>{item.display_order ?? 0}</Text>
+                          <Text style={st.orderTxt}>{_tx(item.display_order) ?? 0}</Text>
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={st.rowSubject}>{item.subject_name}</Text>
+                          <Text style={st.rowSubject}>{_tx(item.subject_name)}</Text>
                           {!!item.subject_code && (
-                            <Text style={st.rowCode}>{item.subject_code}</Text>
+                            <Text style={st.rowCode}>{_tx(item.subject_code)}</Text>
                           )}
                         </View>
                       </View>
@@ -295,7 +300,7 @@ export default function ClassSubjectScreen() {
             <View style={st.modalCard}>
 
               <View style={st.modalHeader}>
-                <Text style={st.modalTitle}>{editingItem ? "Edit Assignment" : "Assign Subject to Class"}</Text>
+                <Text style={st.modalTitle}>{editingItem ? _t("Edit Assignment") : _t("Assign Subject to Class")}</Text>
                 <TouchableOpacity style={st.modalClose} onPress={() => setModalVisible(false)} disabled={saving}>
                   <Feather name="x" size={15} color="#64748b" />
                 </TouchableOpacity>
@@ -304,20 +309,20 @@ export default function ClassSubjectScreen() {
               <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
                 {/* Class */}
-                <Text style={st.fieldLabel}>Class <Text style={{ color: "#ef4444" }}>*</Text></Text>
-                <Dropdown label="Select Class" value={form.class_id} options={classFormOptions}
+                <Text style={st.fieldLabel}>{_t("Class")}{" "}<Text style={{ color: "#ef4444" }}>*</Text></Text>
+                <Dropdown label={_t("Select Class")} value={form.class_id} options={classFormOptions}
                   onChange={v => setField("class_id", v)} disabled={saving} />
 
                 {/* Subject */}
-                <Text style={st.fieldLabel}>Subject <Text style={{ color: "#ef4444" }}>*</Text></Text>
-                <Dropdown label="Select Subject" value={form.subject_id} options={subjectOptions}
+                <Text style={st.fieldLabel}>{_t("Subject")}{" "}<Text style={{ color: "#ef4444" }}>*</Text></Text>
+                <Dropdown label={_t("Select Subject")} value={form.subject_id} options={subjectOptions}
                   onChange={v => setField("subject_id", v)} disabled={saving} />
 
                 {/* Subject Code */}
-                <Text style={st.fieldLabel}>Subject Code</Text>
+                <Text style={st.fieldLabel}>{_t("Subject Code")}</Text>
                 <TextInput
                   style={st.input}
-                  placeholder="e.g. MATH101"
+                  placeholder={_t("e.g. MATH101")}
                   placeholderTextColor="#94a3b8"
                   value={form.subject_code}
                   onChangeText={v => setField("subject_code", v)}
@@ -326,7 +331,7 @@ export default function ClassSubjectScreen() {
                 />
 
                 {/* Display Order */}
-                <Text style={st.fieldLabel}>Display Order</Text>
+                <Text style={st.fieldLabel}>{_t("Display Order")}</Text>
                 <TextInput
                   style={st.input}
                   placeholder="0"
@@ -341,14 +346,14 @@ export default function ClassSubjectScreen() {
 
               <View style={st.modalBtns}>
                 <TouchableOpacity style={st.cancelBtn} onPress={() => setModalVisible(false)} disabled={saving}>
-                  <Text style={st.cancelBtnTxt}>Cancel</Text>
+                  <Text style={st.cancelBtnTxt}>{_t("Cancel")}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[st.saveBtn, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>
                   {saving
                     ? <ActivityIndicator color="#fff" size="small" />
                     : <>
                         <Feather name="check" size={14} color="#fff" />
-                        <Text style={st.saveBtnTxt}>{editingItem ? "Update" : "Assign"}</Text>
+                        <Text style={st.saveBtnTxt}>{editingItem ? _t("Update") : _t("Assign")}</Text>
                       </>}
                 </TouchableOpacity>
               </View>

@@ -26,6 +26,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BASE_URL } from "../Environment/EnvironmentConfig";
 import { COUNTRIES, findCountry, guessCountryCode, deviceTimeZone } from "../constants/Countries";
 import { fetchSignupConfig } from "../services/UserServiceApi";
+import { _t, _tx } from "../services/i18n";
 
 // Email format validator
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -33,7 +34,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Safe JSON parse — strips PHP warnings prepended before the JSON body
 const safeJson = (rawText) => {
   const idx = rawText.indexOf('{');
-  if (idx === -1) throw new Error('Server returned a non-JSON response.');
+  if (idx === -1) throw new Error(_t("Server returned a non-JSON response."));
   return JSON.parse(rawText.slice(idx));
 };
 
@@ -65,13 +66,13 @@ function InputField({ icon, label, required, prefix, ...props }) {
   return (
     <View style={ts.fieldBlock}>
       {!!label && (
-        <Text style={ts.fieldLabel}>{label}{required && <Text style={{ color: C.error }}> *</Text>}</Text>
+        <Text style={ts.fieldLabel}>{_tx(label)}{required && <Text style={{ color: C.error }}> *</Text>}</Text>
       )}
       <View style={ts.inputRow}>
         {!!icon && <Feather name={icon} size={16} color={C.muted} style={{ marginRight: 8 }} />}
         {!!prefix && (
           <View style={ts.prefixBox}>
-            <Text style={ts.prefixTxt}>{prefix}</Text>
+            <Text style={ts.prefixTxt}>{_tx(prefix)}</Text>
           </View>
         )}
         <TextInput
@@ -156,8 +157,8 @@ function OtpInput({ value, onChange }) {
 function SectionCard({ title, subtitle, children }) {
   return (
     <View style={ts.sectionCard}>
-      <Text style={ts.sectionTitle}>{title}</Text>
-      {!!subtitle && <Text style={ts.sectionSub}>{subtitle}</Text>}
+      <Text style={ts.sectionTitle}>{_tx(title)}</Text>
+      {!!subtitle && <Text style={ts.sectionSub}>{_tx(subtitle)}</Text>}
       {children}
     </View>
   );
@@ -167,7 +168,7 @@ function ReviewRow({ label, value }) {
   if (!value) return null;
   return (
     <View style={ts.reviewRow}>
-      <Text style={ts.reviewLabel}>{label}</Text>
+      <Text style={ts.reviewLabel}>{_tx(label)}</Text>
       <Text style={ts.reviewValue} numberOfLines={2}>{String(value)}</Text>
     </View>
   );
@@ -196,20 +197,20 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
         activeOpacity={0.7}
       >
         <Text style={[_ddSt.triggerTxt, !selected?.value && _ddSt.placeholder]} numberOfLines={1}>
-          {loading ? "Loading…" : (selected?.label ?? label)}
+          {loading ? _t("Loading…") : (_tx(selected?.label) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={16} color="#475569" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
         <TouchableOpacity style={_ddSt.overlay} onPress={close} activeOpacity={1}>
           <View style={[_ddSt.sheet, searchable && { height: "75%" }]}>
-            <Text style={_ddSt.sheetTitle}>{label}</Text>
+            <Text style={_ddSt.sheetTitle}>{_tx(label)}</Text>
             {searchable && (
               <View style={_ddSt.searchRow}>
                 <Feather name="search" size={15} color="#94a3b8" />
                 <TextInput
                   style={_ddSt.searchInput}
-                  placeholder="Search…"
+                  placeholder={_t("Search…")}
                   placeholderTextColor="#94a3b8"
                   value={query}
                   onChangeText={setQuery}
@@ -224,7 +225,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
               data={shown}
               keyboardShouldPersistTaps="handled"
               initialNumToRender={20}
-              ListEmptyComponent={<Text style={{ color: "#94a3b8", padding: 12 }}>No matches</Text>}
+              ListEmptyComponent={<Text style={{ color: "#94a3b8", padding: 12 }}>{_t("No matches")}</Text>}
               keyExtractor={(o, i) => String(o.value) + i}
               renderItem={({ item: o }) => (
                 <TouchableOpacity
@@ -232,7 +233,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
                   onPress={() => { onChange(o.value); close(); }}
                 >
                   <Text style={[_ddSt.optionTxt, String(o.value) === String(value) && _ddSt.optionTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) && <Feather name="check" size={14} color="#2563eb" />}
                 </TouchableOpacity>
@@ -326,7 +327,7 @@ function CustomDatePicker({ visible, value, onConfirm, onCancel }) {
 
           {/* ── Header ── */}
           <View style={dp.header}>
-            <Text style={dp.headerTitle}>Date of Birth</Text>
+            <Text style={dp.headerTitle}>{_t("Date of Birth")}</Text>
             <TouchableOpacity onPress={onCancel} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
               <Feather name="x" size={20} color={C.muted} />
             </TouchableOpacity>
@@ -337,7 +338,7 @@ function CustomDatePicker({ visible, value, onConfirm, onCancel }) {
             <>
               <TouchableOpacity style={dp.backRow} onPress={() => setMode('calendar')}>
                 <Feather name="arrow-left" size={14} color={C.primary} />
-                <Text style={dp.backText}>Back to calendar</Text>
+                <Text style={dp.backText}>{_t("Back to calendar")}</Text>
               </TouchableOpacity>
               <ScrollView
                 style={dp.yearScroll}
@@ -350,7 +351,7 @@ function CustomDatePicker({ visible, value, onConfirm, onCancel }) {
                     style={[dp.yearCell, y === selYear && dp.yearCellActive]}
                     onPress={() => { setSelYear(y); setMode('calendar'); }}
                   >
-                    <Text style={[dp.yearCellText, y === selYear && dp.yearCellTextActive]}>{y}</Text>
+                    <Text style={[dp.yearCellText, y === selYear && dp.yearCellTextActive]}>{_tx(y)}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -362,7 +363,7 @@ function CustomDatePicker({ visible, value, onConfirm, onCancel }) {
             <>
               <TouchableOpacity style={dp.backRow} onPress={() => setMode('calendar')}>
                 <Feather name="arrow-left" size={14} color={C.primary} />
-                <Text style={dp.backText}>Back to calendar</Text>
+                <Text style={dp.backText}>{_t("Back to calendar")}</Text>
               </TouchableOpacity>
               <View style={dp.monthGrid}>
                 {MONTH_NAMES.map((_, idx) => {
@@ -375,7 +376,7 @@ function CustomDatePicker({ visible, value, onConfirm, onCancel }) {
                       disabled={disabled}
                     >
                       <Text style={[dp.monthCellText, idx === selMonth && dp.monthCellTextActive]}>
-                        {MONTH_SHORT[idx]}
+                        {_tx(MONTH_SHORT[idx])}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -399,7 +400,7 @@ function CustomDatePicker({ visible, value, onConfirm, onCancel }) {
                     onPress={() => setMode('month')}
                     activeOpacity={0.7}
                   >
-                    <Text style={dp.navPillText}>{MONTH_NAMES[selMonth]}</Text>
+                    <Text style={dp.navPillText}>{_tx(MONTH_NAMES[selMonth])}</Text>
                     <Feather name="chevron-down" size={13} color={C.primary} />
                   </TouchableOpacity>
 
@@ -408,7 +409,7 @@ function CustomDatePicker({ visible, value, onConfirm, onCancel }) {
                     onPress={() => setMode('year')}
                     activeOpacity={0.7}
                   >
-                    <Text style={dp.navPillText}>{selYear}</Text>
+                    <Text style={dp.navPillText}>{_tx(selYear)}</Text>
                     <Feather name="chevron-down" size={13} color={C.primary} />
                   </TouchableOpacity>
                 </View>
@@ -424,7 +425,7 @@ function CustomDatePicker({ visible, value, onConfirm, onCancel }) {
 
               {/* Day-of-week headers */}
               <View style={dp.dayLabelRow}>
-                {DAY_LABELS.map(l => <Text key={l} style={dp.dayLabel}>{l}</Text>)}
+                {DAY_LABELS.map(l => <Text key={l} style={dp.dayLabel}>{_tx(l)}</Text>)}
               </View>
 
               {/* Day grid */}
@@ -450,7 +451,7 @@ function CustomDatePicker({ visible, value, onConfirm, onCancel }) {
                           selected   && dp.dayCellTextSelected,
                           todayMark  && !selected && dp.dayCellToday,
                         ]}>
-                          {d ?? ''}
+                          {_tx(d) ?? ''}
                         </Text>
                       </TouchableOpacity>
                     );
@@ -462,7 +463,7 @@ function CustomDatePicker({ visible, value, onConfirm, onCancel }) {
               <TouchableOpacity style={dp.confirmBtn} onPress={handleConfirm}>
                 <Feather name="check" size={16} color="#fff" />
                 <Text style={dp.confirmText}>
-                  {`  Confirm — ${MONTH_SHORT[selMonth]} ${selDay}, ${selYear}`}
+                  {`  ${_t("Confirm — {v} {selDay}, {selYear}", { v: _tx(MONTH_SHORT[selMonth]), selDay, selYear })}`}
                 </Text>
               </TouchableOpacity>
             </>
@@ -698,7 +699,7 @@ export default function TrialRegistrationScreen({ navigation, route }) {
   const goNext = useCallback(async () => {
     // ── Local validation ──────────────────────────────────────────────────
     const err = validateStep();
-    if (err) { Alert.alert("Validation", err); return; }
+    if (err) { Alert.alert(_t("Validation"), _tx(err)); return; }
 
     // ── Step 0: check school email uniqueness in backend ──────────────────
     if (step === 0) {
@@ -715,10 +716,10 @@ export default function TrialRegistrationScreen({ navigation, route }) {
         // Any other status (auth error, endpoint not wired yet, etc.) is ignored.
         if (json.exists === true) {
           Alert.alert(
-            "Email Already Registered",
-            json.message ||
-            "A school with this email address is already registered.\n\nPlease use a different email or contact support if you believe this is an error.",
-            [{ text: "OK" }]
+            _t("Email Already Registered"),
+            _tx(json.message) ||
+            _t("A school with this email address is already registered.\n\nPlease use a different email or contact support if you believe this is an error."),
+            [{ text: _t("OK") }]
           );
           return;
         }
@@ -744,10 +745,10 @@ export default function TrialRegistrationScreen({ navigation, route }) {
         // Only block if the server explicitly confirms the email already exists.
         if (json.exists === true) {
           Alert.alert(
-            "Email Already in Use",
-            json.message ||
-            "A user account with this email address already exists.\n\nPlease use a different email address.",
-            [{ text: "OK" }]
+            _t("Email Already in Use"),
+            _tx(json.message) ||
+            _t("A user account with this email address already exists.\n\nPlease use a different email address."),
+            [{ text: _t("OK") }]
           );
           return;
         }
@@ -766,7 +767,7 @@ export default function TrialRegistrationScreen({ navigation, route }) {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (perm.status !== "granted") {
-        Alert.alert("Permission Required", "Please allow photo access."); return;
+        Alert.alert(_t("Permission Required"), _t("Please allow photo access.")); return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"], quality: 1, allowsEditing: true, aspect: [1, 1],
@@ -779,14 +780,14 @@ export default function TrialRegistrationScreen({ navigation, route }) {
       );
       setter({ ...asset, uri: manip.uri });
     } catch (e) {
-      Alert.alert("Error", e?.message || "Could not open photo library.");
+      Alert.alert(_t("Error"), _tx(e?.message) || _t("Could not open photo library."));
     }
   }, []);
 
   // ── Submit ──────────────────────────────────────────────────────────────
   const onSubmit = useCallback(async () => {
     const err = validateStep();
-    if (err) { Alert.alert("Validation", err); return; }
+    if (err) { Alert.alert(_t("Validation"), _tx(err)); return; }
 
     try {
       setSubmitting(true);
@@ -835,11 +836,11 @@ export default function TrialRegistrationScreen({ navigation, route }) {
             const json = safeJson(xhr.responseText);
             if (json.status === false) {
               // Backend explicitly rejected (duplicate email/code, validation error, etc.)
-              reject(new Error(json.message ?? `Server rejected the request (HTTP ${xhr.status})`));
+              reject(new Error(json.message ?? _t("Server rejected the request (HTTP {status})", { status: xhr.status })));
             } else if (xhr.status >= 200 && xhr.status < 300) {
               resolve(json);
             } else {
-              reject(new Error(json.message ?? `HTTP ${xhr.status}`));
+              reject(new Error(json.message ?? _t("HTTP {status}", { status: xhr.status })));
             }
           } catch (parseErr) {
             reject(new Error(
@@ -848,7 +849,7 @@ export default function TrialRegistrationScreen({ navigation, route }) {
             ));
           }
         };
-        xhr.onerror = () => reject(new Error("Network error — check server connection."));
+        xhr.onerror = () => reject(new Error(_t("Network error — check server connection.")));
         xhr.send(fd);
       });
 
@@ -867,7 +868,7 @@ export default function TrialRegistrationScreen({ navigation, route }) {
       // Move to email verification step
       setStep(3);
     } catch (e) {
-      Alert.alert("Error", e.message || "Registration failed. Please try again.");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Registration failed. Please try again."));
     } finally {
       setSubmitting(false);
       setUploadPct(0);
@@ -877,7 +878,7 @@ export default function TrialRegistrationScreen({ navigation, route }) {
   // ── Verify email code ────────────────────────────────────────────────────
   const handleVerify = async () => {
     if (!verifyCode.trim() || verifyCode.trim().length !== 6) {
-      Alert.alert("Validation", "Please enter the 6-digit code sent to your email. If you haven't received it, check your spam folder or try resending the code.");
+      Alert.alert(_t("Validation"), _t("Please enter the 6-digit code sent to your email. If you haven't received it, check your spam folder or try resending the code."));
       return;
     }
     try {
@@ -894,17 +895,17 @@ export default function TrialRegistrationScreen({ navigation, route }) {
       const raw  = await res.text();
       const json = safeJson(raw);
       if (!res.ok || json.status === false) {
-        throw new Error(json.message ?? "Invalid or expired code. Please try again.");
+        throw new Error(json.message ?? _t("Invalid or expired code. Please try again."));
       }
       // Clear pending verification from storage now that it's done
       try { await AsyncStorage.removeItem(PENDING_VERIFY_KEY); } catch (_) {}
       Alert.alert(
-        "Email Verified!",
-        "Your account is now active. You can log in.",
-        [{ text: "Go to Login", onPress: () => navigation?.navigate("Login") }]
+        _t("Email Verified!"),
+        _t("Your account is now active. You can log in."),
+        [{ text: _t("Go to Login"), onPress: () => navigation?.navigate("Login") }]
       );
     } catch (e) {
-      Alert.alert("Verification Failed", e.message);
+      Alert.alert(_t("Verification Failed"), _tx(e.message));
     } finally {
       setVerifying(false);
     }
@@ -923,11 +924,11 @@ export default function TrialRegistrationScreen({ navigation, route }) {
       } catch (_) {}
     }
     Alert.alert(
-      "Verify Later",
-      `Your registration is saved!\n\nTo verify your account later:\n\n1. Return to the Login screen\n2. Tap "Verify My Account"\n3. Enter code sent to: ${registeredEmail || "your registered email"}\n\nThe code is valid for 30 minutes. Use "Resend Code" to get a fresh one.`,
+      _t("Verify Later"),
+      _t("Your registration is saved!\n\nTo verify your account later:\n\n1. Return to the Login screen\n2. Tap \"Verify My Account\"\n3. Enter code sent to: {v}\n\nThe code is valid for 30 minutes. Use \"Resend Code\" to get a fresh one.", { v: registeredEmail || _t("your registered email") }),
       [
-        { text: "Cancel", style: "cancel" },
-        { text: "Go to Login", onPress: () => navigation?.navigate("Login") },
+        { text: _t("Cancel"), style: "cancel" },
+        { text: _t("Go to Login"), onPress: () => navigation?.navigate("Login") },
       ]
     );
   };
@@ -946,12 +947,12 @@ export default function TrialRegistrationScreen({ navigation, route }) {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json.status === false) {
-        throw new Error(json.message ?? "Failed to resend code.");
+        throw new Error(json.message ?? _t("Failed to resend code."));
       }
-      Alert.alert("Code Sent", `A new verification code has been sent to ${registeredEmail}. Please check your inbox or spam folders.`);
+      Alert.alert(_t("Code Sent"), _t("A new verification code has been sent to {registeredEmail}. Please check your inbox or spam folders.", { registeredEmail }));
       setVerifyCode('');
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     } finally {
       setResending(false);
     }
@@ -968,10 +969,10 @@ export default function TrialRegistrationScreen({ navigation, route }) {
             <Feather name="arrow-left" size={20} color={C.primary} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={ts.headerTitle}>Trial Registration</Text>
-            <Text style={ts.headerSub}>{STEPS[step]}</Text>
+            <Text style={ts.headerTitle}>{_t("Trial Registration")}</Text>
+            <Text style={ts.headerSub}>{_tx(STEPS[step])}</Text>
           </View>
-          <Text style={ts.stepPill}>{step + 1} / {STEPS.length}</Text>
+          <Text style={ts.stepPill}>{step + 1} / {_tx(STEPS.length)}</Text>
         </View>
 
         {/* ── Step indicator ── */}
@@ -1000,33 +1001,33 @@ export default function TrialRegistrationScreen({ navigation, route }) {
           {/* ════ STEP 0: School Information ════ */}
           {step === 0 && (
             <>
-              <SectionCard title="🏫 School Identity"
-                subtitle="This code uniquely identifies your school in the system">
+              <SectionCard title={_t("🏫 School Identity")}
+                subtitle={_t("This code uniquely identifies your school in the system")}>
                 <InputField
-                  label="School Code (2-5 characters)" required icon="hash"
-                  placeholder="e.g. DPS for Delhi Public School"
+                  label={_t("School Code (2-5 characters)")} required icon="hash"
+                  placeholder={_t("e.g. DPS for Delhi Public School")}
                   value={school.ssms_client_code}
                   onChangeText={v => setS("ssms_client_code", v.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
                   maxLength={5} autoCapitalize="characters"
                 />
                 <InputField
-                  label="School Display Name" required icon="book-open"
-                  placeholder="e.g. Springfield Public School"
+                  label={_t("School Display Name")} required icon="book-open"
+                  placeholder={_t("e.g. Springfield Public School")}
                   value={school.ssms_client_header_text}
                   onChangeText={v => setS("ssms_client_header_text", v)}
                 />
                 <InputField
-                  label="Owner / Principal Name" required icon="user"
-                  placeholder="Full name of owner or principal"
+                  label={_t("Owner / Principal Name")} required icon="user"
+                  placeholder={_t("Full name of owner or principal")}
                   value={school.ssms_client_name}
                   onChangeText={v => setS("ssms_client_name", v)}
                 />
               </SectionCard>
 
-              <SectionCard title="📍 School Address">
-                <Text style={ts.fieldLabel}>Country<Text style={{ color: C.error }}> *</Text></Text>
+              <SectionCard title={_t("📍 School Address")}>
+                <Text style={ts.fieldLabel}>{_t("Country")}<Text style={{ color: C.error }}> *</Text></Text>
                 <Dropdown
-                  label="Select country"
+                  label={_t("Select country")}
                   value={school.country_code}
                   options={COUNTRIES.map(c => ({ value: c.code, label: c.dial ? `${c.name} (${c.dial})` : c.name, search: `${c.code} ${c.dial}` }))}
                   onChange={setCountry}
@@ -1034,58 +1035,54 @@ export default function TrialRegistrationScreen({ navigation, route }) {
                 {!!school.country_code && !isIndia && (
                   <View style={ts.trialNote}>
                     <Feather name="gift" size={14} color="#1d4ed8" />
-                    <Text style={ts.trialNoteTxt}>
-                      Includes a {trialDays}-day free trial of all features. After the trial,
-                      student registration and setup stay free; other modules need a
-                      yearly subscription.
-                    </Text>
+                    <Text style={ts.trialNoteTxt}>{_t("Includes a {trialDays}-day free trial of all features. After the trial, student registration and setup stay free; other modules need a yearly subscription.", { trialDays })}</Text>
                   </View>
                 )}
                 <InputField
-                  label="Address" required icon="map-pin"
-                  placeholder="Street address"
+                  label={_t("Address")} required icon="map-pin"
+                  placeholder={_t("Street address")}
                   value={school.ssms_client_address}
                   onChangeText={v => setS("ssms_client_address", v)}
                 />
                 <View style={ts.row}>
                   <View style={{ flex: 1, marginRight: 8 }}>
                     <InputField
-                      label="City" required icon="map"
-                      placeholder="City"
+                      label={_t("City")} required icon="map"
+                      placeholder={_t("City")}
                       value={school.ssms_client_city}
                       onChangeText={v => setS("ssms_client_city", v)}
                     />
                   </View>
                   <View style={{ flex: 1 }}>
                     <InputField
-                      label={isIndia ? "State" : "State / Region"} required={isIndia} icon="map"
-                      placeholder={isIndia ? "State" : "State / Region"}
+                      label={isIndia ? _t("State") : _t("State / Region")} required={isIndia} icon="map"
+                      placeholder={isIndia ? _t("State") : _t("State / Region")}
                       value={school.ssms_client_state}
                       onChangeText={v => setS("ssms_client_state", v)}
                     />
                   </View>
                 </View>
                 <InputField
-                  label={isIndia ? "PIN Code" : "ZIP / Postal Code"} required={isIndia} icon="archive"
-                  placeholder={isIndia ? "PIN code" : "ZIP / Postal code"}
+                  label={isIndia ? _t("PIN Code") : _t("ZIP / Postal Code")} required={isIndia} icon="archive"
+                  placeholder={isIndia ? _t("PIN code") : _t("ZIP / Postal code")}
                   value={school.ssms_client_zip}
                   onChangeText={v => setS("ssms_client_zip", v)}
                   keyboardType={isIndia ? "number-pad" : "default"}
                 />
               </SectionCard>
 
-              <SectionCard title="📞 Contact Details">
+              <SectionCard title={_t("📞 Contact Details")}>
                 <InputField
-                  label="School Email" required icon="mail"
+                  label={_t("School Email")} required icon="mail"
                   placeholder="school@example.com"
                   value={school.ssms_client_email}
                   onChangeText={v => setS("ssms_client_email", v)}
                   keyboardType="email-address"
                 />
                 <InputField
-                  label="School Phone" required icon="phone"
+                  label={_t("School Phone")} required icon="phone"
                   prefix={country?.dial}
-                  placeholder={country?.dial ? "Phone number" : "Select the country first"}
+                  placeholder={country?.dial ? _t("Phone number") : _t("Select the country first")}
                   value={school.ssms_client_phone}
                   onChangeText={v => setS("ssms_client_phone", v)}
                   keyboardType="phone-pad"
@@ -1129,32 +1126,32 @@ export default function TrialRegistrationScreen({ navigation, route }) {
                 />
               </SectionCard> */}
 
-              <SectionCard title="🏢 Branch Details"
+              <SectionCard title={_t("🏢 Branch Details")}
               >
                 <InputField
-                  label="Branch Name" required icon="home"
-                  placeholder="e.g. Main Campus"
+                  label={_t("Branch Name")} required icon="home"
+                  placeholder={_t("e.g. Main Campus")}
                   value={school.branch_name}
                   onChangeText={v => setS("branch_name", v)}
                 />
                 <InputField
-                  label="Branch Address" icon="map-pin"
-                  placeholder="Branch address (optional)"
+                  label={_t("Branch Address")} icon="map-pin"
+                  placeholder={_t("Branch address (optional)")}
                   value={school.branch_address}
                   onChangeText={v => setS("branch_address", v)}
                 />
               </SectionCard>
 
-              <SectionCard title="🖼️ School Logo" subtitle="Optional — JPEG/PNG, square image recommended">
+              <SectionCard title={_t("🖼️ School Logo")} subtitle={_t("Optional — JPEG/PNG, square image recommended")}>
                 <TouchableOpacity style={ts.photoBtn} onPress={() => pickPhoto(setPhoto)}>
                   <Feather name="image" size={17} color="#fff" />
-                  <Text style={ts.photoBtnText}>{photo ? "Change Logo" : "Upload Logo"}</Text>
+                  <Text style={ts.photoBtnText}>{photo ? _t("Change Logo") : _t("Upload Logo")}</Text>
                 </TouchableOpacity>
                 {photo?.uri
                   ? <Image source={{ uri: photo.uri }} style={ts.logoPreview} />
                   : <View style={ts.photoPlaceholder}>
                       <Feather name="image" size={28} color={C.muted} />
-                      <Text style={ts.photoPlaceholderText}>No logo selected</Text>
+                      <Text style={ts.photoPlaceholderText}>{_t("No logo selected")}</Text>
                     </View>}
               </SectionCard>
             </>
@@ -1163,60 +1160,60 @@ export default function TrialRegistrationScreen({ navigation, route }) {
           {/* ════ STEP 1: Admin Account ════ */}
           {step === 1 && (
             <>
-              <SectionCard title="👤 Admin Login Credentials"
-                subtitle="This account will have Owner-level access to the system">
+              <SectionCard title={_t("👤 Admin Login Credentials")}
+                subtitle={_t("This account will have Owner-level access to the system")}>
                 <InputField
-                  label="Username" required icon="user"
-                  placeholder="Choose a username (no spaces)"
+                  label={_t("Username")} required icon="user"
+                  placeholder={_t("Choose a username (no spaces)")}
                   value={admin.ssms_user_name}
                   onChangeText={v => setA("ssms_user_name", v.trim())}
                 />
                 <InputField
-                  label="Password" required icon="lock"
-                  placeholder="Min 6 characters"
+                  label={_t("Password")} required icon="lock"
+                  placeholder={_t("Min 6 characters")}
                   value={admin.ssms_user_password}
                   onChangeText={v => setA("ssms_user_password", v)}
                   secureTextEntry
                 />
               </SectionCard>
 
-              <SectionCard title="👤 Personal Information">
+              <SectionCard title={_t("👤 Personal Information")}>
                 <View style={ts.row}>
                   <View style={{ flex: 1, marginRight: 8 }}>
                     <InputField
-                      label="First Name" required icon="user"
-                      placeholder="First name"
+                      label={_t("First Name")} required icon="user"
+                      placeholder={_t("First name")}
                       value={admin.ssms_user_firstname}
                       onChangeText={v => setA("ssms_user_firstname", v)}
                     />
                   </View>
                   <View style={{ flex: 1 }}>
                     <InputField
-                      label="Last Name" required icon="user"
-                      placeholder="Last name"
+                      label={_t("Last Name")} required icon="user"
+                      placeholder={_t("Last name")}
                       value={admin.ssms_user_lastname}
                       onChangeText={v => setA("ssms_user_lastname", v)}
                     />
                   </View>
                 </View>
                 <InputField
-                  label="Email Address" required icon="mail"
+                  label={_t("Email Address")} required icon="mail"
                   placeholder="admin@school.com"
                   value={admin.ssms_user_email}
                   onChangeText={v => setA("ssms_user_email", v)}
                   keyboardType="email-address"
                 />
                 <InputField
-                  label="Mobile Number" required icon="phone"
+                  label={_t("Mobile Number")} required icon="phone"
                   prefix={country?.dial}
-                  placeholder="Mobile number"
+                  placeholder={_t("Mobile number")}
                   value={admin.mobile_number}
                   onChangeText={v => setA("mobile_number", v)}
                   keyboardType="phone-pad"
                 />
                 {/* ── Date of Birth picker ── */}
                 <View style={ts.fieldBlock}>
-                  <Text style={ts.fieldLabel}>Date of Birth</Text>
+                  <Text style={ts.fieldLabel}>{_t("Date of Birth")}</Text>
                   <TouchableOpacity
                     style={ts.inputRow}
                     onPress={() => setShowDobPicker(true)}
@@ -1224,7 +1221,7 @@ export default function TrialRegistrationScreen({ navigation, route }) {
                   >
                     <Feather name="calendar" size={16} color={C.muted} style={{ marginRight: 8 }} />
                     <Text style={[ts.input, !admin.user_dob && { color: C.placeholder }]}>
-                      {admin.user_dob || "Select date of birth"}
+                      {_tx(admin.user_dob) || _t("Select date of birth")}
                     </Text>
                     <Feather name="chevron-down" size={16} color={C.muted} />
                   </TouchableOpacity>
@@ -1242,16 +1239,16 @@ export default function TrialRegistrationScreen({ navigation, route }) {
                 />
               </SectionCard>
 
-              <SectionCard title="📸 Profile Photo" subtitle="Optional">
+              <SectionCard title={_t("📸 Profile Photo")} subtitle={_t("Optional")}>
                 <TouchableOpacity style={ts.photoBtn} onPress={() => pickPhoto(setUserPhoto)}>
                   <Feather name="camera" size={17} color="#fff" />
-                  <Text style={ts.photoBtnText}>{userPhoto ? "Change Photo" : "Upload Photo"}</Text>
+                  <Text style={ts.photoBtnText}>{userPhoto ? _t("Change Photo") : _t("Upload Photo")}</Text>
                 </TouchableOpacity>
                 {userPhoto?.uri
                   ? <Image source={{ uri: userPhoto.uri }} style={ts.logoPreview} />
                   : <View style={ts.photoPlaceholder}>
                       <Feather name="camera" size={28} color={C.muted} />
-                      <Text style={ts.photoPlaceholderText}>No photo selected</Text>
+                      <Text style={ts.photoPlaceholderText}>{_t("No photo selected")}</Text>
                     </View>}
               </SectionCard>
             </>
@@ -1262,40 +1259,37 @@ export default function TrialRegistrationScreen({ navigation, route }) {
             <>
               <View style={ts.reviewHeader}>
                 <Feather name="check-circle" size={32} color={C.success} />
-                <Text style={ts.reviewHeaderTitle}>Review Your Details</Text>
-                <Text style={ts.reviewHeaderSub}>
-                  Please review before submitting. Go back to make changes.
-                </Text>
+                <Text style={ts.reviewHeaderTitle}>{_t("Review Your Details")}</Text>
+                <Text style={ts.reviewHeaderSub}>{_t("Please review before submitting. Go back to make changes.")}</Text>
               </View>
 
-              <SectionCard title="🏫 School Information">
-                <ReviewRow label="School Code"        value={school.ssms_client_code} />
-                <ReviewRow label="Display Name"       value={school.ssms_client_header_text} />
-                <ReviewRow label="Owner Name"         value={school.ssms_client_name} />
-                <ReviewRow label="Address"            value={[school.ssms_client_address, school.ssms_client_city, school.ssms_client_state, school.ssms_client_zip].filter(Boolean).join(", ")} />
-                <ReviewRow label="Email"              value={school.ssms_client_email} />
-                <ReviewRow label="Country"            value={country?.name ?? ""} />
-                <ReviewRow label="Phone"              value={fullPhone(country?.dial, school.ssms_client_phone, country?.keepLeadingZero)} />
-                <ReviewRow label="Currency"           value={school.currency} />
-                <ReviewRow label="Enroll Prefix"      value={school.enroll_prefix} />
-                <ReviewRow label="Reg Prefix"         value={school.registration_prefix} />
-                <ReviewRow label="Trial Expiry"       value={school.ssms_client_expiry_date} />
-                <ReviewRow label="Default Branch"     value={school.branch_name} />
+              <SectionCard title={_t("🏫 School Information")}>
+                <ReviewRow label={_t("School Code")}        value={school.ssms_client_code} />
+                <ReviewRow label={_t("Display Name")}       value={school.ssms_client_header_text} />
+                <ReviewRow label={_t("Owner Name")}         value={school.ssms_client_name} />
+                <ReviewRow label={_t("Address")}            value={[school.ssms_client_address, school.ssms_client_city, school.ssms_client_state, school.ssms_client_zip].filter(Boolean).join(", ")} />
+                <ReviewRow label={_t("Email")}              value={school.ssms_client_email} />
+                <ReviewRow label={_t("Country")}            value={country?.name ?? ""} />
+                <ReviewRow label={_t("Phone")}              value={fullPhone(country?.dial, school.ssms_client_phone, country?.keepLeadingZero)} />
+                <ReviewRow label={_t("Currency")}           value={school.currency} />
+                <ReviewRow label={_t("Enroll Prefix")}      value={school.enroll_prefix} />
+                <ReviewRow label={_t("Reg Prefix")}         value={school.registration_prefix} />
+                <ReviewRow label={_t("Trial Expiry")}       value={school.ssms_client_expiry_date} />
+                <ReviewRow label={_t("Default Branch")}     value={school.branch_name} />
               </SectionCard>
 
-              <SectionCard title="👤 Admin Account">
-                <ReviewRow label="Username"    value={admin.ssms_user_name} />
-                <ReviewRow label="Full Name"   value={`${admin.ssms_user_firstname} ${admin.ssms_user_lastname}`} />
-                <ReviewRow label="Email"       value={admin.ssms_user_email} />
-                <ReviewRow label="Mobile"      value={fullPhone(country?.dial, admin.mobile_number, country?.keepLeadingZero)} />
-                <ReviewRow label="Role"        value="Owner" />
+              <SectionCard title={_t("👤 Admin Account")}>
+                <ReviewRow label={_t("Username")}    value={admin.ssms_user_name} />
+                <ReviewRow label={_t("Full Name")}   value={`${admin.ssms_user_firstname} ${admin.ssms_user_lastname}`} />
+                <ReviewRow label={_t("Email")}       value={admin.ssms_user_email} />
+                <ReviewRow label={_t("Mobile")}      value={fullPhone(country?.dial, admin.mobile_number, country?.keepLeadingZero)} />
+                <ReviewRow label={_t("Role")}        value="Owner" />
               </SectionCard>
 
               <View style={ts.termsBox}>
                 <Feather name="info" size={16} color={C.primary} />
-                <Text style={ts.termsText}>
-                  By submitting you agree to our Terms of Service. Your trial expires on{" "}
-                  <Text style={{ fontWeight: "700" }}>{school.ssms_client_expiry_date}</Text>.
+                <Text style={ts.termsText}>{_t("By submitting you agree to our Terms of Service. Your trial expires on")}{" "}
+                  <Text style={{ fontWeight: "700" }}>{_tx(school.ssms_client_expiry_date)}</Text>.
                 </Text>
               </View>
             </>
@@ -1311,24 +1305,22 @@ export default function TrialRegistrationScreen({ navigation, route }) {
                 </View>
               </View>
 
-              <Text style={ts.verifyTitle}>Verify Your Email</Text>
+              <Text style={ts.verifyTitle}>{_t("Verify Your Email")}</Text>
 
               {/* ── Manual entry when returning via "Verify Later" ── */}
               {!registeredEmail ? (
                 <View style={{ width: '100%', marginBottom: 16 }}>
-                  <Text style={[ts.verifySub, { marginBottom: 16 }]}>
-                    Enter the credentials you used when registering:
-                  </Text>
+                  <Text style={[ts.verifySub, { marginBottom: 16 }]}>{_t("Enter the credentials you used when registering:")}</Text>
                   <InputField
-                    label="Registered Email" icon="mail"
+                    label={_t("Registered Email")} icon="mail"
                     placeholder="your@school.com"
                     value={manualEmail}
                     onChangeText={setManualEmail}
                     keyboardType="email-address"
                   />
                   <InputField
-                    label="Username" icon="user"
-                    placeholder="your username"
+                    label={_t("Username")} icon="user"
+                    placeholder={_t("your username")}
                     value={manualUsername}
                     onChangeText={setManualUsername}
                   />
@@ -1338,30 +1330,26 @@ export default function TrialRegistrationScreen({ navigation, route }) {
                       const e = manualEmail.trim();
                       const u = manualUsername.trim();
                       if (!e || !u) {
-                        Alert.alert("Validation", "Please enter both your registered email and username.");
+                        Alert.alert(_t("Validation"), _t("Please enter both your registered email and username."));
                         return;
                       }
                       if (!EMAIL_RE.test(e)) {
-                        Alert.alert("Validation", "Please enter a valid email address.");
+                        Alert.alert(_t("Validation"), _t("Please enter a valid email address."));
                         return;
                       }
                       setRegisteredEmail(e);
                       setRegisteredUsername(u);
                     }}
                   >
-                    <Text style={ts.nextBtnText}>Continue to Verify</Text>
+                    <Text style={ts.nextBtnText}>{_t("Continue to Verify")}</Text>
                     <Feather name="arrow-right" size={17} color="#fff" />
                   </TouchableOpacity>
                 </View>
               ) : (
                 <>
-                  <Text style={ts.verifySub}>
-                    We've sent a 6-digit verification code to:
-                  </Text>
-                  <Text style={ts.verifyEmail}>{registeredEmail}</Text>
-                  <Text style={ts.verifySub2}>
-                    Enter the code below to activate your account.
-                  </Text>
+                  <Text style={ts.verifySub}>{_t("We've sent a 6-digit verification code to:")}</Text>
+                  <Text style={ts.verifyEmail}>{_tx(registeredEmail)}</Text>
+                  <Text style={ts.verifySub2}>{_t("Enter the code below to activate your account.")}</Text>
 
                   {/* 6-digit OTP boxes */}
                   <OtpInput value={verifyCode} onChange={setVerifyCode} />
@@ -1373,17 +1361,17 @@ export default function TrialRegistrationScreen({ navigation, route }) {
                     disabled={verifying || verifyCode.length !== 6}
                   >
                     {verifying
-                      ? <><ActivityIndicator color="#fff" size="small" /><Text style={ts.verifyBtnText}>  Verifying…</Text></>
-                      : <><Feather name="check-circle" size={18} color="#fff" /><Text style={ts.verifyBtnText}>  Verify & Activate Account</Text></>}
+                      ? <><ActivityIndicator color="#fff" size="small" /><Text style={ts.verifyBtnText}>{" "}{_t("Verifying…")}</Text></>
+                      : <><Feather name="check-circle" size={18} color="#fff" /><Text style={ts.verifyBtnText}>{" "}{_t("Verify & Activate Account")}</Text></>}
                   </TouchableOpacity>
 
                   {/* Resend */}
                   <View style={ts.resendRow}>
-                    <Text style={ts.resendText}>Didn't receive the code? </Text>
+                    <Text style={ts.resendText}>{_t("Didn't receive the code?")}{" "}</Text>
                     <TouchableOpacity onPress={handleResend} disabled={resending}>
                       {resending
                         ? <ActivityIndicator size="small" color={C.primary} />
-                        : <Text style={ts.resendLink}>Resend Code</Text>}
+                        : <Text style={ts.resendLink}>{_t("Resend Code")}</Text>}
                     </TouchableOpacity>
                   </View>
                 </>
@@ -1392,16 +1380,14 @@ export default function TrialRegistrationScreen({ navigation, route }) {
               {/* Info box */}
               <View style={ts.infoBox}>
                 <Feather name="info" size={14} color={C.muted} />
-                <Text style={ts.infoText}>
-                  Check your spam/junk folder if you don't see the email. The code expires in 30 minutes. Use "Resend Code" to get a fresh one at any time.
-                </Text>
+                <Text style={ts.infoText}>{_t("Check your spam/junk folder if you don't see the email. The code expires in 30 minutes. Use \"Resend Code\" to get a fresh one at any time.")}</Text>
               </View>
 
               {/* Verify Later — only show when email is known (user just registered) */}
               {!!registeredEmail && (
                 <TouchableOpacity style={ts.verifyLaterBtn} onPress={handleVerifyLater}>
                   <Feather name="clock" size={15} color={C.muted} />
-                  <Text style={ts.verifyLaterText}>Verify Later</Text>
+                  <Text style={ts.verifyLaterText}>{_t("Verify Later")}</Text>
                 </TouchableOpacity>
               )}
 
@@ -1410,7 +1396,7 @@ export default function TrialRegistrationScreen({ navigation, route }) {
                 style={ts.loginLink}
                 onPress={() => navigation?.navigate("Login")}
               >
-                <Text style={ts.loginLinkText}>← Back to Login</Text>
+                <Text style={ts.loginLinkText}>{_t("← Back to Login")}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -1425,7 +1411,7 @@ export default function TrialRegistrationScreen({ navigation, route }) {
                 disabled={checking || submitting}
               >
                 <Feather name="arrow-left" size={17} color={C.primary} />
-                <Text style={ts.backBtnNavText}>Back</Text>
+                <Text style={ts.backBtnNavText}>{_t("Back")}</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -1435,15 +1421,15 @@ export default function TrialRegistrationScreen({ navigation, route }) {
             >
               {checking
                 ? <><ActivityIndicator color="#fff" size="small" />
-                    <Text style={ts.nextBtnText}>  Checking…</Text></>
+                    <Text style={ts.nextBtnText}>{" "}{_t("Checking…")}</Text></>
                 : submitting
                   ? <><ActivityIndicator color="#fff" size="small" />
-                      <Text style={ts.nextBtnText}>  Submitting{uploadPct ? ` ${uploadPct}%` : "…"}</Text></>
+                      <Text style={ts.nextBtnText}>{_t("Submitting{v}", { v: uploadPct ? ` ${uploadPct}%` : "…" })}</Text></>
                   : step < 2
-                    ? <><Text style={ts.nextBtnText}>Next: {STEPS[step + 1]}</Text>
+                    ? <><Text style={ts.nextBtnText}>{_t("Next: {v}", { v: STEPS[step + 1] })}</Text>
                         <Feather name="arrow-right" size={17} color="#fff" /></>
                     : <><Feather name="send" size={17} color="#fff" />
-                        <Text style={ts.nextBtnText}>  Submit Registration</Text></>}
+                        <Text style={ts.nextBtnText}>{" "}{_t("Submit Registration")}</Text></>}
             </TouchableOpacity>
           </View>
           )}

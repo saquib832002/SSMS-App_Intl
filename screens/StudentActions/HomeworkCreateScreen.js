@@ -23,6 +23,7 @@ import {
 } from "../../services/StudentServiceApi";
 import { fetchClassSubjects, fetchTeacherAssignments } from "../../services/SubjectServiceApi";
 import { listHomework, createHomework, deleteHomework } from "../../services/HomeworkServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt  = (d) => d.toISOString().split("T")[0];
@@ -40,7 +41,7 @@ function Dropdown({ label, value, options, onChange, disabled, placeholder }) {
         activeOpacity={0.7}
       >
         <Text style={sel ? dd.val : dd.ph} numberOfLines={1}>
-          {sel ? sel.label : (placeholder ?? label)}
+          {sel ? _tx(sel.label) : (_tx(placeholder) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={13} color="#64748b" />
       </TouchableOpacity>
@@ -48,7 +49,7 @@ function Dropdown({ label, value, options, onChange, disabled, placeholder }) {
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={dd.overlay} activeOpacity={1} onPress={() => setOpen(false)}>
           <View style={dd.sheet}>
-            <Text style={dd.sheetTitle}>{label}</Text>
+            <Text style={dd.sheetTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={o => String(o.value)}
@@ -58,7 +59,7 @@ function Dropdown({ label, value, options, onChange, disabled, placeholder }) {
                   onPress={() => { onChange(item.value); setOpen(false); }}
                 >
                   <Text style={[dd.optTxt, String(item.value) === String(value) && dd.optSelTxt]}>
-                    {item.label}
+                    {_tx(item.label)}
                   </Text>
                   {String(item.value) === String(value) &&
                     <Feather name="check" size={14} color="#2563eb" />}
@@ -74,14 +75,14 @@ function Dropdown({ label, value, options, onChange, disabled, placeholder }) {
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 const STATUS_STYLE = {
-  active:   { bg: "#dcfce7", fg: "#15803d", label: "Active"  },
-  closed:   { bg: "#f1f5f9", fg: "#64748b", label: "Closed"  },
+  active:   { bg: "#dcfce7", fg: "#15803d", get label() { return _t("Active"); }  },
+  closed:   { bg: "#f1f5f9", fg: "#64748b", get label() { return _t("Closed"); }  },
 };
 function StatusBadge({ status }) {
   const s = STATUS_STYLE[status] ?? STATUS_STYLE.active;
   return (
     <View style={{ backgroundColor: s.bg, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 }}>
-      <Text style={{ fontSize: 10, fontWeight: "700", color: s.fg }}>{s.label}</Text>
+      <Text style={{ fontSize: 10, fontWeight: "700", color: s.fg }}>{_tx(s.label)}</Text>
     </View>
   );
 }
@@ -96,18 +97,16 @@ function HomeworkCard({ item, onMark, onDelete }) {
     <View style={c.card}>
       <View style={c.cardTop}>
         <View style={{ flex: 1 }}>
-          <Text style={c.cardTitle} numberOfLines={2}>{item.title}</Text>
+          <Text style={c.cardTitle} numberOfLines={2}>{_tx(item.title)}</Text>
           {item.subjectName
-            ? <Text style={c.cardSub}>📚 {item.subjectName}</Text>
+            ? <Text style={c.cardSub}>📚 {_tx(item.subjectName)}</Text>
             : null}
-          <Text style={c.cardMeta}>
-            Due: {item.dueDate}
-          </Text>
+          <Text style={c.cardMeta}>{_t("Due: {dueDate}", { dueDate: item.dueDate })}</Text>
         </View>
         <View style={{ alignItems: "flex-end", gap: 4 }}>
           <StatusBadge status={item.status} />
           {item.avgCompletionPct !== null && item.avgCompletionPct !== undefined
-            ? <Text style={c.pct}>{item.avgCompletionPct}% avg</Text>
+            ? <Text style={c.pct}>{_t("{avgCompletionPct}% avg", { avgCompletionPct: item.avgCompletionPct })}</Text>
             : null}
         </View>
       </View>
@@ -116,16 +115,16 @@ function HomeworkCard({ item, onMark, onDelete }) {
       {total > 0 && (
         <View style={c.statsRow}>
           <View style={c.statChip}>
-            <Text style={[c.statN, { color: "#15803d" }]}>{completed}</Text>
-            <Text style={c.statL}>Done</Text>
+            <Text style={[c.statN, { color: "#15803d" }]}>{_tx(completed)}</Text>
+            <Text style={c.statL}>{_t("Done")}</Text>
           </View>
           <View style={c.statChip}>
-            <Text style={[c.statN, { color: "#dc2626" }]}>{incomplete}</Text>
-            <Text style={c.statL}>Incomplete</Text>
+            <Text style={[c.statN, { color: "#dc2626" }]}>{_tx(incomplete)}</Text>
+            <Text style={c.statL}>{_t("Incomplete")}</Text>
           </View>
           <View style={c.statChip}>
             <Text style={[c.statN, { color: "#64748b" }]}>{parseInt(item.totalPending ?? 0)}</Text>
-            <Text style={c.statL}>Pending</Text>
+            <Text style={c.statL}>{_t("Pending")}</Text>
           </View>
         </View>
       )}
@@ -133,7 +132,7 @@ function HomeworkCard({ item, onMark, onDelete }) {
       <View style={c.cardActions}>
         <TouchableOpacity style={c.markBtn} onPress={() => onMark(item)}>
           <Feather name="edit-3" size={13} color="#fff" />
-          <Text style={c.markBtnTxt}>Mark Students</Text>
+          <Text style={c.markBtnTxt}>{_t("Mark Students")}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={c.delBtn} onPress={() => onDelete(item)}>
           <Feather name="trash-2" size={13} color="#dc2626" />
@@ -190,7 +189,7 @@ export default function HomeworkCreateScreen({ navigation }) {
       fetchBranches(user).catch(() => []),
     ]).then(([sess, bran]) => {
       // Only sessions that are currently active
-      const activeSess = sess.filter(s =>
+      const activeSess = (Array.isArray(sess) ? sess : []).filter(s =>
         (s.is_current === 'Y' || s.is_current === 'y') &&
         (s.active === 'Yes' || s.active === 'yes' || s.active === 'Y' || s.active === 'y')
       );
@@ -198,7 +197,7 @@ export default function HomeworkCreateScreen({ navigation }) {
       setSessions(sessOpts);
       if (sessOpts.length > 0) setSessionId(String(sessOpts[0].value));
 
-      const branOpts = bran.map(b => ({ value: b.branch_id ?? b.id, label: b.branch_name ?? b.name }));
+      const branOpts = (Array.isArray(bran) ? bran : []).map(b => ({ value: b.branch_id ?? b.id, label: b.branch_name ?? b.name }));
       setBranches(branOpts);
       // Auto-select first branch
       if (branOpts.length > 0 && !user?.branchId) setBranchId(String(branOpts[0].value));
@@ -212,11 +211,12 @@ export default function HomeworkCreateScreen({ navigation }) {
       // Fallback: show all classes (covers admin, owner, and teachers whose
       // account has no staff_id linked yet)
       fetchClasses(user).catch(() => []).then(cls =>
-        setClasses(cls.map(c => ({ value: c.class_id ?? c.id, label: c.class_name ?? c.name })))
+        setClasses((Array.isArray(cls) ? cls : []).map(c => ({ value: c.class_id ?? c.id, label: c.class_name ?? c.name })))
       );
     } else {
       // Teacher with a known staffId: only their assigned classes
-      fetchTeacherAssignments(user, staffId).catch(() => []).then(assignments => {
+      fetchTeacherAssignments(user, staffId).catch(() => []).then(res => {
+        const assignments = Array.isArray(res) ? res : [];
         setTeacherAssignments(assignments);
         const seen = new Set();
         const cls  = [];
@@ -229,7 +229,7 @@ export default function HomeworkCreateScreen({ navigation }) {
         // If assignments came back empty (not yet configured), fall back to all
         if (cls.length === 0) {
           fetchClasses(user).catch(() => []).then(all =>
-            setClasses(all.map(c => ({ value: c.class_id ?? c.id, label: c.class_name ?? c.name })))
+            setClasses((Array.isArray(all) ? all : []).map(c => ({ value: c.class_id ?? c.id, label: c.class_name ?? c.name })))
           );
         } else {
           setClasses(cls);
@@ -244,7 +244,7 @@ export default function HomeworkCreateScreen({ navigation }) {
 
     // Sections always come from the API (not subject-teacher-specific)
     fetchSections(user, classId).catch(() => []).then(s => {
-      const opts = s.map(x => ({ value: x.section_id ?? x.id, label: x.section_name ?? x.name }));
+      const opts = (Array.isArray(s) ? s : []).map(x => ({ value: x.section_id ?? x.id, label: x.section_name ?? x.name }));
       setSections(opts);
       // Auto-select first section
       setSectionId(opts.length > 0 ? String(opts[0].value) : "");
@@ -253,7 +253,7 @@ export default function HomeworkCreateScreen({ navigation }) {
     if (isAdminOwner) {
       // Admin/owner: all subjects for this class
       fetchClassSubjects(user, classId).catch(() => []).then(s =>
-        setSubjects(s.map(x => ({ value: x.subject_id ?? x.id, label: x.subject_name ?? x.name })))
+        setSubjects((Array.isArray(s) ? s : []).map(x => ({ value: x.subject_id ?? x.id, label: x.subject_name ?? x.name })))
       );
     } else {
       // Teacher: only their assigned subjects for this class
@@ -279,9 +279,9 @@ export default function HomeworkCreateScreen({ navigation }) {
         sessionId, branchId: branchId || undefined,
         classId, sectionId: sectionId || undefined, date,
       });
-      setHomework(rows);
+      setHomework(Array.isArray(rows) ? rows : []);
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     } finally {
       setLoading(false);
     }
@@ -291,8 +291,8 @@ export default function HomeworkCreateScreen({ navigation }) {
 
   // ── Save new homework ──
   const handleSave = async () => {
-    if (!formTitle.trim()) { Alert.alert("Required", "Title is required."); return; }
-    if (!classId || !sessionId) { Alert.alert("Required", "Please select a session and class first."); return; }
+    if (!formTitle.trim()) { Alert.alert(_t("Required"), _t("Title is required.")); return; }
+    if (!classId || !sessionId) { Alert.alert(_t("Required"), _t("Please select a session and class first.")); return; }
     setSaving(true);
     try {
       await createHomework(user, {
@@ -306,12 +306,12 @@ export default function HomeworkCreateScreen({ navigation }) {
         assignedDate: date,
         dueDate:      formDueDate,
       });
-      Alert.alert("Success", "Homework created!", [{ text: "OK" }]);
+      Alert.alert(_t("Success"), _t("Homework created!"), [{ text: _t("OK") }]);
       setFormTitle(""); setFormDesc(""); setFormSubject(""); setFormSubjName(""); setFormDueDate(today);
       setShowForm(false);
       loadHomework();
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     } finally {
       setSaving(false);
     }
@@ -320,18 +320,18 @@ export default function HomeworkCreateScreen({ navigation }) {
   // ── Delete ──
   const handleDelete = (item) => {
     Alert.alert(
-      "Delete Homework",
-      `Delete "${item.title}"? This will also remove all student marks.`,
+      _t("Delete Homework"),
+      _t("Delete \"{title}\"? This will also remove all student marks.", { title: item.title }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Delete", style: "destructive",
+          text: _t("Delete"), style: "destructive",
           onPress: async () => {
             try {
               await deleteHomework(user, item.id);
               loadHomework();
             } catch (e) {
-              Alert.alert("Error", e.message);
+              Alert.alert(_t("Error"), _tx(e.message));
             }
           },
         },
@@ -346,13 +346,13 @@ export default function HomeworkCreateScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
           <Feather name="arrow-left" size={20} color="#1e40af" />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Homework</Text>
+        <Text style={s.headerTitle}>{_t("Homework")}</Text>
         <TouchableOpacity
           style={s.addBtn}
           onPress={() => setShowForm(true)}
         >
           <Feather name="plus" size={18} color="#fff" />
-          <Text style={s.addBtnTxt}>New Task</Text>
+          <Text style={s.addBtnTxt}>{_t("New Task")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -360,40 +360,40 @@ export default function HomeworkCreateScreen({ navigation }) {
       <View style={s.filters}>
         <View style={s.filterRow}>
           <View style={s.filterCell}>
-            <Text style={s.filterLabel}>Session</Text>
+            <Text style={s.filterLabel}>{_t("Session")}</Text>
             <Dropdown
-              label="Session" value={sessionId}
+              label={_t("Session")} value={sessionId}
               options={sessions} onChange={setSessionId}
-              placeholder="Select"
+              placeholder={_t("Select")}
             />
           </View>
           <View style={s.filterCell}>
-            <Text style={s.filterLabel}>Branch</Text>
+            <Text style={s.filterLabel}>{_t("Branch")}</Text>
             <Dropdown
-              label="Branch" value={branchId}
+              label={_t("Branch")} value={branchId}
               options={branches}
               onChange={setBranchId}
-              placeholder="Select"
+              placeholder={_t("Select")}
             />
           </View>
         </View>
         <View style={s.filterRow}>
           <View style={s.filterCell}>
-            <Text style={s.filterLabel}>Class</Text>
+            <Text style={s.filterLabel}>{_t("Class")}</Text>
             <Dropdown
-              label="Class" value={classId}
+              label={_t("Class")} value={classId}
               options={classes} onChange={v => { setClassId(v); setSectionId(""); }}
-              placeholder="Select"
+              placeholder={_t("Select")}
             />
           </View>
           <View style={s.filterCell}>
-            <Text style={s.filterLabel}>Section</Text>
+            <Text style={s.filterLabel}>{_t("Section")}</Text>
             <Dropdown
-              label="Section" value={sectionId}
+              label={_t("Section")} value={sectionId}
               options={sections}
               onChange={setSectionId}
               disabled={!classId}
-              placeholder="Select"
+              placeholder={_t("Select")}
             />
           </View>
         </View>
@@ -401,7 +401,7 @@ export default function HomeworkCreateScreen({ navigation }) {
         {/* Date */}
         <TouchableOpacity style={s.datePicker} onPress={() => setShowDatePk(true)}>
           <Feather name="calendar" size={14} color="#2563eb" />
-          <Text style={s.datePickerTxt}>{date}</Text>
+          <Text style={s.datePickerTxt}>{_tx(date)}</Text>
           <Feather name="chevron-down" size={13} color="#64748b" />
         </TouchableOpacity>
         {showDatePk && (
@@ -421,11 +421,11 @@ export default function HomeworkCreateScreen({ navigation }) {
           ? (
             <View style={s.empty}>
               <Feather name="book" size={40} color="#cbd5e1" />
-              <Text style={s.emptyTitle}>No homework assigned</Text>
+              <Text style={s.emptyTitle}>{_t("No homework assigned")}</Text>
               <Text style={s.emptyDesc}>
                 {classId && sessionId
-                  ? 'Tap “+ New Task” to create one.'
-                  : "Select session and class to view homework."}
+                  ? _t("Tap “+ New Task” to create one.")
+                  : _t("Select session and class to view homework.")}
               </Text>
             </View>
           )
@@ -464,7 +464,7 @@ export default function HomeworkCreateScreen({ navigation }) {
           <View style={f.sheet}>
             {/* Sheet header */}
             <View style={f.sheetHeader}>
-              <Text style={f.sheetTitle}>New Homework Task</Text>
+              <Text style={f.sheetTitle}>{_t("New Homework Task")}</Text>
               <TouchableOpacity onPress={() => setShowForm(false)}>
                 <Feather name="x" size={20} color="#64748b" />
               </TouchableOpacity>
@@ -475,20 +475,20 @@ export default function HomeworkCreateScreen({ navigation }) {
               {/* Session + Branch */}
               <View style={f.row}>
                 <View style={f.cell}>
-                  <Text style={f.label}>Session <Text style={{ color: "#dc2626" }}>*</Text></Text>
+                  <Text style={f.label}>{_t("Session")}{" "}<Text style={{ color: "#dc2626" }}>*</Text></Text>
                   <Dropdown
-                    label="Session" value={sessionId}
+                    label={_t("Session")} value={sessionId}
                     options={sessions} onChange={setSessionId}
-                    placeholder="Select"
+                    placeholder={_t("Select")}
                   />
                 </View>
                 <View style={f.cell}>
-                  <Text style={f.label}>Branch</Text>
+                  <Text style={f.label}>{_t("Branch")}</Text>
                   <Dropdown
-                    label="Branch" value={branchId}
+                    label={_t("Branch")} value={branchId}
                     options={branches}
                     onChange={setBranchId}
-                    placeholder="Select"
+                    placeholder={_t("Select")}
                   />
                 </View>
               </View>
@@ -496,31 +496,31 @@ export default function HomeworkCreateScreen({ navigation }) {
               {/* Class + Section */}
               <View style={f.row}>
                 <View style={f.cell}>
-                  <Text style={f.label}>Class <Text style={{ color: "#dc2626" }}>*</Text></Text>
+                  <Text style={f.label}>{_t("Class")}{" "}<Text style={{ color: "#dc2626" }}>*</Text></Text>
                   <Dropdown
-                    label="Class" value={classId}
+                    label={_t("Class")} value={classId}
                     options={classes}
                     onChange={v => { setClassId(v); setSectionId(""); }}
-                    placeholder="Select"
+                    placeholder={_t("Select")}
                   />
                 </View>
                 <View style={f.cell}>
-                  <Text style={f.label}>Section</Text>
+                  <Text style={f.label}>{_t("Section")}</Text>
                   <Dropdown
-                    label="Section" value={sectionId}
+                    label={_t("Section")} value={sectionId}
                     options={sections}
                     onChange={setSectionId}
                     disabled={!classId}
-                    placeholder="Select"
+                    placeholder={_t("Select")}
                   />
                 </View>
               </View>
 
               {/* Subject */}
-              <Text style={f.label}>Subject (optional)</Text>
+              <Text style={f.label}>{_t("Subject (optional)")}</Text>
               <Dropdown
-                label="Subject" value={formSubject}
-                options={[{ value: "", label: "General / No subject" }, ...subjects]}
+                label={_t("Subject")} value={formSubject}
+                options={[{ value: "", label: _t("General / No subject") }, ...subjects]}
                 onChange={v => {
                   setFormSubject(v);
                   const found = subjects.find(s => String(s.value) === String(v));
@@ -529,23 +529,23 @@ export default function HomeworkCreateScreen({ navigation }) {
               />
 
               {/* Title */}
-              <Text style={f.label}>Title <Text style={{ color: "#dc2626" }}>*</Text></Text>
+              <Text style={f.label}>{_t("Title")}{" "}<Text style={{ color: "#dc2626" }}>*</Text></Text>
               <TextInput
                 style={f.input}
                 value={formTitle}
                 onChangeText={setFormTitle}
-                placeholder="e.g. Complete exercises 5–10"
+                placeholder={_t("e.g. Complete exercises 5–10")}
                 placeholderTextColor="#94a3b8"
                 maxLength={200}
               />
 
               {/* Description */}
-              <Text style={f.label}>Description / Instructions</Text>
+              <Text style={f.label}>{_t("Description / Instructions")}</Text>
               <TextInput
                 style={[f.input, f.multiline]}
                 value={formDesc}
                 onChangeText={setFormDesc}
-                placeholder="Add any notes or details for students..."
+                placeholder={_t("Add any notes or details for students...")}
                 placeholderTextColor="#94a3b8"
                 multiline
                 numberOfLines={4}
@@ -553,10 +553,10 @@ export default function HomeworkCreateScreen({ navigation }) {
               />
 
               {/* Due Date */}
-              <Text style={f.label}>Due Date</Text>
+              <Text style={f.label}>{_t("Due Date")}</Text>
               <TouchableOpacity style={f.dateBtn} onPress={() => setShowDuePk(true)}>
                 <Feather name="calendar" size={14} color="#2563eb" />
-                <Text style={f.dateBtnTxt}>{formDueDate}</Text>
+                <Text style={f.dateBtnTxt}>{_tx(formDueDate)}</Text>
               </TouchableOpacity>
               {showDuePk && (
                 <DateTimePicker
@@ -571,12 +571,9 @@ export default function HomeworkCreateScreen({ navigation }) {
               {/* Info */}
               <View style={f.infoBox}>
                 <Feather name="info" size={13} color="#2563eb" />
-                <Text style={f.infoTxt}>
-                  Will be assigned to {sectionId
+                <Text style={f.infoTxt}>{_t("Will be assigned to {v} on {date}.", { v: sectionId
                     ? `${classes.find(c=>String(c.value)===String(classId))?.label ?? ""} — ${sections.find(s=>String(s.value)===String(sectionId))?.label ?? ""}`
-                    : `all sections of ${classes.find(c=>String(c.value)===String(classId))?.label ?? "the selected class"}`
-                  } on {date}.
-                </Text>
+                    : _t("all sections of {v}", { v: classes.find(c=>String(c.value)===String(classId))?.label ?? _t("the selected class") }), date })}</Text>
               </View>
 
               {/* Save button */}
@@ -587,7 +584,7 @@ export default function HomeworkCreateScreen({ navigation }) {
               >
                 {saving
                   ? <ActivityIndicator color="#fff" size="small" />
-                  : <><Feather name="check" size={16} color="#fff" /><Text style={f.saveBtnTxt}>Create Homework</Text></>
+                  : <><Feather name="check" size={16} color="#fff" /><Text style={f.saveBtnTxt}>{_t("Create Homework")}</Text></>
                 }
               </TouchableOpacity>
               <View style={{ height: 24 }} />

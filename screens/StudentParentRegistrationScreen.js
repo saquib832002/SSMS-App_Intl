@@ -18,23 +18,27 @@ import {
   FlatList,
   Platform,
 } from "react-native";
+import { deviceDialCode } from '../constants/Countries';
+const DEFAULT_DIAL = deviceDialCode('+91');
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { BASE_URL } from "../Environment/EnvironmentConfig";
 
+import { fmtDate } from "../services/Locale";
+import { _t, _tx } from "../services/i18n";
 // ─── DOB picker data ──────────────────────────────────────────────────────────
 const CY = new Date().getFullYear();
 const DOB_DAYS = Array.from({ length: 31 }, (_, i) => ({
   value: i + 1, label: String(i + 1).padStart(2, '0'),
 }));
 const DOB_MONTHS = [
-  { value: 1, label: 'January' },  { value: 2, label: 'February' },
-  { value: 3, label: 'March' },    { value: 4, label: 'April' },
-  { value: 5, label: 'May' },      { value: 6, label: 'June' },
-  { value: 7, label: 'July' },     { value: 8, label: 'August' },
-  { value: 9, label: 'September' },{ value: 10, label: 'October' },
-  { value: 11, label: 'November' },{ value: 12, label: 'December' },
+  { value: 1, get label() { return _t("January"); } },  { value: 2, get label() { return _t("February"); } },
+  { value: 3, get label() { return _t("March"); } },    { value: 4, get label() { return _t("April"); } },
+  { value: 5, get label() { return _t("May"); } },      { value: 6, get label() { return _t("June"); } },
+  { value: 7, get label() { return _t("July"); } },     { value: 8, get label() { return _t("August"); } },
+  { value: 9, get label() { return _t("September"); } },{ value: 10, get label() { return _t("October"); } },
+  { value: 11, get label() { return _t("November"); } },{ value: 12, get label() { return _t("December"); } },
 ];
 const DOB_YEARS = Array.from({ length: 81 }, (_, i) => {
   const y = CY - i; return { value: y, label: String(y) };
@@ -67,7 +71,7 @@ function PickerColumn({ items, selected, onSelect }) {
             activeOpacity={0.65}
           >
             <Text numberOfLines={1} style={[dp.colTxt, sel && dp.colTxtSel]}>
-              {item.label}
+              {_tx(item.label)}
             </Text>
           </TouchableOpacity>
         );
@@ -81,207 +85,207 @@ const isTablet = width >= 768;
 
 // ─── Country dialling codes (195 countries, Pakistan pinned first) ────────────
 const COUNTRY_CODES = [
-  { label: '🇮🇳 India (+91)',                         value: '+91'   },
-  { label: '🇦🇫 Afghanistan (+93)',                   value: '+93'   },
-  { label: '🇦🇱 Albania (+355)',                      value: '+355'  },
-  { label: '🇩🇿 Algeria (+213)',                      value: '+213'  },
-  { label: '🇦🇩 Andorra (+376)',                      value: '+376'  },
-  { label: '🇦🇴 Angola (+244)',                       value: '+244'  },
-  { label: '🇦🇬 Antigua & Barbuda (+1268)',           value: '+1268' },
-  { label: '🇦🇷 Argentina (+54)',                     value: '+54'   },
-  { label: '🇦🇲 Armenia (+374)',                      value: '+374'  },
-  { label: '🇦🇺 Australia (+61)',                     value: '+61'   },
-  { label: '🇦🇹 Austria (+43)',                       value: '+43'   },
-  { label: '🇦🇿 Azerbaijan (+994)',                   value: '+994'  },
-  { label: '🇧🇸 Bahamas (+1242)',                     value: '+1242' },
-  { label: '🇧🇭 Bahrain (+973)',                      value: '+973'  },
-  { label: '🇧🇩 Bangladesh (+880)',                   value: '+880'  },
-  { label: '🇧🇧 Barbados (+1246)',                    value: '+1246' },
-  { label: '🇧🇾 Belarus (+375)',                      value: '+375'  },
-  { label: '🇧🇪 Belgium (+32)',                       value: '+32'   },
-  { label: '🇧🇿 Belize (+501)',                       value: '+501'  },
-  { label: '🇧🇯 Benin (+229)',                        value: '+229'  },
-  { label: '🇧🇹 Bhutan (+975)',                       value: '+975'  },
-  { label: '🇧🇴 Bolivia (+591)',                      value: '+591'  },
-  { label: '🇧🇦 Bosnia & Herzegovina (+387)',         value: '+387'  },
-  { label: '🇧🇼 Botswana (+267)',                     value: '+267'  },
-  { label: '🇧🇷 Brazil (+55)',                        value: '+55'   },
-  { label: '🇧🇳 Brunei (+673)',                       value: '+673'  },
-  { label: '🇧🇬 Bulgaria (+359)',                     value: '+359'  },
-  { label: '🇧🇫 Burkina Faso (+226)',                 value: '+226'  },
-  { label: '🇧🇮 Burundi (+257)',                      value: '+257'  },
-  { label: '🇨🇻 Cabo Verde (+238)',                   value: '+238'  },
-  { label: '🇰🇭 Cambodia (+855)',                     value: '+855'  },
-  { label: '🇨🇲 Cameroon (+237)',                     value: '+237'  },
-  { label: '🇨🇦 Canada (+1)',                         value: '+1'    },
-  { label: '🇨🇫 Central African Republic (+236)',     value: '+236'  },
-  { label: '🇹🇩 Chad (+235)',                         value: '+235'  },
-  { label: '🇨🇱 Chile (+56)',                         value: '+56'   },
-  { label: '🇨🇳 China (+86)',                         value: '+86'   },
-  { label: '🇨🇴 Colombia (+57)',                      value: '+57'   },
-  { label: '🇰🇲 Comoros (+269)',                      value: '+269'  },
-  { label: '🇨🇩 Congo (DRC) (+243)',                  value: '+243'  },
-  { label: '🇨🇬 Congo (Republic) (+242)',             value: '+242'  },
-  { label: '🇨🇷 Costa Rica (+506)',                   value: '+506'  },
-  { label: "🇨🇮 Côte d'Ivoire (+225)",               value: '+225'  },
-  { label: '🇭🇷 Croatia (+385)',                      value: '+385'  },
-  { label: '🇨🇺 Cuba (+53)',                          value: '+53'   },
-  { label: '🇨🇾 Cyprus (+357)',                       value: '+357'  },
-  { label: '🇨🇿 Czech Republic (+420)',               value: '+420'  },
-  { label: '🇩🇰 Denmark (+45)',                       value: '+45'   },
-  { label: '🇩🇯 Djibouti (+253)',                     value: '+253'  },
-  { label: '🇩🇲 Dominica (+1767)',                    value: '+1767' },
-  { label: '🇩🇴 Dominican Republic (+1809)',          value: '+1809' },
-  { label: '🇪🇨 Ecuador (+593)',                      value: '+593'  },
-  { label: '🇪🇬 Egypt (+20)',                         value: '+20'   },
-  { label: '🇸🇻 El Salvador (+503)',                  value: '+503'  },
-  { label: '🇬🇶 Equatorial Guinea (+240)',            value: '+240'  },
-  { label: '🇪🇷 Eritrea (+291)',                      value: '+291'  },
-  { label: '🇪🇪 Estonia (+372)',                      value: '+372'  },
-  { label: '🇸🇿 Eswatini (+268)',                     value: '+268'  },
-  { label: '🇪🇹 Ethiopia (+251)',                     value: '+251'  },
-  { label: '🇫🇯 Fiji (+679)',                         value: '+679'  },
-  { label: '🇫🇮 Finland (+358)',                      value: '+358'  },
-  { label: '🇫🇷 France (+33)',                        value: '+33'   },
-  { label: '🇬🇦 Gabon (+241)',                        value: '+241'  },
-  { label: '🇬🇲 Gambia (+220)',                       value: '+220'  },
-  { label: '🇬🇪 Georgia (+995)',                      value: '+995'  },
-  { label: '🇩🇪 Germany (+49)',                       value: '+49'   },
-  { label: '🇬🇭 Ghana (+233)',                        value: '+233'  },
-  { label: '🇬🇷 Greece (+30)',                        value: '+30'   },
-  { label: '🇬🇩 Grenada (+1473)',                     value: '+1473' },
-  { label: '🇬🇹 Guatemala (+502)',                    value: '+502'  },
-  { label: '🇬🇳 Guinea (+224)',                       value: '+224'  },
-  { label: '🇬🇼 Guinea-Bissau (+245)',                value: '+245'  },
-  { label: '🇬🇾 Guyana (+592)',                       value: '+592'  },
-  { label: '🇭🇹 Haiti (+509)',                        value: '+509'  },
-  { label: '🇭🇳 Honduras (+504)',                     value: '+504'  },
-  { label: '🇭🇺 Hungary (+36)',                       value: '+36'   },
-  { label: '🇮🇸 Iceland (+354)',                      value: '+354'  },
-  { label: '🇮🇳 India (+91)',                         value: '+91'   },
-  { label: '🇮🇩 Indonesia (+62)',                     value: '+62'   },
-  { label: '🇮🇷 Iran (+98)',                          value: '+98'   },
-  { label: '🇮🇶 Iraq (+964)',                         value: '+964'  },
-  { label: '🇮🇪 Ireland (+353)',                      value: '+353'  },
-  { label: '🇮🇱 Israel (+972)',                       value: '+972'  },
-  { label: '🇮🇹 Italy (+39)',                         value: '+39'   },
-  { label: '🇯🇲 Jamaica (+1876)',                     value: '+1876' },
-  { label: '🇯🇵 Japan (+81)',                         value: '+81'   },
-  { label: '🇯🇴 Jordan (+962)',                       value: '+962'  },
-  { label: '🇰🇿 Kazakhstan (+7)',                     value: '+7'    },
-  { label: '🇰🇪 Kenya (+254)',                        value: '+254'  },
-  { label: '🇰🇮 Kiribati (+686)',                     value: '+686'  },
-  { label: '🇽🇰 Kosovo (+383)',                       value: '+383'  },
-  { label: '🇰🇼 Kuwait (+965)',                       value: '+965'  },
-  { label: '🇰🇬 Kyrgyzstan (+996)',                   value: '+996'  },
-  { label: '🇱🇦 Laos (+856)',                         value: '+856'  },
-  { label: '🇱🇻 Latvia (+371)',                       value: '+371'  },
-  { label: '🇱🇧 Lebanon (+961)',                      value: '+961'  },
-  { label: '🇱🇸 Lesotho (+266)',                      value: '+266'  },
-  { label: '🇱🇷 Liberia (+231)',                      value: '+231'  },
-  { label: '🇱🇾 Libya (+218)',                        value: '+218'  },
-  { label: '🇱🇮 Liechtenstein (+423)',                value: '+423'  },
-  { label: '🇱🇹 Lithuania (+370)',                    value: '+370'  },
-  { label: '🇱🇺 Luxembourg (+352)',                   value: '+352'  },
-  { label: '🇲🇬 Madagascar (+261)',                   value: '+261'  },
-  { label: '🇲🇼 Malawi (+265)',                       value: '+265'  },
-  { label: '🇲🇾 Malaysia (+60)',                      value: '+60'   },
-  { label: '🇲🇻 Maldives (+960)',                     value: '+960'  },
-  { label: '🇲🇱 Mali (+223)',                         value: '+223'  },
-  { label: '🇲🇹 Malta (+356)',                        value: '+356'  },
-  { label: '🇲🇭 Marshall Islands (+692)',             value: '+692'  },
-  { label: '🇲🇷 Mauritania (+222)',                   value: '+222'  },
-  { label: '🇲🇺 Mauritius (+230)',                    value: '+230'  },
-  { label: '🇲🇽 Mexico (+52)',                        value: '+52'   },
-  { label: '🇫🇲 Micronesia (+691)',                   value: '+691'  },
-  { label: '🇲🇩 Moldova (+373)',                      value: '+373'  },
-  { label: '🇲🇨 Monaco (+377)',                       value: '+377'  },
-  { label: '🇲🇳 Mongolia (+976)',                     value: '+976'  },
-  { label: '🇲🇪 Montenegro (+382)',                   value: '+382'  },
-  { label: '🇲🇦 Morocco (+212)',                      value: '+212'  },
-  { label: '🇲🇿 Mozambique (+258)',                   value: '+258'  },
-  { label: '🇲🇲 Myanmar (+95)',                       value: '+95'   },
-  { label: '🇳🇦 Namibia (+264)',                      value: '+264'  },
-  { label: '🇳🇷 Nauru (+674)',                        value: '+674'  },
-  { label: '🇳🇵 Nepal (+977)',                        value: '+977'  },
-  { label: '🇳🇱 Netherlands (+31)',                   value: '+31'   },
-  { label: '🇳🇿 New Zealand (+64)',                   value: '+64'   },
-  { label: '🇳🇮 Nicaragua (+505)',                    value: '+505'  },
-  { label: '🇳🇪 Niger (+227)',                        value: '+227'  },
-  { label: '🇳🇬 Nigeria (+234)',                      value: '+234'  },
-  { label: '🇲🇰 North Macedonia (+389)',              value: '+389'  },
-  { label: '🇳🇴 Norway (+47)',                        value: '+47'   },
-  { label: '🇴🇲 Oman (+968)',                         value: '+968'  },
-  { label: '🇵🇰 Pakistan (+92)',                      value: '+92'   },
-  { label: '🇵🇼 Palau (+680)',                        value: '+680'  },
-  { label: '🇵🇸 Palestine (+970)',                    value: '+970'  },
-  { label: '🇵🇦 Panama (+507)',                       value: '+507'  },
-  { label: '🇵🇬 Papua New Guinea (+675)',             value: '+675'  },
-  { label: '🇵🇾 Paraguay (+595)',                     value: '+595'  },
-  { label: '🇵🇪 Peru (+51)',                          value: '+51'   },
-  { label: '🇵🇭 Philippines (+63)',                   value: '+63'   },
-  { label: '🇵🇱 Poland (+48)',                        value: '+48'   },
-  { label: '🇵🇹 Portugal (+351)',                     value: '+351'  },
-  { label: '🇶🇦 Qatar (+974)',                        value: '+974'  },
-  { label: '🇷🇴 Romania (+40)',                       value: '+40'   },
-  { label: '🇷🇺 Russia (+7)',                         value: '+7'    },
-  { label: '🇷🇼 Rwanda (+250)',                       value: '+250'  },
-  { label: '🇰🇳 Saint Kitts & Nevis (+1869)',        value: '+1869' },
-  { label: '🇱🇨 Saint Lucia (+1758)',                 value: '+1758' },
-  { label: '🇻🇨 Saint Vincent & Grenadines (+1784)', value: '+1784' },
-  { label: '🇼🇸 Samoa (+685)',                        value: '+685'  },
-  { label: '🇸🇲 San Marino (+378)',                   value: '+378'  },
-  { label: '🇸🇹 São Tomé & Príncipe (+239)',          value: '+239'  },
-  { label: '🇸🇦 Saudi Arabia (+966)',                 value: '+966'  },
-  { label: '🇸🇳 Senegal (+221)',                      value: '+221'  },
-  { label: '🇷🇸 Serbia (+381)',                       value: '+381'  },
-  { label: '🇸🇨 Seychelles (+248)',                   value: '+248'  },
-  { label: '🇸🇱 Sierra Leone (+232)',                 value: '+232'  },
-  { label: '🇸🇬 Singapore (+65)',                     value: '+65'   },
-  { label: '🇸🇰 Slovakia (+421)',                     value: '+421'  },
-  { label: '🇸🇮 Slovenia (+386)',                     value: '+386'  },
-  { label: '🇸🇧 Solomon Islands (+677)',              value: '+677'  },
-  { label: '🇸🇴 Somalia (+252)',                      value: '+252'  },
-  { label: '🇿🇦 South Africa (+27)',                  value: '+27'   },
-  { label: '🇸🇸 South Sudan (+211)',                  value: '+211'  },
-  { label: '🇪🇸 Spain (+34)',                         value: '+34'   },
-  { label: '🇱🇰 Sri Lanka (+94)',                     value: '+94'   },
-  { label: '🇸🇩 Sudan (+249)',                        value: '+249'  },
-  { label: '🇸🇷 Suriname (+597)',                     value: '+597'  },
-  { label: '🇸🇪 Sweden (+46)',                        value: '+46'   },
-  { label: '🇨🇭 Switzerland (+41)',                   value: '+41'   },
-  { label: '🇸🇾 Syria (+963)',                        value: '+963'  },
-  { label: '🇹🇼 Taiwan (+886)',                       value: '+886'  },
-  { label: '🇹🇯 Tajikistan (+992)',                   value: '+992'  },
-  { label: '🇹🇿 Tanzania (+255)',                     value: '+255'  },
-  { label: '🇹🇭 Thailand (+66)',                      value: '+66'   },
-  { label: '🇹🇱 Timor-Leste (+670)',                  value: '+670'  },
-  { label: '🇹🇬 Togo (+228)',                         value: '+228'  },
-  { label: '🇹🇴 Tonga (+676)',                        value: '+676'  },
-  { label: '🇹🇹 Trinidad & Tobago (+1868)',           value: '+1868' },
-  { label: '🇹🇳 Tunisia (+216)',                      value: '+216'  },
-  { label: '🇹🇷 Turkey (+90)',                        value: '+90'   },
-  { label: '🇹🇲 Turkmenistan (+993)',                 value: '+993'  },
-  { label: '🇹🇻 Tuvalu (+688)',                       value: '+688'  },
-  { label: '🇺🇬 Uganda (+256)',                       value: '+256'  },
-  { label: '🇺🇦 Ukraine (+380)',                      value: '+380'  },
-  { label: '🇦🇪 UAE (+971)',                          value: '+971'  },
-  { label: '🇬🇧 United Kingdom (+44)',                value: '+44'   },
-  { label: '🇺🇸 USA (+1)',                            value: '+1'    },
-  { label: '🇺🇾 Uruguay (+598)',                      value: '+598'  },
-  { label: '🇺🇿 Uzbekistan (+998)',                   value: '+998'  },
-  { label: '🇻🇺 Vanuatu (+678)',                      value: '+678'  },
-  { label: '🇻🇦 Vatican City (+39)',                  value: '+39'   },
-  { label: '🇻🇪 Venezuela (+58)',                     value: '+58'   },
-  { label: '🇻🇳 Vietnam (+84)',                       value: '+84'   },
-  { label: '🇾🇪 Yemen (+967)',                        value: '+967'  },
-  { label: '🇿🇲 Zambia (+260)',                       value: '+260'  },
-  { label: '🇿🇼 Zimbabwe (+263)',                     value: '+263'  },
+  { get label() { return _t("🇮🇳 India (+91)"); },                         value: '+91'   },
+  { get label() { return _t("🇦🇫 Afghanistan (+93)"); },                   value: '+93'   },
+  { get label() { return _t("🇦🇱 Albania (+355)"); },                      value: '+355'  },
+  { get label() { return _t("🇩🇿 Algeria (+213)"); },                      value: '+213'  },
+  { get label() { return _t("🇦🇩 Andorra (+376)"); },                      value: '+376'  },
+  { get label() { return _t("🇦🇴 Angola (+244)"); },                       value: '+244'  },
+  { get label() { return _t("🇦🇬 Antigua & Barbuda (+1268)"); },           value: '+1268' },
+  { get label() { return _t("🇦🇷 Argentina (+54)"); },                     value: '+54'   },
+  { get label() { return _t("🇦🇲 Armenia (+374)"); },                      value: '+374'  },
+  { get label() { return _t("🇦🇺 Australia (+61)"); },                     value: '+61'   },
+  { get label() { return _t("🇦🇹 Austria (+43)"); },                       value: '+43'   },
+  { get label() { return _t("🇦🇿 Azerbaijan (+994)"); },                   value: '+994'  },
+  { get label() { return _t("🇧🇸 Bahamas (+1242)"); },                     value: '+1242' },
+  { get label() { return _t("🇧🇭 Bahrain (+973)"); },                      value: '+973'  },
+  { get label() { return _t("🇧🇩 Bangladesh (+880)"); },                   value: '+880'  },
+  { get label() { return _t("🇧🇧 Barbados (+1246)"); },                    value: '+1246' },
+  { get label() { return _t("🇧🇾 Belarus (+375)"); },                      value: '+375'  },
+  { get label() { return _t("🇧🇪 Belgium (+32)"); },                       value: '+32'   },
+  { get label() { return _t("🇧🇿 Belize (+501)"); },                       value: '+501'  },
+  { get label() { return _t("🇧🇯 Benin (+229)"); },                        value: '+229'  },
+  { get label() { return _t("🇧🇹 Bhutan (+975)"); },                       value: '+975'  },
+  { get label() { return _t("🇧🇴 Bolivia (+591)"); },                      value: '+591'  },
+  { get label() { return _t("🇧🇦 Bosnia & Herzegovina (+387)"); },         value: '+387'  },
+  { get label() { return _t("🇧🇼 Botswana (+267)"); },                     value: '+267'  },
+  { get label() { return _t("🇧🇷 Brazil (+55)"); },                        value: '+55'   },
+  { get label() { return _t("🇧🇳 Brunei (+673)"); },                       value: '+673'  },
+  { get label() { return _t("🇧🇬 Bulgaria (+359)"); },                     value: '+359'  },
+  { get label() { return _t("🇧🇫 Burkina Faso (+226)"); },                 value: '+226'  },
+  { get label() { return _t("🇧🇮 Burundi (+257)"); },                      value: '+257'  },
+  { get label() { return _t("🇨🇻 Cabo Verde (+238)"); },                   value: '+238'  },
+  { get label() { return _t("🇰🇭 Cambodia (+855)"); },                     value: '+855'  },
+  { get label() { return _t("🇨🇲 Cameroon (+237)"); },                     value: '+237'  },
+  { get label() { return _t("🇨🇦 Canada (+1)"); },                         value: '+1'    },
+  { get label() { return _t("🇨🇫 Central African Republic (+236)"); },     value: '+236'  },
+  { get label() { return _t("🇹🇩 Chad (+235)"); },                         value: '+235'  },
+  { get label() { return _t("🇨🇱 Chile (+56)"); },                         value: '+56'   },
+  { get label() { return _t("🇨🇳 China (+86)"); },                         value: '+86'   },
+  { get label() { return _t("🇨🇴 Colombia (+57)"); },                      value: '+57'   },
+  { get label() { return _t("🇰🇲 Comoros (+269)"); },                      value: '+269'  },
+  { get label() { return _t("🇨🇩 Congo (DRC) (+243)"); },                  value: '+243'  },
+  { get label() { return _t("🇨🇬 Congo (Republic) (+242)"); },             value: '+242'  },
+  { get label() { return _t("🇨🇷 Costa Rica (+506)"); },                   value: '+506'  },
+  { get label() { return _t("🇨🇮 Côte d'Ivoire (+225)"); },               value: '+225'  },
+  { get label() { return _t("🇭🇷 Croatia (+385)"); },                      value: '+385'  },
+  { get label() { return _t("🇨🇺 Cuba (+53)"); },                          value: '+53'   },
+  { get label() { return _t("🇨🇾 Cyprus (+357)"); },                       value: '+357'  },
+  { get label() { return _t("🇨🇿 Czech Republic (+420)"); },               value: '+420'  },
+  { get label() { return _t("🇩🇰 Denmark (+45)"); },                       value: '+45'   },
+  { get label() { return _t("🇩🇯 Djibouti (+253)"); },                     value: '+253'  },
+  { get label() { return _t("🇩🇲 Dominica (+1767)"); },                    value: '+1767' },
+  { get label() { return _t("🇩🇴 Dominican Republic (+1809)"); },          value: '+1809' },
+  { get label() { return _t("🇪🇨 Ecuador (+593)"); },                      value: '+593'  },
+  { get label() { return _t("🇪🇬 Egypt (+20)"); },                         value: '+20'   },
+  { get label() { return _t("🇸🇻 El Salvador (+503)"); },                  value: '+503'  },
+  { get label() { return _t("🇬🇶 Equatorial Guinea (+240)"); },            value: '+240'  },
+  { get label() { return _t("🇪🇷 Eritrea (+291)"); },                      value: '+291'  },
+  { get label() { return _t("🇪🇪 Estonia (+372)"); },                      value: '+372'  },
+  { get label() { return _t("🇸🇿 Eswatini (+268)"); },                     value: '+268'  },
+  { get label() { return _t("🇪🇹 Ethiopia (+251)"); },                     value: '+251'  },
+  { get label() { return _t("🇫🇯 Fiji (+679)"); },                         value: '+679'  },
+  { get label() { return _t("🇫🇮 Finland (+358)"); },                      value: '+358'  },
+  { get label() { return _t("🇫🇷 France (+33)"); },                        value: '+33'   },
+  { get label() { return _t("🇬🇦 Gabon (+241)"); },                        value: '+241'  },
+  { get label() { return _t("🇬🇲 Gambia (+220)"); },                       value: '+220'  },
+  { get label() { return _t("🇬🇪 Georgia (+995)"); },                      value: '+995'  },
+  { get label() { return _t("🇩🇪 Germany (+49)"); },                       value: '+49'   },
+  { get label() { return _t("🇬🇭 Ghana (+233)"); },                        value: '+233'  },
+  { get label() { return _t("🇬🇷 Greece (+30)"); },                        value: '+30'   },
+  { get label() { return _t("🇬🇩 Grenada (+1473)"); },                     value: '+1473' },
+  { get label() { return _t("🇬🇹 Guatemala (+502)"); },                    value: '+502'  },
+  { get label() { return _t("🇬🇳 Guinea (+224)"); },                       value: '+224'  },
+  { get label() { return _t("🇬🇼 Guinea-Bissau (+245)"); },                value: '+245'  },
+  { get label() { return _t("🇬🇾 Guyana (+592)"); },                       value: '+592'  },
+  { get label() { return _t("🇭🇹 Haiti (+509)"); },                        value: '+509'  },
+  { get label() { return _t("🇭🇳 Honduras (+504)"); },                     value: '+504'  },
+  { get label() { return _t("🇭🇺 Hungary (+36)"); },                       value: '+36'   },
+  { get label() { return _t("🇮🇸 Iceland (+354)"); },                      value: '+354'  },
+  { get label() { return _t("🇮🇳 India (+91)"); },                         value: '+91'   },
+  { get label() { return _t("🇮🇩 Indonesia (+62)"); },                     value: '+62'   },
+  { get label() { return _t("🇮🇷 Iran (+98)"); },                          value: '+98'   },
+  { get label() { return _t("🇮🇶 Iraq (+964)"); },                         value: '+964'  },
+  { get label() { return _t("🇮🇪 Ireland (+353)"); },                      value: '+353'  },
+  { get label() { return _t("🇮🇱 Israel (+972)"); },                       value: '+972'  },
+  { get label() { return _t("🇮🇹 Italy (+39)"); },                         value: '+39'   },
+  { get label() { return _t("🇯🇲 Jamaica (+1876)"); },                     value: '+1876' },
+  { get label() { return _t("🇯🇵 Japan (+81)"); },                         value: '+81'   },
+  { get label() { return _t("🇯🇴 Jordan (+962)"); },                       value: '+962'  },
+  { get label() { return _t("🇰🇿 Kazakhstan (+7)"); },                     value: '+7'    },
+  { get label() { return _t("🇰🇪 Kenya (+254)"); },                        value: '+254'  },
+  { get label() { return _t("🇰🇮 Kiribati (+686)"); },                     value: '+686'  },
+  { get label() { return _t("🇽🇰 Kosovo (+383)"); },                       value: '+383'  },
+  { get label() { return _t("🇰🇼 Kuwait (+965)"); },                       value: '+965'  },
+  { get label() { return _t("🇰🇬 Kyrgyzstan (+996)"); },                   value: '+996'  },
+  { get label() { return _t("🇱🇦 Laos (+856)"); },                         value: '+856'  },
+  { get label() { return _t("🇱🇻 Latvia (+371)"); },                       value: '+371'  },
+  { get label() { return _t("🇱🇧 Lebanon (+961)"); },                      value: '+961'  },
+  { get label() { return _t("🇱🇸 Lesotho (+266)"); },                      value: '+266'  },
+  { get label() { return _t("🇱🇷 Liberia (+231)"); },                      value: '+231'  },
+  { get label() { return _t("🇱🇾 Libya (+218)"); },                        value: '+218'  },
+  { get label() { return _t("🇱🇮 Liechtenstein (+423)"); },                value: '+423'  },
+  { get label() { return _t("🇱🇹 Lithuania (+370)"); },                    value: '+370'  },
+  { get label() { return _t("🇱🇺 Luxembourg (+352)"); },                   value: '+352'  },
+  { get label() { return _t("🇲🇬 Madagascar (+261)"); },                   value: '+261'  },
+  { get label() { return _t("🇲🇼 Malawi (+265)"); },                       value: '+265'  },
+  { get label() { return _t("🇲🇾 Malaysia (+60)"); },                      value: '+60'   },
+  { get label() { return _t("🇲🇻 Maldives (+960)"); },                     value: '+960'  },
+  { get label() { return _t("🇲🇱 Mali (+223)"); },                         value: '+223'  },
+  { get label() { return _t("🇲🇹 Malta (+356)"); },                        value: '+356'  },
+  { get label() { return _t("🇲🇭 Marshall Islands (+692)"); },             value: '+692'  },
+  { get label() { return _t("🇲🇷 Mauritania (+222)"); },                   value: '+222'  },
+  { get label() { return _t("🇲🇺 Mauritius (+230)"); },                    value: '+230'  },
+  { get label() { return _t("🇲🇽 Mexico (+52)"); },                        value: '+52'   },
+  { get label() { return _t("🇫🇲 Micronesia (+691)"); },                   value: '+691'  },
+  { get label() { return _t("🇲🇩 Moldova (+373)"); },                      value: '+373'  },
+  { get label() { return _t("🇲🇨 Monaco (+377)"); },                       value: '+377'  },
+  { get label() { return _t("🇲🇳 Mongolia (+976)"); },                     value: '+976'  },
+  { get label() { return _t("🇲🇪 Montenegro (+382)"); },                   value: '+382'  },
+  { get label() { return _t("🇲🇦 Morocco (+212)"); },                      value: '+212'  },
+  { get label() { return _t("🇲🇿 Mozambique (+258)"); },                   value: '+258'  },
+  { get label() { return _t("🇲🇲 Myanmar (+95)"); },                       value: '+95'   },
+  { get label() { return _t("🇳🇦 Namibia (+264)"); },                      value: '+264'  },
+  { get label() { return _t("🇳🇷 Nauru (+674)"); },                        value: '+674'  },
+  { get label() { return _t("🇳🇵 Nepal (+977)"); },                        value: '+977'  },
+  { get label() { return _t("🇳🇱 Netherlands (+31)"); },                   value: '+31'   },
+  { get label() { return _t("🇳🇿 New Zealand (+64)"); },                   value: '+64'   },
+  { get label() { return _t("🇳🇮 Nicaragua (+505)"); },                    value: '+505'  },
+  { get label() { return _t("🇳🇪 Niger (+227)"); },                        value: '+227'  },
+  { get label() { return _t("🇳🇬 Nigeria (+234)"); },                      value: '+234'  },
+  { get label() { return _t("🇲🇰 North Macedonia (+389)"); },              value: '+389'  },
+  { get label() { return _t("🇳🇴 Norway (+47)"); },                        value: '+47'   },
+  { get label() { return _t("🇴🇲 Oman (+968)"); },                         value: '+968'  },
+  { get label() { return _t("🇵🇰 Pakistan (+92)"); },                      value: '+92'   },
+  { get label() { return _t("🇵🇼 Palau (+680)"); },                        value: '+680'  },
+  { get label() { return _t("🇵🇸 Palestine (+970)"); },                    value: '+970'  },
+  { get label() { return _t("🇵🇦 Panama (+507)"); },                       value: '+507'  },
+  { get label() { return _t("🇵🇬 Papua New Guinea (+675)"); },             value: '+675'  },
+  { get label() { return _t("🇵🇾 Paraguay (+595)"); },                     value: '+595'  },
+  { get label() { return _t("🇵🇪 Peru (+51)"); },                          value: '+51'   },
+  { get label() { return _t("🇵🇭 Philippines (+63)"); },                   value: '+63'   },
+  { get label() { return _t("🇵🇱 Poland (+48)"); },                        value: '+48'   },
+  { get label() { return _t("🇵🇹 Portugal (+351)"); },                     value: '+351'  },
+  { get label() { return _t("🇶🇦 Qatar (+974)"); },                        value: '+974'  },
+  { get label() { return _t("🇷🇴 Romania (+40)"); },                       value: '+40'   },
+  { get label() { return _t("🇷🇺 Russia (+7)"); },                         value: '+7'    },
+  { get label() { return _t("🇷🇼 Rwanda (+250)"); },                       value: '+250'  },
+  { get label() { return _t("🇰🇳 Saint Kitts & Nevis (+1869)"); },        value: '+1869' },
+  { get label() { return _t("🇱🇨 Saint Lucia (+1758)"); },                 value: '+1758' },
+  { get label() { return _t("🇻🇨 Saint Vincent & Grenadines (+1784)"); }, value: '+1784' },
+  { get label() { return _t("🇼🇸 Samoa (+685)"); },                        value: '+685'  },
+  { get label() { return _t("🇸🇲 San Marino (+378)"); },                   value: '+378'  },
+  { get label() { return _t("🇸🇹 São Tomé & Príncipe (+239)"); },          value: '+239'  },
+  { get label() { return _t("🇸🇦 Saudi Arabia (+966)"); },                 value: '+966'  },
+  { get label() { return _t("🇸🇳 Senegal (+221)"); },                      value: '+221'  },
+  { get label() { return _t("🇷🇸 Serbia (+381)"); },                       value: '+381'  },
+  { get label() { return _t("🇸🇨 Seychelles (+248)"); },                   value: '+248'  },
+  { get label() { return _t("🇸🇱 Sierra Leone (+232)"); },                 value: '+232'  },
+  { get label() { return _t("🇸🇬 Singapore (+65)"); },                     value: '+65'   },
+  { get label() { return _t("🇸🇰 Slovakia (+421)"); },                     value: '+421'  },
+  { get label() { return _t("🇸🇮 Slovenia (+386)"); },                     value: '+386'  },
+  { get label() { return _t("🇸🇧 Solomon Islands (+677)"); },              value: '+677'  },
+  { get label() { return _t("🇸🇴 Somalia (+252)"); },                      value: '+252'  },
+  { get label() { return _t("🇿🇦 South Africa (+27)"); },                  value: '+27'   },
+  { get label() { return _t("🇸🇸 South Sudan (+211)"); },                  value: '+211'  },
+  { get label() { return _t("🇪🇸 Spain (+34)"); },                         value: '+34'   },
+  { get label() { return _t("🇱🇰 Sri Lanka (+94)"); },                     value: '+94'   },
+  { get label() { return _t("🇸🇩 Sudan (+249)"); },                        value: '+249'  },
+  { get label() { return _t("🇸🇷 Suriname (+597)"); },                     value: '+597'  },
+  { get label() { return _t("🇸🇪 Sweden (+46)"); },                        value: '+46'   },
+  { get label() { return _t("🇨🇭 Switzerland (+41)"); },                   value: '+41'   },
+  { get label() { return _t("🇸🇾 Syria (+963)"); },                        value: '+963'  },
+  { get label() { return _t("🇹🇼 Taiwan (+886)"); },                       value: '+886'  },
+  { get label() { return _t("🇹🇯 Tajikistan (+992)"); },                   value: '+992'  },
+  { get label() { return _t("🇹🇿 Tanzania (+255)"); },                     value: '+255'  },
+  { get label() { return _t("🇹🇭 Thailand (+66)"); },                      value: '+66'   },
+  { get label() { return _t("🇹🇱 Timor-Leste (+670)"); },                  value: '+670'  },
+  { get label() { return _t("🇹🇬 Togo (+228)"); },                         value: '+228'  },
+  { get label() { return _t("🇹🇴 Tonga (+676)"); },                        value: '+676'  },
+  { get label() { return _t("🇹🇹 Trinidad & Tobago (+1868)"); },           value: '+1868' },
+  { get label() { return _t("🇹🇳 Tunisia (+216)"); },                      value: '+216'  },
+  { get label() { return _t("🇹🇷 Turkey (+90)"); },                        value: '+90'   },
+  { get label() { return _t("🇹🇲 Turkmenistan (+993)"); },                 value: '+993'  },
+  { get label() { return _t("🇹🇻 Tuvalu (+688)"); },                       value: '+688'  },
+  { get label() { return _t("🇺🇬 Uganda (+256)"); },                       value: '+256'  },
+  { get label() { return _t("🇺🇦 Ukraine (+380)"); },                      value: '+380'  },
+  { get label() { return _t("🇦🇪 UAE (+971)"); },                          value: '+971'  },
+  { get label() { return _t("🇬🇧 United Kingdom (+44)"); },                value: '+44'   },
+  { get label() { return _t("🇺🇸 USA (+1)"); },                            value: '+1'    },
+  { get label() { return _t("🇺🇾 Uruguay (+598)"); },                      value: '+598'  },
+  { get label() { return _t("🇺🇿 Uzbekistan (+998)"); },                   value: '+998'  },
+  { get label() { return _t("🇻🇺 Vanuatu (+678)"); },                      value: '+678'  },
+  { get label() { return _t("🇻🇦 Vatican City (+39)"); },                  value: '+39'   },
+  { get label() { return _t("🇻🇪 Venezuela (+58)"); },                     value: '+58'   },
+  { get label() { return _t("🇻🇳 Vietnam (+84)"); },                       value: '+84'   },
+  { get label() { return _t("🇾🇪 Yemen (+967)"); },                        value: '+967'  },
+  { get label() { return _t("🇿🇲 Zambia (+260)"); },                       value: '+260'  },
+  { get label() { return _t("🇿🇼 Zimbabwe (+263)"); },                     value: '+263'  },
 ];
 
 const ROLES = [
-  { label: "Student", value: "Student", icon: "user" },
-  { label: "Parent",  value: "Parent",  icon: "users" },
+  { get label() { return _t("Student"); }, value: "Student", icon: "user" },
+  { get label() { return _t("Parent"); },  value: "Parent",  icon: "users" },
 ];
 
 // Normalise phone to WhatsApp international format (no +)
@@ -307,13 +311,11 @@ function SuccessCard({ data, onOpenWhatsApp, onGoToLogin }) {
         </LinearGradient>
       </View>
 
-      <Text style={s.successTitle}>Registration Successful!</Text>
+      <Text style={s.successTitle}>{_t("Registration Successful!")}</Text>
       {fullName ? (
-        <Text style={s.successName}>Welcome, {fullName}</Text>
+        <Text style={s.successName}>{_t("Welcome, {fullName}", { fullName })}</Text>
       ) : null}
-      <Text style={s.successSub}>
-        Your account has been created and credentials delivered. Your login will be activated by the school administration shortly.
-      </Text>
+      <Text style={s.successSub}>{_t("Your account has been created and credentials delivered. Your login will be activated by the school administration shortly.")}</Text>
 
       {/* Delivery channels */}
       <View style={s.channelBox}>
@@ -323,8 +325,8 @@ function SuccessCard({ data, onOpenWhatsApp, onGoToLogin }) {
               <Feather name="mail" size={16} color="#2563eb" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.channelLabel}>Credentials sent by Email</Text>
-              <Text style={s.channelValue} numberOfLines={1}>{sentEmailTo}</Text>
+              <Text style={s.channelLabel}>{_t("Credentials sent by Email")}</Text>
+              <Text style={s.channelValue} numberOfLines={1}>{_tx(sentEmailTo)}</Text>
             </View>
             <Feather name="check-circle" size={18} color="#22c55e" />
           </View>
@@ -339,8 +341,8 @@ function SuccessCard({ data, onOpenWhatsApp, onGoToLogin }) {
                 <Feather name="phone" size={16} color="#16a34a" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={s.channelLabel}>Ready to send via WhatsApp</Text>
-                <Text style={s.channelValue}>{whatsappPhone}</Text>
+                <Text style={s.channelLabel}>{_t("Ready to send via WhatsApp")}</Text>
+                <Text style={s.channelValue}>{_tx(whatsappPhone)}</Text>
               </View>
               <Feather name="arrow-right" size={18} color="#16a34a" />
             </View>
@@ -352,18 +354,16 @@ function SuccessCard({ data, onOpenWhatsApp, onGoToLogin }) {
               activeOpacity={0.85}
             >
               <Feather name="send" size={18} color="#fff" style={{ marginRight: 8 }} />
-              <Text style={s.waBtnText}>Send Credentials via WhatsApp</Text>
+              <Text style={s.waBtnText}>{_t("Send Credentials via WhatsApp")}</Text>
             </TouchableOpacity>
-            <Text style={s.waBtnHint}>
-              Tap above to open WhatsApp — the message is pre-filled and ready to send.
-            </Text>
+            <Text style={s.waBtnHint}>{_t("Tap above to open WhatsApp — the message is pre-filled and ready to send.")}</Text>
           </>
         ) : null}
       </View>
 
       {/* Go to login */}
       <TouchableOpacity style={s.loginBtn} onPress={onGoToLogin} activeOpacity={0.85}>
-        <Text style={s.loginBtnText}>Go to Login</Text>
+        <Text style={s.loginBtnText}>{_t("Go to Login")}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -396,7 +396,7 @@ export default function StudentParentRegistrationScreen({ navigation }) {
   const [lastName, setLastName]           = useState("");
 
   // ── Country code (shared, mobile fields) ──────────────────────────────────
-  const [countryCode, setCountryCode]     = useState("+91");
+  const [countryCode, setCountryCode]     = useState(DEFAULT_DIAL);
   const [ccOpen, setCcOpen]               = useState(false);
 
   const dobDisplay = dobDate
@@ -438,38 +438,38 @@ export default function StudentParentRegistrationScreen({ navigation }) {
   const validate = () => {
     if (role === "Parent") {
       if (!enrollmentId.trim()) {
-        Alert.alert("Validation", "Please enter your child's enrollment ID");
+        Alert.alert(_t("Validation"), _t("Please enter your child's enrollment ID"));
         return false;
       }
       if (!firstName.trim()) {
-        Alert.alert("Validation", "Please enter your name");
+        Alert.alert(_t("Validation"), _t("Please enter your name"));
         return false;
       }
       if (!mobileNumber.trim()) {
-        Alert.alert("Validation", "Please enter your mobile number — this will be your login username");
+        Alert.alert(_t("Validation"), _t("Please enter your mobile number — this will be your login username"));
         return false;
       }
       if (!validateEmail(email)) {
-        Alert.alert("Validation", "Please enter a valid email address");
+        Alert.alert(_t("Validation"), _t("Please enter a valid email address"));
         return false;
       }
     } else {
       if (!enrollmentId.trim()) {
-        Alert.alert("Validation", "Please enter the Student Enrollment ID");
+        Alert.alert(_t("Validation"), _t("Please enter the Student Enrollment ID"));
         return false;
       }
       if (!dobDate) {
-        Alert.alert("Validation", "Please select the student's date of birth");
+        Alert.alert(_t("Validation"), _t("Please select the student's date of birth"));
         return false;
       }
       const hasEmail  = email.trim().length > 0;
       const hasMobile = mobileNumber.trim().length > 0;
       if (!hasEmail && !hasMobile) {
-        Alert.alert("Validation", "Please provide at least an email address or mobile number");
+        Alert.alert(_t("Validation"), _t("Please provide at least an email address or mobile number"));
         return false;
       }
       if (!validateEmail(email)) {
-        Alert.alert("Validation", "Please enter a valid email address");
+        Alert.alert(_t("Validation"), _t("Please enter a valid email address"));
         return false;
       }
     }
@@ -512,15 +512,15 @@ export default function StudentParentRegistrationScreen({ navigation }) {
         setSuccessData(res);
       } else {
         Alert.alert(
-          "Registration Failed",
-          res.message || (role === "Parent"
-            ? "No enrolled student found with this mobile number. Please use the number registered with the school."
-            : "Student not found. Please verify your enrollment ID, date of birth, and contact details.")
+          _t("Registration Failed"),
+          _tx(res.message) || (role === "Parent"
+            ? _t("No enrolled student found with this mobile number. Please use the number registered with the school.")
+            : _t("Student not found. Please verify your enrollment ID, date of birth, and contact details."))
         );
       }
     } catch (error) {
       console.error("Registration error:", error);
-      Alert.alert("Error", "Unable to connect to the server. Please try again.");
+      Alert.alert(_t("Error"), _t("Unable to connect to the server. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -531,7 +531,7 @@ export default function StudentParentRegistrationScreen({ navigation }) {
     const phone   = normalizePhone(successData.whatsappPhone);
     const encoded = encodeURIComponent(successData.whatsappText);
     Linking.openURL(`https://wa.me/${phone}?text=${encoded}`).catch(() =>
-      Alert.alert("WhatsApp", "Could not open WhatsApp. Please make sure it is installed.")
+      Alert.alert(_t("WhatsApp"), _t("Could not open WhatsApp. Please make sure it is installed."))
     );
   };
 
@@ -568,13 +568,13 @@ export default function StudentParentRegistrationScreen({ navigation }) {
             </View>
 
             <Text style={s.pageTitle}>
-              {successData ? "Registration Complete" : "Student / Parent Registration"}
+              {successData ? _t("Registration Complete") : _t("Student / Parent Registration")}
             </Text>
             {!successData && (
               <Text style={s.pageSubtitle}>
                 {role === "Parent"
-                  ? "Provide your child's enrollment ID and your registered mobile to verify and create your account."
-                  : "Verify your enrollment details to receive login credentials."}
+                  ? _t("Provide your child's enrollment ID and your registered mobile to verify and create your account.")
+                  : _t("Verify your enrollment details to receive login credentials.")}
               </Text>
             )}
           </View>
@@ -590,7 +590,7 @@ export default function StudentParentRegistrationScreen({ navigation }) {
             /* ── FORM ── */
             <View style={s.card}>
               {/* Role Selector */}
-              <Text style={s.sectionLabel}>Register as</Text>
+              <Text style={s.sectionLabel}>{_t("Register as")}</Text>
               <View style={s.roleRow}>
                 {ROLES.map((r) => (
                   <TouchableOpacity
@@ -612,7 +612,7 @@ export default function StudentParentRegistrationScreen({ navigation }) {
                       style={{ marginRight: 6 }}
                     />
                     <Text style={[s.roleBtnText, role === r.value && s.roleBtnTextActive]}>
-                      {r.label}
+                      {_tx(r.label)}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -624,18 +624,16 @@ export default function StudentParentRegistrationScreen({ navigation }) {
                   {/* Info banner */}
                   <View style={[s.infoBanner, { marginBottom: 16 }]}>
                     <MaterialIcons name="info-outline" size={16} color="#1e40af" />
-                    <Text style={s.infoText}>
-                      Your mobile number will be your login username. We will verify it against the enrollment record to confirm you are the registered guardian.
-                    </Text>
+                    <Text style={s.infoText}>{_t("Your mobile number will be your login username. We will verify it against the enrollment record to confirm you are the registered guardian.")}</Text>
                   </View>
 
                   {/* Child's Enrollment ID — verification */}
                   <View style={s.fieldBlock}>
-                    <Text style={s.fieldLabel}>Child's Enrollment ID</Text>
+                    <Text style={s.fieldLabel}>{_t("Child's Enrollment ID")}</Text>
                     <View style={s.inputWrapper}>
                       <Feather name="hash" size={17} color="#2563eb" style={s.inputIcon} />
                       <TextInput
-                        placeholder="e.g. ETWF-2026-0005"
+                        placeholder={_t("e.g. ETWF-2026-0005")}
                         placeholderTextColor="#94a3b8"
                         style={s.input}
                         value={enrollmentId}
@@ -643,16 +641,16 @@ export default function StudentParentRegistrationScreen({ navigation }) {
                         autoCapitalize="characters"
                       />
                     </View>
-                    <Text style={s.hintText}>Enter the enrollment ID of any one of your children</Text>
+                    <Text style={s.hintText}>{_t("Enter the enrollment ID of any one of your children")}</Text>
                   </View>
 
                   {/* First Name */}
                   <View style={s.fieldBlock}>
-                    <Text style={s.fieldLabel}>First Name</Text>
+                    <Text style={s.fieldLabel}>{_t("First Name")}</Text>
                     <View style={s.inputWrapper}>
                       <Feather name="user" size={17} color="#2563eb" style={s.inputIcon} />
                       <TextInput
-                        placeholder="Enter your first name"
+                        placeholder={_t("Enter your first name")}
                         placeholderTextColor="#94a3b8"
                         style={s.input}
                         value={firstName}
@@ -664,13 +662,12 @@ export default function StudentParentRegistrationScreen({ navigation }) {
 
                   {/* Last Name */}
                   <View style={s.fieldBlock}>
-                    <Text style={s.fieldLabel}>
-                      Last Name <Text style={s.optionalTag}>(optional)</Text>
+                    <Text style={s.fieldLabel}>{_t("Last Name")}{" "}<Text style={s.optionalTag}>{_t("(optional)")}</Text>
                     </Text>
                     <View style={s.inputWrapper}>
                       <Feather name="user" size={17} color="#94a3b8" style={s.inputIcon} />
                       <TextInput
-                        placeholder="Enter your last name"
+                        placeholder={_t("Enter your last name")}
                         placeholderTextColor="#94a3b8"
                         style={s.input}
                         value={lastName}
@@ -682,10 +679,10 @@ export default function StudentParentRegistrationScreen({ navigation }) {
 
                   {/* Mobile — required for parent, becomes their username */}
                   <View style={s.fieldBlock}>
-                    <Text style={s.fieldLabel}>Mobile Number</Text>
+                    <Text style={s.fieldLabel}>{_t("Mobile Number")}</Text>
                     <View style={s.phoneRow}>
                       <TouchableOpacity style={s.ccBtn} onPress={() => setCcOpen(true)} activeOpacity={0.75}>
-                        <Text style={s.ccText}>{countryCode}</Text>
+                        <Text style={s.ccText}>{_tx(countryCode)}</Text>
                         <Feather name="chevron-down" size={12} color="#64748b" />
                       </TouchableOpacity>
                       <View style={[s.inputWrapper, { flex: 1 }]}>
@@ -700,18 +697,17 @@ export default function StudentParentRegistrationScreen({ navigation }) {
                         />
                       </View>
                     </View>
-                    <Text style={s.hintText}>Must match the number registered with the school for your child</Text>
+                    <Text style={s.hintText}>{_t("Must match the number registered with the school for your child")}</Text>
                   </View>
 
                   {/* Email — optional for parent */}
                   <View style={s.fieldBlock}>
-                    <Text style={s.fieldLabel}>
-                      Email Address <Text style={s.optionalTag}>(optional)</Text>
+                    <Text style={s.fieldLabel}>{_t("Email Address")}{" "}<Text style={s.optionalTag}>{_t("(optional)")}</Text>
                     </Text>
                     <View style={s.inputWrapper}>
                       <Feather name="mail" size={17} color="#2563eb" style={s.inputIcon} />
                       <TextInput
-                        placeholder="Enter email address"
+                        placeholder={_t("Enter email address")}
                         placeholderTextColor="#94a3b8"
                         style={s.input}
                         value={email}
@@ -728,11 +724,11 @@ export default function StudentParentRegistrationScreen({ navigation }) {
 
                   {/* Enrollment ID */}
                   <View style={s.fieldBlock}>
-                    <Text style={s.fieldLabel}>Student Enrollment ID</Text>
+                    <Text style={s.fieldLabel}>{_t("Student Enrollment ID")}</Text>
                     <View style={s.inputWrapper}>
                       <Feather name="hash" size={17} color="#2563eb" style={s.inputIcon} />
                       <TextInput
-                        placeholder="Enter enrollment ID"
+                        placeholder={_t("Enter enrollment ID")}
                         placeholderTextColor="#94a3b8"
                         style={s.input}
                         value={enrollmentId}
@@ -744,7 +740,7 @@ export default function StudentParentRegistrationScreen({ navigation }) {
 
                   {/* Date of Birth — custom 3-column picker */}
                   <View style={s.fieldBlock}>
-                    <Text style={s.fieldLabel}>Student Date of Birth</Text>
+                    <Text style={s.fieldLabel}>{_t("Student Date of Birth")}</Text>
                     <TouchableOpacity
                       style={s.inputWrapper}
                       onPress={openPicker}
@@ -753,8 +749,8 @@ export default function StudentParentRegistrationScreen({ navigation }) {
                       <Feather name="calendar" size={17} color="#2563eb" style={s.inputIcon} />
                       <Text style={[s.input, !dobDate && { color: "#94a3b8" }]}>
                         {dobDate
-                          ? dobDate.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })
-                          : "Select date of birth"}
+                          ? fmtDate(dobDate, "full")
+                          : _t("Select date of birth")}
                       </Text>
                       <Feather name="chevron-down" size={16} color="#94a3b8" />
                     </TouchableOpacity>
@@ -769,17 +765,17 @@ export default function StudentParentRegistrationScreen({ navigation }) {
                         <View style={dp.sheet}>
                           <View style={dp.header}>
                             <TouchableOpacity onPress={() => setPickerOpen(false)}>
-                              <Text style={dp.cancelTxt}>Cancel</Text>
+                              <Text style={dp.cancelTxt}>{_t("Cancel")}</Text>
                             </TouchableOpacity>
-                            <Text style={dp.title}>Date of Birth</Text>
+                            <Text style={dp.title}>{_t("Date of Birth")}</Text>
                             <TouchableOpacity onPress={confirmPicker}>
-                              <Text style={dp.doneTxt}>Done</Text>
+                              <Text style={dp.doneTxt}>{_t("Done")}</Text>
                             </TouchableOpacity>
                           </View>
                           <View style={dp.colLabels}>
-                            <Text style={[dp.colLabel, { flex: 0.7 }]}>Day</Text>
-                            <Text style={[dp.colLabel, { flex: 1.6 }]}>Month</Text>
-                            <Text style={[dp.colLabel, { flex: 1 }]}>Year</Text>
+                            <Text style={[dp.colLabel, { flex: 0.7 }]}>{_t("Day")}</Text>
+                            <Text style={[dp.colLabel, { flex: 1.6 }]}>{_t("Month")}</Text>
+                            <Text style={[dp.colLabel, { flex: 1 }]}>{_t("Year")}</Text>
                           </View>
                           <View style={dp.columns}>
                             <PickerColumn items={DOB_DAYS}   selected={tmpD} onSelect={setTmpD} />
@@ -796,19 +792,18 @@ export default function StudentParentRegistrationScreen({ navigation }) {
                   {/* Divider */}
                   <View style={s.orRow}>
                     <View style={s.orLine} />
-                    <Text style={s.orText}>Provide at least one for verification</Text>
+                    <Text style={s.orText}>{_t("Provide at least one for verification")}</Text>
                     <View style={s.orLine} />
                   </View>
 
                   {/* Email */}
                   <View style={s.fieldBlock}>
-                    <Text style={s.fieldLabel}>
-                      Email Address <Text style={s.optionalTag}>(optional)</Text>
+                    <Text style={s.fieldLabel}>{_t("Email Address")}{" "}<Text style={s.optionalTag}>{_t("(optional)")}</Text>
                     </Text>
                     <View style={s.inputWrapper}>
                       <Feather name="mail" size={17} color="#2563eb" style={s.inputIcon} />
                       <TextInput
-                        placeholder="Enter email address"
+                        placeholder={_t("Enter email address")}
                         placeholderTextColor="#94a3b8"
                         style={s.input}
                         value={email}
@@ -821,12 +816,11 @@ export default function StudentParentRegistrationScreen({ navigation }) {
 
                   {/* Mobile Number */}
                   <View style={s.fieldBlock}>
-                    <Text style={s.fieldLabel}>
-                      Mobile Number <Text style={s.optionalTag}>(optional)</Text>
+                    <Text style={s.fieldLabel}>{_t("Mobile Number")}{" "}<Text style={s.optionalTag}>{_t("(optional)")}</Text>
                     </Text>
                     <View style={s.phoneRow}>
                       <TouchableOpacity style={s.ccBtn} onPress={() => setCcOpen(true)} activeOpacity={0.75}>
-                        <Text style={s.ccText}>{countryCode}</Text>
+                        <Text style={s.ccText}>{_tx(countryCode)}</Text>
                         <Feather name="chevron-down" size={12} color="#64748b" />
                       </TouchableOpacity>
                       <View style={[s.inputWrapper, { flex: 1 }]}>
@@ -841,7 +835,7 @@ export default function StudentParentRegistrationScreen({ navigation }) {
                         />
                       </View>
                     </View>
-                    <Text style={s.hintText}>Credentials will be sent to this number via WhatsApp</Text>
+                    <Text style={s.hintText}>{_t("Credentials will be sent to this number via WhatsApp")}</Text>
                   </View>
 
                   {/* Info Banner */}
@@ -853,12 +847,12 @@ export default function StudentParentRegistrationScreen({ navigation }) {
                     />
                     <Text style={[s.infoText, bothProvided && s.infoTextGreen]}>
                       {bothProvided
-                        ? "Credentials will be sent to both your email and WhatsApp."
+                        ? _t("Credentials will be sent to both your email and WhatsApp.")
                         : email.trim()
-                        ? "Credentials will be sent to your email address."
+                        ? _t("Credentials will be sent to your email address.")
                         : mobileNumber.trim()
-                        ? "Credentials will be sent to your WhatsApp number."
-                        : "Provide an email and/or mobile number. Credentials will be sent to all provided channels."}
+                        ? _t("Credentials will be sent to your WhatsApp number.")
+                        : _t("Provide an email and/or mobile number. Credentials will be sent to all provided channels.")}
                     </Text>
                   </View>
                 </>
@@ -876,7 +870,7 @@ export default function StudentParentRegistrationScreen({ navigation }) {
                 ) : (
                   <>
                     <Feather name="send" size={17} color="#fff" />
-                    <Text style={s.submitBtnText}>  Submit Registration</Text>
+                    <Text style={s.submitBtnText}>{" "}{_t("Submit Registration")}</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -887,7 +881,7 @@ export default function StudentParentRegistrationScreen({ navigation }) {
                 onPress={() => navigation.navigate("Login")}
               >
                 <Feather name="arrow-left" size={14} color="#2563eb" />
-                <Text style={s.backToLoginText}>  Back to Login</Text>
+                <Text style={s.backToLoginText}>{" "}{_t("Back to Login")}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -897,7 +891,7 @@ export default function StudentParentRegistrationScreen({ navigation }) {
             <TouchableOpacity style={s.ccOverlay} onPress={() => setCcOpen(false)} activeOpacity={1}>
               <View style={s.ccSheet}>
                 <View style={s.ccSheetHeader}>
-                  <Text style={s.ccSheetTitle}>Select Country Code</Text>
+                  <Text style={s.ccSheetTitle}>{_t("Select Country Code")}</Text>
                   <TouchableOpacity onPress={() => setCcOpen(false)}>
                     <Feather name="x" size={20} color="#64748b" />
                   </TouchableOpacity>
@@ -912,7 +906,7 @@ export default function StudentParentRegistrationScreen({ navigation }) {
                       onPress={() => { setCountryCode(item.value); setCcOpen(false); }}
                     >
                       <Text style={[s.ccOptionText, item.value === countryCode && s.ccOptionTextActive]}>
-                        {item.label}
+                        {_tx(item.label)}
                       </Text>
                       {item.value === countryCode && (
                         <Feather name="check" size={16} color="#2563eb" />

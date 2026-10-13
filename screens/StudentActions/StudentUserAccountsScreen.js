@@ -16,16 +16,18 @@ import { Feather } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
 import { fetchStudentUsers, toggleStudentUserStatus } from "../../services/UserServiceApi";
 
+import { fmtDate as fmtLocalDate } from "../../services/Locale";
+import { _t, _tx } from "../../services/i18n";
 const STATUS_FILTERS = [
-  { label: "All",      value: "" },
-  { label: "Active",   value: "active" },
-  { label: "Inactive", value: "Inactive" },
+  { get label() { return _t("All"); },      value: "" },
+  { get label() { return _t("Active"); },   value: "active" },
+  { get label() { return _t("Inactive"); }, value: "Inactive" },
 ];
 
 const fmtDate = (d) => {
   if (!d) return "—";
   const dt = new Date(String(d).replace(" ", "T"));
-  return isNaN(dt) ? d : dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return isNaN(dt) ? d : fmtLocalDate(dt, "medium");
 };
 
 // ── Account card ──────────────────────────────────────────────────────────────
@@ -50,14 +52,14 @@ function AccountCard({ item, onToggle, toggling }) {
               </Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={st.name} numberOfLines={1}>{fullName}</Text>
+              <Text style={st.name} numberOfLines={1}>{_tx(fullName)}</Text>
               <Text style={st.userId} numberOfLines={1}>
-                <Feather name="hash" size={10} color="#94a3b8" /> {item.ssms_user_name}
+                <Feather name="hash" size={10} color="#94a3b8" /> {_tx(item.ssms_user_name)}
               </Text>
             </View>
           </View>
           <View style={[st.roleBadge, { backgroundColor: roleBg }]}>
-            <Text style={[st.roleText, { color: roleColor }]}>{item.ssms_user_role}</Text>
+            <Text style={[st.roleText, { color: roleColor }]}>{_tx(item.ssms_user_role)}</Text>
           </View>
         </View>
 
@@ -66,13 +68,13 @@ function AccountCard({ item, onToggle, toggling }) {
           {item.branch_name ? (
             <View style={st.detail}>
               <Feather name="git-branch" size={11} color="#94a3b8" />
-              <Text style={st.detailTxt} numberOfLines={1}>{item.branch_name}</Text>
+              <Text style={st.detailTxt} numberOfLines={1}>{_tx(item.branch_name)}</Text>
             </View>
           ) : null}
           {item.ssms_user_email ? (
             <View style={st.detail}>
               <Feather name="mail" size={11} color="#94a3b8" />
-              <Text style={st.detailTxt} numberOfLines={1}>{item.ssms_user_email}</Text>
+              <Text style={st.detailTxt} numberOfLines={1}>{_tx(item.ssms_user_email)}</Text>
             </View>
           ) : null}
         </View>
@@ -80,18 +82,18 @@ function AccountCard({ item, onToggle, toggling }) {
         {/* Bottom row — last login + toggle */}
         <View style={st.cardBottom}>
           <View>
-            <Text style={st.loginLabel}>Registered</Text>
+            <Text style={st.loginLabel}>{_t("Registered")}</Text>
             <Text style={st.loginDate}>{fmtDate(item.created)}</Text>
             {item.last_login_date ? (
-              <Text style={st.lastLogin}>Last login: {fmtDate(item.last_login_date)}</Text>
+              <Text style={st.lastLogin}>{_t("Last login: {last_login_date}", { last_login_date: fmtDate(item.last_login_date) })}</Text>
             ) : (
-              <Text style={st.neverLogin}>Never logged in</Text>
+              <Text style={st.neverLogin}>{_t("Never logged in")}</Text>
             )}
           </View>
 
           <View style={st.toggleWrap}>
             <Text style={[st.statusLabel, { color: isActive ? "#16a34a" : "#94a3b8" }]}>
-              {isActive ? "Active" : "Inactive"}
+              {isActive ? _t("Active") : _t("Inactive")}
             </Text>
             {toggling ? (
               <ActivityIndicator size="small" color="#2563eb" style={{ marginLeft: 8 }} />
@@ -125,9 +127,9 @@ export default function StudentUserAccountsScreen({ navigation }) {
     if (!silent) setLoading(true);
     try {
       const data = await fetchStudentUsers(user, statusFilter);
-      setAccounts(data);
+      setAccounts(Array.isArray(data) ? data : []);
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load accounts");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load accounts"));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -143,10 +145,10 @@ export default function StudentUserAccountsScreen({ navigation }) {
     const fullName = `${item.ssms_user_firstname ?? ""} ${item.ssms_user_lastname ?? ""}`.trim() || item.ssms_user_name;
 
     Alert.alert(
-      `${label.charAt(0).toUpperCase() + label.slice(1)} Account`,
-      `${label.charAt(0).toUpperCase() + label.slice(1)} login for ${fullName}?`,
+      _t("{v} Account", { v: label.charAt(0).toUpperCase() + label.slice(1) }),
+      _t("{v} login for {fullName}?", { v: label.charAt(0).toUpperCase() + label.slice(1), fullName }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
           text: label.charAt(0).toUpperCase() + label.slice(1),
           style: newStatus === "active" ? "default" : "destructive",
@@ -163,7 +165,7 @@ export default function StudentUserAccountsScreen({ navigation }) {
                 )
               );
             } catch (e) {
-              Alert.alert("Error", e.message || "Failed to update status");
+              Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to update status"));
             } finally {
               setTogglingId(null);
             }
@@ -197,10 +199,8 @@ export default function StudentUserAccountsScreen({ navigation }) {
           <Feather name="arrow-left" size={20} color="#1e40af" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={st.title}>Student Accounts</Text>
-          <Text style={st.subtitle}>
-            {accounts.length} accounts · {activeCount} active · {inactiveCount} inactive
-          </Text>
+          <Text style={st.title}>{_t("Student Accounts")}</Text>
+          <Text style={st.subtitle}>{_t("{length} accounts · {activeCount} active · {inactiveCount} inactive", { length: accounts.length, activeCount, inactiveCount })}</Text>
         </View>
         <TouchableOpacity onPress={() => load()} style={st.refreshBtn}>
           <Feather name="refresh-cw" size={18} color="#1e40af" />
@@ -213,7 +213,7 @@ export default function StudentUserAccountsScreen({ navigation }) {
           <Feather name="search" size={15} color="#94a3b8" style={{ marginRight: 8 }} />
           <TextInput
             style={st.searchInput}
-            placeholder="Search by name, ID, email, branch…"
+            placeholder={_t("Search by name, ID, email, branch…")}
             placeholderTextColor="#94a3b8"
             value={search}
             onChangeText={setSearch}
@@ -233,10 +233,10 @@ export default function StudentUserAccountsScreen({ navigation }) {
             activeOpacity={0.75}
           >
             <Text style={[st.chipTxt, statusFilter === f.value && st.chipTxtActive]}>
-              {f.label}
-              {f.value === ""        ? ` (${accounts.length})`   :
-               f.value === "active"  ? ` (${activeCount})`      :
-                                       ` (${inactiveCount})`}
+              {_tx(f.label)}
+              {f.value === ""        ? ` (${_tx(accounts.length)})`   :
+               f.value === "active"  ? ` (${_tx(activeCount)})`      :
+                                       ` (${_tx(inactiveCount)})`}
             </Text>
           </TouchableOpacity>
         ))}
@@ -246,9 +246,7 @@ export default function StudentUserAccountsScreen({ navigation }) {
       {statusFilter !== "active" && inactiveCount > 0 && (
         <View style={st.infoBanner}>
           <Feather name="info" size={14} color="#92400e" />
-          <Text style={st.infoBannerTxt}>
-            {inactiveCount} account{inactiveCount !== 1 ? "s" : ""} pending activation. Toggle the switch to allow login.
-          </Text>
+          <Text style={st.infoBannerTxt}>{_t("{inactiveCount} account{pl} pending activation. Toggle the switch to allow login.", { inactiveCount, pl: inactiveCount !== 1 ? "s" : "" })}</Text>
         </View>
       )}
 
@@ -256,13 +254,13 @@ export default function StudentUserAccountsScreen({ navigation }) {
       {loading ? (
         <View style={st.center}>
           <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={st.loadingTxt}>Loading accounts…</Text>
+          <Text style={st.loadingTxt}>{_t("Loading accounts…")}</Text>
         </View>
       ) : visible.length === 0 ? (
         <View style={st.center}>
           <Feather name="users" size={44} color="#cbd5e1" />
           <Text style={st.emptyTxt}>
-            {search ? "No accounts match your search" : "No student / parent accounts yet"}
+            {search ? _t("No accounts match your search") : _t("No student / parent accounts yet")}
           </Text>
         </View>
       ) : (

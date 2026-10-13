@@ -735,6 +735,9 @@ class ExamServiceApiController extends AppController
             $percentage >= 40 => 'D',
             default           => 'F',
         };
+        // School's own grading scale (Exams › Grading Scales), when set up.
+        $grade = \App\Service\Grading::labelIfConfigured($clientCode, (float)$percentage) ?? $grade;
+        $scale = \App\Service\Grading::configuredDefault($clientCode);
 
         $this->jsonOk([
             'data' => [
@@ -745,6 +748,8 @@ class ExamServiceApiController extends AppController
                 'total_max'      => $totalMax,
                 'percentage'     => $percentage,
                 'grade'          => $grade,
+                // null = built-in A+…F grades; otherwise the school's bands (high → low)
+                'grading'        => $scale ? ['name' => $scale['name'], 'bands' => $scale['bands']] : null,
             ]
         ]);
     }
@@ -1091,6 +1096,10 @@ class ExamServiceApiController extends AppController
                 ? 'F'
                 : ($pct >= 90 ? 'A+' : ($pct >= 80 ? 'A' : ($pct >= 70 ? 'B+'
                     : ($pct >= 60 ? 'B' : ($pct >= 50 ? 'C' : 'D')))));
+            if (($cfg = \App\Service\Grading::applyConfigured($clientCode, (float)$pct, $failedSubject)) !== null) {
+                $row['is_passed'] = $cfg['is_pass'];
+                $row['grade']     = $cfg['label'];
+            }
 
             $row['total_obtained'] = (float)$row['total_obtained'];
             $row['total_max']      = (float)$row['total_max'];
@@ -1320,7 +1329,11 @@ class ExamServiceApiController extends AppController
         )->fetchAll('assoc');
 
         // ── Subject-wise marks for each exam ─────────────────────────────────
-        $gradeFor = function(float $pct): string {
+        $gradeFor = function(float $pct) use ($clientCode): string {
+            $g = \App\Service\Grading::labelIfConfigured($clientCode, $pct);
+            if ($g !== null) {
+                return $g;
+            }
             return match(true) {
                 $pct >= 90 => 'A+',
                 $pct >= 80 => 'A',

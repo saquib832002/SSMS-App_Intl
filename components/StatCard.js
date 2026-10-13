@@ -1,15 +1,19 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { View, Text, StyleSheet, Animated } from "react-native";
 import { Layout } from "../styles/AppStyles";
+import { _tx } from "../services/i18n";
 
 export default function StatCard({ title, number, color }) {
-  const scale = new Animated.Value(0.9);
+  // keep one Animated.Value and run the intro animation once (not on every render)
+  const scale = useRef(new Animated.Value(0.9)).current;
 
-  Animated.spring(scale, {
-    toValue: 1,
-    friction: 6,
-    useNativeDriver: true,
-  }).start();
+  useEffect(() => {
+    Animated.spring(scale, {
+      toValue: 1,
+      friction: 6,
+      useNativeDriver: true,
+    }).start();
+  }, [scale]);
 
   return (
     <Animated.View
@@ -18,8 +22,8 @@ export default function StatCard({ title, number, color }) {
         { backgroundColor: color, width: Layout.cardWidth, transform: [{ scale }] },
       ]}
     >
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.number}>{number}</Text>
+      <Text style={styles.title}>{_tx(title)}</Text>
+      <Text style={styles.number}>{_tx(number)}</Text>
     </Animated.View>
   );
 }

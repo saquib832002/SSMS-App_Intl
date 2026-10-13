@@ -39,11 +39,7 @@ async function loadPdfLibs() {
     return { Print: _Print, Sharing: _Sharing };
   } catch {
     throw new Error(
-      'PDF libraries not installed.\n\n' +
-      'Run in your project folder:\n' +
-      '  npx expo install expo-print expo-sharing expo-file-system\n\n' +
-      'Then restart Metro:\n' +
-      '  npx expo start --clear'
+      _t("PDF libraries not installed.\n\nRun in your project folder:\n  npx expo install expo-print expo-sharing expo-file-system\n\nThen restart Metro:\n  npx expo start --clear")
     );
   }
 }
@@ -56,14 +52,16 @@ import { fetchClasses, fetchSessions, fetchBranches } from '../../services/Stude
 import { Feather } from "@expo/vector-icons";
 import { HOST_NAME } from '../../Environment/EnvironmentConfig';
 
+import { fmtMoney, fmtDate as fmtLocalDate, currencySymbol, taxLabel, fmtDateTime } from "../../services/Locale";
+import { _t, _tx } from "../../services/i18n";
 const { width } = Dimensions.get('window');
 
 const fmt     = (v) => (isNaN(parseFloat(v)) ? '0.00' : parseFloat(v).toFixed(2));
-const fmtCurr = (v) => `₹ ${fmt(v)}`;
+const fmtCurr = (v) => fmtMoney(v);   // Region & formats
 const fmtDate = (d) => {
   if (!d) return '—';
   const x = new Date(d);
-  return isNaN(x) ? d : x.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return isNaN(x) ? d : fmtLocalDate(x, 'medium');
 };
 
 const C = {
@@ -212,7 +210,7 @@ function esc(s) {
 
 function buildSlipFragment(stu, meta, lang = 'en') {
   const t = DEMAND_STRINGS[lang] ?? DEMAND_STRINGS.en;
-  const { className, sessionName, branchName, schoolName, address, city, state, zip, email, phone, logo, currSym = '₹' } = meta;
+  const { className, sessionName, branchName, schoolName, address, city, state, zip, email, phone, logo, currSym = currencySymbol() } = meta;
 
   const dueItems = (stu.fee_items ?? []).filter(fi => parseFloat(fi.balance_due ?? 0) > 0);
   if (!dueItems.length) return '';
@@ -236,8 +234,8 @@ function buildSlipFragment(stu, meta, lang = 'en') {
 
   const addr    = [address, city, state, zip].filter(Boolean).join(', ');
   const contact = [phone ? `Ph: ${phone}` : '', email ? `Email: ${email}` : ''].filter(Boolean).join('  ·  ');
-  const genOn   = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
-  const genDate = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'long', year:'numeric' });
+  const genOn   = fmtDateTime(new Date());
+  const genDate = fmtLocalDate(new Date(), 'full');
   const refNo   = `FDS-${esc(String(stu.enrollment_id))}-${new Date().toISOString().slice(0,10).replace(/-/g,'')}`;
 
   const logoHtml = logo
@@ -266,7 +264,7 @@ function buildSlipFragment(stu, meta, lang = 'en') {
   // ── Subject strip ──
   html += `<div class="subj">
     <div class="title">${t.subjectLine} &mdash; ${esc(sessionName)}</div>
-    <div class="sub">${t.totalOutstanding}: ${currSym} ${fmt(totalDue)}</div>
+    <div class="sub">${t.totalOutstanding}: ${fmtMoney(totalDue)}</div>
   </div>`;
 
   // ── Opening paragraphs ──
@@ -275,7 +273,7 @@ function buildSlipFragment(stu, meta, lang = 'en') {
 
   // ── Table header ──
   const discTh = hasDisc ? `<th class="r">${t.discount}</th>` : '';
-  const taxTh  = hasTax  ? `<th class="r">${t.gstTax}</th>` : '';
+  const taxTh  = hasTax  ? `<th class="r">${t === DEMAND_STRINGS.en ? taxLabel() : t.gstTax}</th>` : '';
   const lateTh = hasLate ? `<th class="r">${t.lateFee}</th>` : '';
   const paidTh = hasPaid ? `<th class="r">${t.paid}</th>` : '';
 
@@ -296,52 +294,52 @@ function buildSlipFragment(stu, meta, lang = 'en') {
     const net  = parseFloat(fi.net_payable  ?? fi.net_fee_amount ?? fi.fee_amount ?? 0);
 
     const discCell = hasDisc
-      ? (disc > 0 ? `<td class="disc">&minus;${currSym} ${fmt(disc)}<div class="fn">(${parseFloat(fi.discount_percent??0).toFixed(1)}%)</div></td>`
+      ? (disc > 0 ? `<td class="disc">&minus;${fmtMoney(disc)}<div class="fn">(${parseFloat(fi.discount_percent??0).toFixed(1)}%)</div></td>`
                   : '<td class="r" style="color:#94a3b8">&mdash;</td>')
       : '';
     const taxCell = hasTax
-      ? (tax > 0 ? `<td class="tax-c">+${currSym} ${fmt(tax)}<div class="fn">(${parseFloat(fi.tax_percent??0).toFixed(1)}%)</div></td>`
+      ? (tax > 0 ? `<td class="tax-c">+${fmtMoney(tax)}<div class="fn">(${parseFloat(fi.tax_percent??0).toFixed(1)}%)</div></td>`
                  : '<td class="r" style="color:#94a3b8">&mdash;</td>')
       : '';
     const lateCell = hasLate
-      ? (late > 0 ? `<td class="late">+${currSym} ${fmt(late)}</td>`
+      ? (late > 0 ? `<td class="late">+${fmtMoney(late)}</td>`
                   : '<td class="r" style="color:#94a3b8">&mdash;</td>')
       : '';
     const paidCell = hasPaid
-      ? (paid > 0 ? `<td class="paid-c">${currSym} ${fmt(paid)}</td>`
+      ? (paid > 0 ? `<td class="paid-c">${fmtMoney(paid)}</td>`
                   : '<td class="r" style="color:#94a3b8">&mdash;</td>')
       : '';
 
     html += `<tr>
       <td>${esc(fi.fee_item_name ?? '—')}${mn}${dd}</td>
-      <td class="r">${currSym} ${fmt(fi.fee_amount)}</td>
+      <td class="r">${fmtMoney(fi.fee_amount)}</td>
       ${discCell}
-      <td class="r">${currSym} ${fmt(net)}</td>
+      <td class="r">${fmtMoney(net)}</td>
       ${taxCell}${paidCell}${lateCell}
-      <td class="due">${currSym} ${fmt(fi.balance_due)}</td>
+      <td class="due">${fmtMoney(fi.balance_due)}</td>
     </tr>`;
   });
 
   // ── Sub-total ──
-  const discTotCell = hasDisc ? `<td class="disc">&minus;${currSym} ${fmt(totalDisc)}</td>` : '';
-  const taxTotCell  = hasTax  ? `<td class="tax-c">+${currSym} ${fmt(totalTax)}</td>`       : '';
-  const lateTotCell = hasLate ? `<td class="late">+${currSym} ${fmt(totalLate)}</td>`       : '';
-  const paidTotCell = hasPaid ? `<td class="paid-c">${currSym} ${fmt(totalPaid)}</td>`      : '';
+  const discTotCell = hasDisc ? `<td class="disc">&minus;${fmtMoney(totalDisc)}</td>` : '';
+  const taxTotCell  = hasTax  ? `<td class="tax-c">+${fmtMoney(totalTax)}</td>`       : '';
+  const lateTotCell = hasLate ? `<td class="late">+${fmtMoney(totalLate)}</td>`       : '';
+  const paidTotCell = hasPaid ? `<td class="paid-c">${fmtMoney(totalPaid)}</td>`      : '';
 
   html += `<tr class="tot">
     <td><strong>${t.subTotal}</strong></td>
-    <td class="r">${currSym} ${fmt(totalFee)}</td>
+    <td class="r">${fmtMoney(totalFee)}</td>
     ${discTotCell}
-    <td class="r">${currSym} ${fmt(netTot)}</td>
+    <td class="r">${fmtMoney(netTot)}</td>
     ${taxTotCell}${paidTotCell}${lateTotCell}
-    <td class="due">${currSym} ${fmt(totalDue)}</td>
+    <td class="due">${fmtMoney(totalDue)}</td>
   </tr>`;
 
   // ── Grand total ──
   const grandColspan = 2 + (hasDisc?1:0) + (hasTax?1:0) + (hasPaid?1:0) + (hasLate?1:0);
   html += `<tr class="grand">
     <td colspan="${grandColspan}">${t.totalBalanceDue}</td>
-    <td class="r" colspan="2" style="font-size:10px">${currSym} ${fmt(totalDue)}</td>
+    <td class="r" colspan="2" style="font-size:10px">${fmtMoney(totalDue)}</td>
   </tr></tbody></table>`;
 
   // ── Signature ──
@@ -413,14 +411,14 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
         activeOpacity={0.7}
       >
         <Text style={[_ddSt.triggerTxt, !selected?.value && _ddSt.placeholder]} numberOfLines={1}>
-          {loading ? "Loading…" : (selected?.label ?? label)}
+          {loading ? _t("Loading…") : (_tx(selected?.label) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={16} color="#475569" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={_ddSt.overlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={_ddSt.sheet}>
-            <Text style={_ddSt.sheetTitle}>{label}</Text>
+            <Text style={_ddSt.sheetTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={(o, i) => String(o.value) + i}
@@ -430,7 +428,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[_ddSt.optionTxt, String(o.value) === String(value) && _ddSt.optionTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) && <Feather name="check" size={14} color="#2563eb" />}
                 </TouchableOpacity>
@@ -476,7 +474,7 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
   const [students,   setStudents]   = useState([]);
   const [summary,    setSummary]    = useState(null);
   const [clientInfo, setClientInfo] = useState(null);
-  const currSym = clientInfo?.currency?.trim() || '₹';
+  const currSym = currencySymbol();
   const [loading,    setLoading]    = useState(false);
   const [hasLoaded,  setHasLoaded]  = useState(false);
 
@@ -517,12 +515,9 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
     zip:         clientInfo?.zip      || '',
     email:       clientInfo?.email    || '',
     phone:       clientInfo?.phone    || '',
-    currSym:     clientInfo?.currency?.trim() || '₹',
+    currSym:     currencySymbol(),
     logo:        null,   // filled in per-handler after async logo download
-    generatedOn: new Date().toLocaleDateString('en-GB', {
-      day: '2-digit', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    }),
+    generatedOn: fmtDateTime(new Date()),
   }), [selectedClassName, selectedSessionName, selectedBranchName,
        selClassId, selSessionId, clientInfo, user]);
 
@@ -531,17 +526,22 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
     if (dropdownsLoaded) { setFilterModal(true); return; }
     try {
       setLoadingDropdowns(true);
-      const [cls, ses, br] = await Promise.all([fetchClasses(user), fetchSessions(user), fetchBranches(user)]);
-      setClasses(cls || []); setSessions(ses || []); setBranches(br || []);
-      setDropdownsLoaded(true); setFilterModal(true);
-    } catch (e) { Alert.alert('Error', e.message || 'Failed to load dropdown data'); }
+      // allSettled: a 403 on one list must not block the others
+      const results = await Promise.allSettled([fetchClasses(user), fetchSessions(user), fetchBranches(user)]);
+      const [cls, ses, br] = results.map(r => (r.status === 'fulfilled' && Array.isArray(r.value) ? r.value : []));
+      setClasses(cls); setSessions(ses); setBranches(br);
+      const failed = results.find(r => r.status === 'rejected');
+      if (failed) Alert.alert(_t("Error"), _tx(failed.reason?.message) || _t("Failed to load dropdown data"));
+      else setDropdownsLoaded(true);
+      setFilterModal(true);
+    } catch (e) { Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load dropdown data")); }
     finally { setLoadingDropdowns(false); }
   }, [user, dropdownsLoaded]);
 
   const generate = useCallback(async () => {
     if (!user) return;
     if (!selClassId || !selSessionId) {
-      Alert.alert('Required', 'Please select both Class and Session.'); return;
+      Alert.alert(_t("Required"), _t("Please select both Class and Session.")); return;
     }
     try {
       setLoading(true); setHasLoaded(false);
@@ -552,11 +552,11 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
         category:         selCategory  || undefined,
         ssms_client_code: clientCode   || undefined,
       }, user);
-      setStudents(res.students ?? []);
+      setStudents(Array.isArray(res?.students) ? res.students : []);
       setSummary(res.summary   ?? null);
       setClientInfo(res.clientInfo ?? null);
       setHasLoaded(true); setExpandedId(null);
-    } catch (e) { Alert.alert('Error', e.message ?? 'Failed to load demand slip data.'); }
+    } catch (e) { Alert.alert(_t("Error"), _tx(e.message) ?? _t("Failed to load demand slip data.")); }
     finally { setLoading(false); }
   }, [selClassId, selSessionId, selBranchId, selCategory, clientCode, user]);
 
@@ -564,7 +564,7 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
     let list = students
       .map(s => ({
         ...s,
-        fee_items: (s.fee_items ?? []).filter(fi => parseFloat(fi.balance_due ?? 0) > 0),
+        fee_items: (Array.isArray(s.fee_items) ? s.fee_items : []).filter(fi => parseFloat(fi.balance_due ?? 0) > 0),
       }))
       .filter(s => s.fee_items.length > 0);
     if (filterDue) list = list.filter(s => (s.total_due ?? 0) > 0);
@@ -586,7 +586,7 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
   const handleSendEmail = useCallback(async () => {
     const addr = emailAddr.trim();
     if (!addr || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) {
-      Alert.alert('Invalid Email', 'Please enter a valid email address.'); return;
+      Alert.alert(_t("Invalid Email"), _t("Please enter a valid email address.")); return;
     }
     try {
       setSendingEmail(true);
@@ -606,8 +606,8 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
         class_name: selectedClassName, session_name: selectedSessionName, branch_name: selectedBranchName,
       }, user);
       setEmailModal(false);
-      Alert.alert('Sent ✓', `Demand slip emailed to ${addr}.`);
-    } catch (e) { Alert.alert('Failed', e.message ?? 'Could not send email.'); }
+      Alert.alert(_t("Sent ✓"), _t("Demand slip emailed to {addr}.", { addr }));
+    } catch (e) { Alert.alert(_t("Failed"), _tx(e.message) ?? _t("Could not send email.")); }
     finally { setSendingEmail(false); }
   }, [emailAddr, emailStudent, selSessionId, selectedClassName, selectedSessionName, selectedBranchName, user]);
 
@@ -644,7 +644,7 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
         await Print.printAsync({ uri });
       }
     } catch (e) {
-      Alert.alert('PDF Error', e.message ?? 'Could not generate PDF.');
+      Alert.alert(_t("PDF Error"), _tx(e.message) ?? _t("Could not generate PDF."));
     } finally {
       setPdfStudentId(null);
     }
@@ -652,7 +652,7 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
 
   const handleClassPdf = useCallback(async () => {
     if (filteredStudents.length === 0) {
-      Alert.alert('No Data', 'Generate the demand slip first.'); return;
+      Alert.alert(_t("No Data"), _t("Generate the demand slip first.")); return;
     }
     try {
       setGeneratingPdf(true);
@@ -686,7 +686,7 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
         await Print.printAsync({ uri });
       }
     } catch (e) {
-      Alert.alert('PDF Error', e.message ?? 'Could not generate PDF.');
+      Alert.alert(_t("PDF Error"), _tx(e.message) ?? _t("Could not generate PDF."));
     } finally {
       setGeneratingPdf(false);
     }
@@ -695,17 +695,17 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
   const sendWhatsAppDemandNotice = useCallback((stu) => {
     const phone = String(stu.mobile_number ?? '').replace(/\D/g, '');
     if (!phone) {
-      Alert.alert('No Phone Number', `No mobile number on record for ${stu.student_name ?? 'this student'}.`);
+      Alert.alert(_t("No Phone Number"), _t("No mobile number on record for {v}.", { v: stu.student_name ?? _t("this student") }));
       return;
     }
     const schoolName = pdfMeta.schoolName ?? 'School';
     const dueItems   = (stu.fee_items ?? []).filter(fi => parseFloat(fi.balance_due ?? 0) > 0);
     if (!dueItems.length) {
-      Alert.alert('No Dues', `${stu.student_name} has no outstanding fees.`);
+      Alert.alert(_t("No Dues"), _t("{student_name} has no outstanding fees.", { student_name: stu.student_name }));
       return;
     }
     const lines = dueItems.map(i =>
-      `• ${i.fee_item_name}${i.month_no ? ` (${i.month_no})` : ''}: ₹ ${parseFloat(i.balance_due ?? 0).toFixed(2)}`
+      `• ${i.fee_item_name}${i.month_no ? ` (${i.month_no})` : ''}: ${fmtMoney(i.balance_due ?? 0)}`
     ).join('\n');
     const total = dueItems.reduce((s, i) => s + parseFloat(i.balance_due ?? 0), 0);
     const message =
@@ -714,11 +714,11 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
       `Dear Parent/Guardian,\n` +
       `This is a reminder that the following fees are outstanding for *${stu.student_name ?? stu.enrollment_id}* (Enrollment: ${stu.enrollment_id}):\n\n` +
       `${lines}\n\n` +
-      `*Total Due: ₹ ${total.toFixed(2)}*\n\n` +
+      `*Total Due: ${fmtMoney(total)}*\n\n` +
       `Please clear the dues at the earliest to avoid any late charges.\n` +
       `For any queries, contact the school accounts office.`;
     Linking.openURL(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`).catch(() =>
-      Alert.alert('WhatsApp Not Found', 'Please ensure WhatsApp is installed on this device.')
+      Alert.alert(_t("WhatsApp Not Found"), _t("Please ensure WhatsApp is installed on this device."))
     );
   }, [pdfMeta]);
 
@@ -728,10 +728,10 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
       {/* Filter chips */}
       {(selClassId || selSessionId || selBranchId || selCategory) && (
         <View style={ds.chipRow}>
-          {selectedClassName   && <FilterChip label={`Class: ${selectedClassName}`}     onRemove={() => setSelClassId('')} />}
-          {selectedSessionName && <FilterChip label={`Session: ${selectedSessionName}`} onRemove={() => setSelSessionId('')} />}
-          {selectedBranchName  && <FilterChip label={`Branch: ${selectedBranchName}`}   onRemove={() => setSelBranchId('')} />}
-          {selCategory         && <FilterChip label={`Category: ${selCategory}`}         onRemove={() => setSelCategory('')} />}
+          {selectedClassName   && <FilterChip label={_t("Class: {selectedClassName}", { selectedClassName })}     onRemove={() => setSelClassId('')} />}
+          {selectedSessionName && <FilterChip label={_t("Session: {selectedSessionName}", { selectedSessionName })} onRemove={() => setSelSessionId('')} />}
+          {selectedBranchName  && <FilterChip label={_t("Branch: {selectedBranchName}", { selectedBranchName })}   onRemove={() => setSelBranchId('')} />}
+          {selCategory         && <FilterChip label={_t("Category: {selCategory}", { selCategory })}         onRemove={() => setSelCategory('')} />}
         </View>
       )}
 
@@ -741,8 +741,8 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
           style={[ds.generateBtn, (!selClassId || !selSessionId || loading) && ds.generateBtnDisabled]}
           onPress={generate} disabled={!selClassId || !selSessionId || loading}>
           {loading
-            ? <><ActivityIndicator size="small" color="#fff" /><Text style={ds.generateBtnText}>  Generating…</Text></>
-            : <><MaterialIcons name="assignment" size={18} color="#fff" /><Text style={ds.generateBtnText}>  Generate</Text></>}
+            ? <><ActivityIndicator size="small" color="#fff" /><Text style={ds.generateBtnText}>{" "}{_t("Generating…")}</Text></>
+            : <><MaterialIcons name="assignment" size={18} color="#fff" /><Text style={ds.generateBtnText}>{" "}{_t("Generate")}</Text></>}
         </TouchableOpacity>
         {hasLoaded && filteredStudents.length > 0 && (
           <TouchableOpacity style={[ds.pdfAllBtn, generatingPdf && { opacity: 0.65 }]}
@@ -750,7 +750,7 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
             {generatingPdf
               ? <ActivityIndicator size="small" color={C.primary} />
               : <MaterialIcons name="picture-as-pdf" size={18} color={C.primary} />}
-            <Text style={ds.pdfAllBtnText}>{generatingPdf ? 'Generating…' : 'Print All'}</Text>
+            <Text style={ds.pdfAllBtnText}>{generatingPdf ? _t("Generating…") : _t("Print All")}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -759,27 +759,27 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
       {!hasLoaded && loading && (
         <View style={ds.emptyState}>
           <ActivityIndicator size="large" color={C.primary} />
-          <Text style={ds.emptySub}>Loading…</Text>
+          <Text style={ds.emptySub}>{_t("Loading…")}</Text>
         </View>
       )}
       {!hasLoaded && !loading && (
         <View style={ds.emptyState}>
           <MaterialIcons name="assignment" size={56} color="#cbd5e1" />
-          <Text style={ds.emptyTitle}>No data yet</Text>
-          <Text style={ds.emptySub}>Select a class and session above, then tap Generate.</Text>
+          <Text style={ds.emptyTitle}>{_t("No data yet")}</Text>
+          <Text style={ds.emptySub}>{_t("Select a class and session above, then tap Generate.")}</Text>
         </View>
       )}
 
       {/* Summary banner */}
       {hasLoaded && summary && (
         <View style={ds.summaryBanner}>
-          <SumCell icon="people"          label="Students"  value={String(summary.student_count)} />
+          <SumCell icon="people"          label={_t("Students")}  value={String(summary.student_count)} />
           <View style={ds.sumDivider} />
-          <SumCell icon="account-balance" label="Total Fee"  value={fmtCurr(summary.total_fee)} />
+          <SumCell icon="account-balance" label={_t("Total Fee")}  value={fmtCurr(summary.total_fee)} />
           <View style={ds.sumDivider} />
-          <SumCell icon="check-circle"    label="Collected" value={fmtCurr(summary.total_paid)} color="#4ade80" />
+          <SumCell icon="check-circle"    label={_t("Collected")} value={fmtCurr(summary.total_paid)} color="#4ade80" />
           <View style={ds.sumDivider} />
-          <SumCell icon="pending-actions" label="Due"       value={fmtCurr(summary.total_due)}  color="#fca5a5" />
+          <SumCell icon="pending-actions" label={_t("Due")}       value={fmtCurr(summary.total_due)}  color="#fca5a5" />
         </View>
       )}
 
@@ -790,7 +790,7 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
             <MaterialIcons name="search" size={18} color={C.muted} style={{ marginLeft: 10 }} />
             <TextInput
               style={ds.searchInput}
-              placeholder="Search by name or enrollment…"
+              placeholder={_t("Search by name or enrollment…")}
               placeholderTextColor={C.muted}
               value={searchQ} onChangeText={setSearchQ} autoCorrect={false}
             />
@@ -804,7 +804,7 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
             onPress={() => setFilterDue(v => !v)}>
             <MaterialIcons name={filterDue ? 'filter-alt' : 'filter-alt-off'} size={18}
               color={filterDue ? '#fff' : C.muted} />
-            <Text style={[ds.dueToggleText, filterDue && { color: '#fff' }]}>Due only</Text>
+            <Text style={[ds.dueToggleText, filterDue && { color: '#fff' }]}>{_t("Due only")}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -822,15 +822,15 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
           <MaterialIcons name="arrow-back-ios" size={20} color={C.primary} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={ds.headerTitle}>Fee Demand Slip</Text>
-          <Text style={ds.headerSub}>Class-wise outstanding fee report</Text>
+          <Text style={ds.headerTitle}>{_t("Fee Demand Slip")}</Text>
+          <Text style={ds.headerSub}>{_t("Class-wise outstanding fee report")}</Text>
         </View>
         <TouchableOpacity style={[ds.filterBtn, loadingDropdowns && { opacity: 0.6 }]}
           onPress={loadDropdowns} disabled={loadingDropdowns}>
           {loadingDropdowns
             ? <ActivityIndicator size="small" color={C.primary} />
             : <MaterialIcons name="tune" size={20} color={C.primary} />}
-          <Text style={ds.filterBtnText}>Filters</Text>
+          <Text style={ds.filterBtnText}>{_t("Filters")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -848,8 +848,8 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
         ListEmptyComponent={hasLoaded ? (
           <View style={ds.emptyInList}>
             <MaterialIcons name="person-search" size={44} color="#cbd5e1" />
-            <Text style={ds.emptyTitle}>No students found</Text>
-            <Text style={ds.emptySub}>{filterDue ? 'All students are fully paid up!' : 'Try a different search term.'}</Text>
+            <Text style={ds.emptyTitle}>{_t("No students found")}</Text>
+            <Text style={ds.emptySub}>{filterDue ? _t("All students are fully paid up!") : _t("Try a different search term.")}</Text>
           </View>
         ) : null}
         renderItem={({ item: stu }) => {
@@ -867,9 +867,9 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
                     </Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={ds.studentName} numberOfLines={1}>{stu.student_name}</Text>
+                    <Text style={ds.studentName} numberOfLines={1}>{_tx(stu.student_name)}</Text>
                     <Text style={ds.studentMeta}>
-                      #{stu.enrollment_id}{stu.registration_id ? `  ·  Reg #${stu.registration_id}` : ''}
+                      #{_tx(stu.enrollment_id)}{stu.registration_id ? `  ${_t("·  Reg #{registration_id}", { registration_id: stu.registration_id })}` : ''}
                     </Text>
                   </View>
                   <View style={ds.studentActions}>
@@ -896,16 +896,16 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
                 </View>
 
                 <View style={ds.finStrip}>
-                  <FinCell label="Total Fee"  value={fmtCurr(stu.total_fee)}  color={C.primary} />
+                  <FinCell label={_t("Total Fee")}  value={fmtCurr(stu.total_fee)}  color={C.primary} />
                   <View style={ds.finDivider} />
-                  <FinCell label="Paid"       value={fmtCurr(stu.total_paid)} color={C.success} />
+                  <FinCell label={_t("Paid")}       value={fmtCurr(stu.total_paid)} color={C.success} />
                   <View style={ds.finDivider} />
-                  <FinCell label="Due"        value={fmtCurr(stu.total_due)}  color={hasDue ? C.error : C.success} />
+                  <FinCell label={_t("Due")}        value={fmtCurr(stu.total_due)}  color={hasDue ? C.error : C.success} />
                 </View>
 
                 {isExpanded && (
                   <View style={ds.feeItemsList}>
-                    <Text style={ds.feeItemsHeader}>Fee Breakdown</Text>
+                    <Text style={ds.feeItemsHeader}>{_t("Fee Breakdown")}</Text>
                     {stu.fee_items.map((fi, idx) => {
                       const disc = parseFloat(fi.discount_amount ?? 0);
                       const tax  = parseFloat(fi.tax_amount      ?? 0);
@@ -915,38 +915,34 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
                       return (
                         <View key={idx} style={[ds.feeItemRow, idx === stu.fee_items.length - 1 && { borderBottomWidth: 0 }]}>
                           <View style={ds.feeItemHeader}>
-                            <Text style={ds.feeItemName}>{fi.fee_item_name}{mn}</Text>
-                            {fi.due_date && <Text style={ds.feeItemDate}>Due: {fmtDate(fi.due_date)}</Text>}
+                            <Text style={ds.feeItemName}>{_tx(fi.fee_item_name)}{_tx(mn)}</Text>
+                            {fi.due_date && <Text style={ds.feeItemDate}>{_t("Due: {due_date}", { due_date: fmtDate(fi.due_date) })}</Text>}
                           </View>
                           <View style={ds.feeItemLines}>
                             <View style={ds.feeItemLine}>
-                              <Text style={ds.feeItemLineLabel}>Fee</Text>
+                              <Text style={ds.feeItemLineLabel}>{_t("Fee")}</Text>
                               <Text style={ds.feeItemLineFee}>{fmtCurr(fi.fee_amount, currSym)}</Text>
                             </View>
                             {disc > 0 && (
                               <View style={ds.feeItemLine}>
-                                <Text style={[ds.feeItemLineLabel, { color: '#15803d' }]}>
-                                  − Disc ({parseFloat(fi.discount_percent ?? 0).toFixed(1)}%)
-                                </Text>
+                                <Text style={[ds.feeItemLineLabel, { color: '#15803d' }]}>{_t("− Disc ({v}%)", { v: parseFloat(fi.discount_percent ?? 0).toFixed(1) })}</Text>
                                 <Text style={[ds.feeItemLineVal, { color: '#15803d' }]}>−{fmtCurr(disc, currSym)}</Text>
                               </View>
                             )}
                             {tax > 0 && (
                               <View style={ds.feeItemLine}>
-                                <Text style={[ds.feeItemLineLabel, { color: '#1e40af' }]}>
-                                  + GST ({parseFloat(fi.tax_percent ?? 0).toFixed(1)}%)
-                                </Text>
+                                <Text style={[ds.feeItemLineLabel, { color: '#1e40af' }]}>{_t("+ GST ({v}%)", { v: parseFloat(fi.tax_percent ?? 0).toFixed(1) })}</Text>
                                 <Text style={[ds.feeItemLineVal, { color: '#1e40af' }]}>+{fmtCurr(tax, currSym)}</Text>
                               </View>
                             )}
                             {paid > 0 && (
                               <View style={ds.feeItemLine}>
-                                <Text style={[ds.feeItemLineLabel, { color: C.success }]}>Paid</Text>
+                                <Text style={[ds.feeItemLineLabel, { color: C.success }]}>{_t("Paid")}</Text>
                                 <Text style={[ds.feeItemLineVal, { color: C.success }]}>{fmtCurr(paid, currSym)}</Text>
                               </View>
                             )}
                             <View style={[ds.feeItemLine, ds.feeItemDueLine]}>
-                              <Text style={ds.feeItemDueLabel}>Due</Text>
+                              <Text style={ds.feeItemDueLabel}>{_t("Due")}</Text>
                               <Text style={ds.feeItemDueVal}>{fmtCurr(due, currSym)}</Text>
                             </View>
                           </View>
@@ -982,8 +978,8 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
                 <MaterialIcons name="mark-email-unread" size={22} color={C.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={ds.emailTitle}>Send Demand Slip</Text>
-                <Text style={ds.emailSub} numberOfLines={1}>{emailStudent?.student_name}</Text>
+                <Text style={ds.emailTitle}>{_t("Send Demand Slip")}</Text>
+                <Text style={ds.emailSub} numberOfLines={1}>{_tx(emailStudent?.student_name)}</Text>
               </View>
               <TouchableOpacity style={ds.emailCloseBtn} onPress={() => setEmailModal(false)}>
                 <MaterialIcons name="close" size={20} color={C.muted} />
@@ -991,12 +987,10 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
             </View>
             <View style={ds.emailDueSummary}>
               <MaterialIcons name="pending-actions" size={18} color={C.error} />
-              <Text style={ds.emailDueText}>
-                Outstanding: <Text style={{ fontWeight: '900', color: C.error }}>{fmtCurr(emailStudent?.total_due)}</Text>
-                {'  '}across {emailStudent?.fee_items?.filter(f => f.balance_due > 0).length ?? 0} item(s)
-              </Text>
+              <Text style={ds.emailDueText}>{_t("Outstanding:")}{" "}<Text style={{ fontWeight: '900', color: C.error }}>{fmtCurr(emailStudent?.total_due)}</Text>
+                {'  '}{_t("across")}{" "}{_tx(emailStudent?.fee_items?.filter(f => f.balance_due > 0).length) ?? 0}{" "}{_t("item(s)")}</Text>
             </View>
-            <Text style={ds.emailFieldLabel}>Send to Email</Text>
+            <Text style={ds.emailFieldLabel}>{_t("Send to Email")}</Text>
             <View style={ds.emailInputRow}>
               <MaterialIcons name="mail-outline" size={18} color="#94a3b8" style={{ marginLeft: 12, marginRight: 8 }} />
               <TextInput
@@ -1007,14 +1001,14 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
             </View>
             <View style={ds.emailFooter}>
               <TouchableOpacity style={ds.emailCancelBtn} onPress={() => setEmailModal(false)}>
-                <Text style={ds.emailCancelText}>Cancel</Text>
+                <Text style={ds.emailCancelText}>{_t("Cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[ds.emailSendBtn, sendingEmail && { opacity: 0.65 }]}
                 onPress={handleSendEmail} disabled={sendingEmail}>
                 {sendingEmail
                   ? <ActivityIndicator size="small" color="#fff" />
                   : <><MaterialIcons name="send" size={17} color="#fff" style={{ marginRight: 7 }} />
-                      <Text style={ds.emailSendText}>Send Demand Slip</Text></>}
+                      <Text style={ds.emailSendText}>{_t("Send Demand Slip")}</Text></>}
               </TouchableOpacity>
             </View>
           </View>
@@ -1026,9 +1020,9 @@ export default function FeeDemandSlipScreen({ route, navigation }) {
 
 // ─── FilterModal ──────────────────────────────────────────────────────────────
 const CATEGORY_ITEMS = [
-  { label: 'Academic',   value: 'Academic' },
-  { label: 'Hostel',     value: 'Hostel' },
-  { label: 'Transport',  value: 'Transport' },
+  { get label() { return _t("Academic"); },   value: 'Academic' },
+  { get label() { return _t("Hostel"); },     value: 'Hostel' },
+  { get label() { return _t("Transport"); },  value: 'Transport' },
 ];
 
 function FilterModal({ visible, onClose, selClassId, setSelClassId, selSessionId, setSelSessionId,
@@ -1040,24 +1034,24 @@ function FilterModal({ visible, onClose, selClassId, setSelClassId, selSessionId
         <TouchableOpacity style={ds.modalBackdrop} onPress={onClose} activeOpacity={1} />
         <View style={ds.filterSheet}>
           <View style={ds.filterSheetHeader}>
-            <Text style={ds.filterSheetTitle}>Filter Demand Slip</Text>
+            <Text style={ds.filterSheetTitle}>{_t("Filter Demand Slip")}</Text>
             <TouchableOpacity style={ds.emailCloseBtn} onPress={onClose}>
               <MaterialIcons name="close" size={20} color={C.muted} />
             </TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }} showsVerticalScrollIndicator={false}>
-            <PickerSection label="Class *"    icon="class"           value={selClassId}   onSelect={setSelClassId}   items={classItems}      placeholder="Select Class" />
-            <PickerSection label="Session *"  icon="date-range"      value={selSessionId} onSelect={setSelSessionId} items={sessionItems}    placeholder="Select Session" />
-            <PickerSection label="Branch"     icon="account-balance" value={selBranchId}  onSelect={setSelBranchId}  items={branchItems}     placeholder="All Branches" optional />
-            <PickerSection label="Category"   icon="category"        value={selCategory}  onSelect={setSelCategory}  items={CATEGORY_ITEMS}  placeholder="All Categories" optional openUp />
+            <PickerSection label={_t("Class *")}    icon="class"           value={selClassId}   onSelect={setSelClassId}   items={classItems}      placeholder={_t("Select Class")} />
+            <PickerSection label={_t("Session *")}  icon="date-range"      value={selSessionId} onSelect={setSelSessionId} items={sessionItems}    placeholder={_t("Select Session")} />
+            <PickerSection label={_t("Branch")}     icon="account-balance" value={selBranchId}  onSelect={setSelBranchId}  items={branchItems}     placeholder={_t("All Branches")} optional />
+            <PickerSection label={_t("Category")}   icon="category"        value={selCategory}  onSelect={setSelCategory}  items={CATEGORY_ITEMS}  placeholder={_t("All Categories")} optional openUp />
           </ScrollView>
           <View style={{ paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 36 : 20, gap: 10 }}>
             <TouchableOpacity style={ds.applyBtn} onPress={onApply}>
               <MaterialIcons name="check" size={18} color="#fff" style={{ marginRight: 8 }} />
-              <Text style={ds.applyBtnText}>Apply Filters</Text>
+              <Text style={ds.applyBtnText}>{_t("Apply Filters")}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={ds.clearBtn} onPress={() => { setSelClassId(''); setSelSessionId(''); setSelBranchId(''); setSelCategory(''); }}>
-              <Text style={ds.clearBtnText}>Clear All</Text>
+              <Text style={ds.clearBtnText}>{_t("Clear All")}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1071,12 +1065,12 @@ function PickerSection({ label, icon, value, onSelect, items, placeholder, optio
   const selected = items.find(i => i.value === value);
   return (
     <View style={{ zIndex: open ? 999 : 1 }}>
-      <Text style={ds.pickerLabel}>{label}</Text>
+      <Text style={ds.pickerLabel}>{_tx(label)}</Text>
       <TouchableOpacity style={[ds.pickerTrigger, value && ds.pickerTriggerActive]}
         onPress={() => setOpen(v => !v)} activeOpacity={0.75}>
         <MaterialIcons name={icon} size={17} color={value ? C.primary : C.muted} style={{ marginRight: 8 }} />
         <Text style={[ds.pickerTriggerText, value && { color: C.primary, fontWeight: '700' }]} numberOfLines={1}>
-          {selected?.label ?? placeholder}
+          {_tx(selected?.label) ?? _tx(placeholder)}
         </Text>
         <MaterialIcons name={open ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={20} color={C.muted} />
       </TouchableOpacity>
@@ -1089,14 +1083,14 @@ function PickerSection({ label, icon, value, onSelect, items, placeholder, optio
           {optional && (
             <TouchableOpacity style={[ds.pickerItem, !value && ds.pickerItemActive]}
               onPress={() => { onSelect(''); setOpen(false); }}>
-              <Text style={[ds.pickerItemText, !value && { color: C.primary, fontWeight: '700' }]}>{placeholder}</Text>
+              <Text style={[ds.pickerItemText, !value && { color: C.primary, fontWeight: '700' }]}>{_tx(placeholder)}</Text>
               {!value && <MaterialIcons name="check" size={16} color={C.primary} />}
             </TouchableOpacity>
           )}
           {items.map(it => (
             <TouchableOpacity key={it.value} style={[ds.pickerItem, it.value === value && ds.pickerItemActive]}
               onPress={() => { onSelect(it.value); setOpen(false); }}>
-              <Text style={[ds.pickerItemText, it.value === value && { color: C.primary, fontWeight: '700' }]}>{it.label}</Text>
+              <Text style={[ds.pickerItemText, it.value === value && { color: C.primary, fontWeight: '700' }]}>{_tx(it.label)}</Text>
               {it.value === value && <MaterialIcons name="check" size={16} color={C.primary} />}
             </TouchableOpacity>
           ))}
@@ -1109,7 +1103,7 @@ function PickerSection({ label, icon, value, onSelect, items, placeholder, optio
 function FilterChip({ label, onRemove }) {
   return (
     <View style={ds.chip}>
-      <Text style={ds.chipText}>{label}</Text>
+      <Text style={ds.chipText}>{_tx(label)}</Text>
       <TouchableOpacity onPress={onRemove} style={{ marginLeft: 4 }}>
         <MaterialIcons name="close" size={14} color={C.primary} />
       </TouchableOpacity>
@@ -1121,8 +1115,8 @@ function SumCell({ icon, label, value, color }) {
   return (
     <View style={ds.sumCell}>
       <MaterialIcons name={icon} size={16} color={color ?? 'rgba(255,255,255,0.85)'} />
-      <Text style={[ds.sumValue, color && { color }]}>{value}</Text>
-      <Text style={ds.sumLabel}>{label}</Text>
+      <Text style={[ds.sumValue, color && { color }]}>{_tx(value)}</Text>
+      <Text style={ds.sumLabel}>{_tx(label)}</Text>
     </View>
   );
 }
@@ -1130,8 +1124,8 @@ function SumCell({ icon, label, value, color }) {
 function FinCell({ label, value, color }) {
   return (
     <View style={ds.finCell}>
-      <Text style={ds.finLabel}>{label}</Text>
-      <Text style={[ds.finValue, { color }]}>{value}</Text>
+      <Text style={ds.finLabel}>{_tx(label)}</Text>
+      <Text style={[ds.finValue, { color }]}>{_tx(value)}</Text>
     </View>
   );
 }

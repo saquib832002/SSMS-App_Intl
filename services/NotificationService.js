@@ -12,6 +12,9 @@
 import * as Notifications from 'expo-notifications';
 import AsyncStorage        from '@react-native-async-storage/async-storage';
 import { fetchTeacherTimetable } from './TimeTableServiceApi';
+import { getMyDay } from './CoverApi';
+import { _t } from "./i18n";
+import { fmtTime } from "./Locale";
 
 // ── Show the notification even when the app is in the foreground ──────────────
 Notifications.setNotificationHandler({
@@ -97,17 +100,25 @@ export async function scheduleClassReminders(user, leadMins = DEFAULT_LEAD) {
     const granted = await requestPermissions();
     if (!granted) return 0;
 
-    // Fetch the teacher's complete weekly timetable
-    const slots = await fetchTeacherTimetable(user, { staffId: String(staffId) });
-    if (!Array.isArray(slots) || !slots.length) return 0;
-
-    // Today's day_of_week in backend numbering (1=Mon … 6=Sat; 0=Sun → no match)
-    const backendToday = new Date().getDay(); // 0=Sun,1=Mon,…,6=Sat
-
-    const todaySlots = slots.filter(
-      s => Number(s.day_of_week) === backendToday
-    );
-    if (!todaySlots.length) return 0; // no classes today
+    // Today's real day from the server: own periods (minus those the teacher is away for) + cover periods.
+    // Older servers without teacher cover: the weekly timetable, today's weekday.
+    let todaySlots = null;
+    try {
+      const day = await getMyDay(user);
+      if (day && day.linked) {
+        todaySlots = (day.slots ?? []).map((x) => ({
+          start_time: x.start, subject_name: x.subject || null, class_name: x.class_label, section_name: '',
+          period_name: x.period_name, period_number: x.period_number, cover: x.kind === 'cover',
+        }));
+      }
+    } catch { todaySlots = null; }
+    if (todaySlots === null) {
+      const slots = await fetchTeacherTimetable(user, { staffId: String(staffId) });
+      if (!Array.isArray(slots) || !slots.length) return 0;
+      const backendToday = new Date().getDay(); // 0=Sun,1=Mon,…,6=Sat
+      todaySlots = slots.filter(s => Number(s.day_of_week) === backendToday);
+    }
+    if (!todaySlots.length) { await cancelAllReminders(); return 0; } // no classes today (or away)
 
     // Cancel existing reminders before scheduling fresh ones
     await cancelAllReminders();
@@ -136,8 +147,8 @@ export async function scheduleClassReminders(user, leadMins = DEFAULT_LEAD) {
 
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: `📚 ${subject} in ${leadMins} min`,
-          body:  `${period}${clsStr ? ' · ' + clsStr : ''} starts at ${slot.start_time}`,
+          title: slot.cover ? _t("Cover: {subject} in {leadMins} min", { subject, leadMins }) : _t("📚 {subject} in {leadMins} min", { subject, leadMins }),
+          body:  _t("{period} starts at {time}", { period: `${period}${clsStr ? ' · ' + clsStr : ''}`, time: fmtTime(slot.start_time) }),
           sound: true,
         },
         trigger: {

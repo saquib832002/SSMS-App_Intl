@@ -62,7 +62,7 @@ class LibraryAdminApiController extends AppController
 
         $db       = $this->db();
         $settings = $this->settings($clientCode);
-        $today    = date('Y-m-d');
+        $today    = $this->schoolToday();
 
         // One round trip for the scalar counts. UNION ALL of cheap indexed
         // aggregates beats eight separate statements.

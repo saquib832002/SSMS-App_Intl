@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
 import { fetchBuildings, saveBuilding, deleteBuilding } from "../../services/HostelServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ─── Building type options ────────────────────────────────────────────────────
 const BUILDING_TYPES = ["Hostel", "School"];
@@ -29,17 +30,17 @@ function Dropdown({ label, value, options, onChange, disabled }) {
         style={[fm.input, fm.dropTrigger, disabled && { opacity: 0.45 }]}
         onPress={() => !disabled && setOpen(true)} activeOpacity={0.7}
       >
-        <Text style={value ? fm.dropTxt : fm.dropPlaceholder}>{value || label}</Text>
+        <Text style={value ? fm.dropTxt : fm.dropPlaceholder}>{_tx(value) || _tx(label)}</Text>
         <Feather name="chevron-down" size={16} color="#64748b" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={fm.dropOverlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={fm.dropSheet}>
-            <Text style={fm.dropTitle}>{label}</Text>
+            <Text style={fm.dropTitle}>{_tx(label)}</Text>
             {options.map(o => (
               <TouchableOpacity key={o} style={[fm.dropOption, o === value && fm.dropOptionActive]}
                 onPress={() => { onChange(o); setOpen(false); }}>
-                <Text style={[fm.dropOptionTxt, o === value && fm.dropOptionTxtActive]}>{o}</Text>
+                <Text style={[fm.dropOptionTxt, o === value && fm.dropOptionTxtActive]}>{_tx(o)}</Text>
                 {o === value && <Feather name="check" size={14} color="#6366f1" />}
               </TouchableOpacity>
             ))}
@@ -77,15 +78,15 @@ function BuildingFormModal({ visible, building, onClose, onSave }) {
   const set = (key, val) => setForm(p => ({ ...p, [key]: val }));
 
   const handleSave = async () => {
-    if (!form.building_name.trim())   { Alert.alert("Validation", "Building name is required.");   return; }
-    if (!form.building_number.trim()) { Alert.alert("Validation", "Building number is required."); return; }
-    if (!form.building_type)          { Alert.alert("Validation", "Building type is required.");   return; }
+    if (!form.building_name.trim())   { Alert.alert(_t("Validation"), _t("Building name is required."));   return; }
+    if (!form.building_number.trim()) { Alert.alert(_t("Validation"), _t("Building number is required.")); return; }
+    if (!form.building_type)          { Alert.alert(_t("Validation"), _t("Building type is required."));   return; }
     try {
       setSaving(true);
       await onSave({ ...form, building_id: building?.building_id });
       setForm({ building_number: "", building_name: "", building_type: "" });
     } catch (e) {
-      Alert.alert("Save Failed", e.message ?? "Could not save building. Please try again.");
+      Alert.alert(_t("Save Failed"), _tx(e.message) ?? _t("Could not save building. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -114,33 +115,33 @@ function BuildingFormModal({ visible, building, onClose, onSave }) {
               bounces={false}
             >
               <View style={fm.handle} />
-              <Text style={fm.title}>{building ? "Edit Building" : "Add Building"}</Text>
+              <Text style={fm.title}>{building ? _t("Edit Building") : _t("Add Building")}</Text>
 
-              <Text style={fm.label}>Building Name *</Text>
+              <Text style={fm.label}>{_t("Building Name *")}</Text>
               <TextInput
                 style={fm.input}
                 value={form.building_name}
                 onChangeText={v => set("building_name", v)}
-                placeholder="e.g. Block A"
+                placeholder={_t("e.g. Block A")}
                 placeholderTextColor="#94a3b8"
                 editable={!saving}
                 returnKeyType="next"
               />
 
-              <Text style={fm.label}>Building Number *</Text>
+              <Text style={fm.label}>{_t("Building Number *")}</Text>
               <TextInput
                 style={fm.input}
                 value={form.building_number}
                 onChangeText={v => set("building_number", v)}
-                placeholder="e.g. B-01"
+                placeholder={_t("e.g. B-01")}
                 placeholderTextColor="#94a3b8"
                 editable={!saving}
                 returnKeyType="done"
               />
 
-              <Text style={fm.label}>Building Type *</Text>
+              <Text style={fm.label}>{_t("Building Type *")}</Text>
               <Dropdown
-                label="Select type…"
+                label={_t("Select type…")}
                 value={form.building_type}
                 options={BUILDING_TYPES}
                 onChange={v => set("building_type", v)}
@@ -153,13 +154,13 @@ function BuildingFormModal({ visible, building, onClose, onSave }) {
                 disabled={saving}
               >
                 {saving
-                  ? <><ActivityIndicator color="#fff" size="small" /><Text style={fm.saveTxt}> Saving…</Text></>
-                  : <><Feather name="check-circle" size={18} color="#fff" /><Text style={fm.saveTxt}> {building ? "Update" : "Add Building"}</Text></>}
+                  ? <><ActivityIndicator color="#fff" size="small" /><Text style={fm.saveTxt}>{" "}{_t("Saving…")}</Text></>
+                  : <><Feather name="check-circle" size={18} color="#fff" /><Text style={fm.saveTxt}> {building ? _t("Update") : _t("Add Building")}</Text></>}
               </TouchableOpacity>
 
               {!saving && (
                 <TouchableOpacity style={fm.cancelBtn} onPress={onClose}>
-                  <Text style={fm.cancelTxt}>Cancel</Text>
+                  <Text style={fm.cancelTxt}>{_t("Cancel")}</Text>
                 </TouchableOpacity>
               )}
             </ScrollView>
@@ -188,10 +189,10 @@ function BuildingCard({ item, isAdmin, onEdit, onDelete, onRooms }) {
           <Feather name="home" size={24} color={colors.icon} />
         </View>
         <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={st.cardName}>{item.building_name}</Text>
-          <Text style={st.cardSub}>No. {item.building_number}</Text>
+          <Text style={st.cardName}>{_tx(item.building_name)}</Text>
+          <Text style={st.cardSub}>{_t("No. {building_number}", { building_number: item.building_number })}</Text>
           <View style={[st.typeBadge, { backgroundColor: colors.icon }]}>
-            <Text style={st.typeBadgeTxt}>{item.building_type}</Text>
+            <Text style={st.typeBadgeTxt}>{_tx(item.building_type)}</Text>
           </View>
         </View>
         {isAdmin && (
@@ -207,7 +208,7 @@ function BuildingCard({ item, isAdmin, onEdit, onDelete, onRooms }) {
       </View>
       <TouchableOpacity style={[st.roomsBtn, { borderColor: colors.border }]} onPress={() => onRooms(item)}>
         <Feather name="grid" size={14} color={colors.icon} />
-        <Text style={[st.roomsBtnTxt, { color: colors.icon }]}>View Rooms</Text>
+        <Text style={[st.roomsBtnTxt, { color: colors.icon }]}>{_t("View Rooms")}</Text>
         <Feather name="chevron-right" size={14} color={colors.icon} />
       </TouchableOpacity>
     </View>
@@ -234,9 +235,9 @@ export default function HostelBuildingScreen({ navigation }) {
     try {
       setLoading(true);
       const data = await fetchBuildings(userRef.current);
-      setBuildings(data);
+      setBuildings(Array.isArray(data) ? data : []);
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e?.message) || _t("Failed to load buildings."));
     } finally {
       setLoading(false);
     }
@@ -250,26 +251,26 @@ export default function HostelBuildingScreen({ navigation }) {
       setModalVisible(false);
       setEditBuilding(null);
       load();
-      Alert.alert("✅ Success", formData.building_id ? "Building updated." : "Building added.");
+      Alert.alert(_t("✅ Success"), formData.building_id ? _t("Building updated.") : _t("Building added."));
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     }
   }, [load]);
 
   const handleDelete = useCallback((item) => {
     Alert.alert(
-      "Delete Building",
-      `Delete "${item.building_name}"? This will fail if rooms are assigned to it.`,
+      _t("Delete Building"),
+      _t("Delete \"{building_name}\"? This will fail if rooms are assigned to it.", { building_name: item.building_name }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Delete", style: "destructive",
+          text: _t("Delete"), style: "destructive",
           onPress: async () => {
             try {
               await deleteBuilding(userRef.current, item.building_id);
               load();
             } catch (e) {
-              Alert.alert("Cannot Delete", e.message);
+              Alert.alert(_t("Cannot Delete"), _tx(e.message));
             }
           },
         },
@@ -302,13 +303,13 @@ export default function HostelBuildingScreen({ navigation }) {
           <Feather name="arrow-left" size={20} color="#6366f1" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={sc.headerTitle}>Hostel Buildings</Text>
-          <Text style={sc.headerSub}>{buildings.length} building{buildings.length !== 1 ? "s" : ""}</Text>
+          <Text style={sc.headerTitle}>{_t("Hostel Buildings")}</Text>
+          <Text style={sc.headerSub}>{_t("{length} building{pl}", { length: buildings.length, pl: buildings.length !== 1 ? "s" : "" })}</Text>
         </View>
         {isAdmin && (
           <TouchableOpacity style={sc.addBtn} onPress={() => { setEditBuilding(null); setModalVisible(true); }}>
             <Feather name="plus" size={18} color="#fff" />
-            <Text style={sc.addBtnTxt}>Add</Text>
+            <Text style={sc.addBtnTxt}>{_t("Add")}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -316,7 +317,7 @@ export default function HostelBuildingScreen({ navigation }) {
       {/* Search */}
       <View style={sc.searchWrap}>
         <Feather name="search" size={15} color="#94a3b8" style={{ marginRight: 8 }} />
-        <TextInput style={sc.searchInput} placeholder="Search buildings…"
+        <TextInput style={sc.searchInput} placeholder={_t("Search buildings…")}
           placeholderTextColor="#94a3b8" value={search} onChangeText={setSearch} />
         {search.length > 0 && (
           <TouchableOpacity onPress={() => setSearch("")}>
@@ -326,7 +327,7 @@ export default function HostelBuildingScreen({ navigation }) {
       </View>
 
       {loading
-        ? <View style={sc.loader}><ActivityIndicator size="large" color="#6366f1" /><Text style={sc.loaderTxt}>Loading buildings…</Text></View>
+        ? <View style={sc.loader}><ActivityIndicator size="large" color="#6366f1" /><Text style={sc.loaderTxt}>{_t("Loading buildings…")}</Text></View>
         : <FlatList
             data={filtered}
             keyExtractor={b => String(b.building_id)}
@@ -336,8 +337,8 @@ export default function HostelBuildingScreen({ navigation }) {
             ListEmptyComponent={
               <View style={sc.empty}>
                 <Feather name="home" size={44} color="#cbd5e1" />
-                <Text style={sc.emptyTitle}>No buildings yet</Text>
-                <Text style={sc.emptyTxt}>{isAdmin ? 'Tap "Add" to create your first building.' : "No buildings have been added."}</Text>
+                <Text style={sc.emptyTitle}>{_t("No buildings yet")}</Text>
+                <Text style={sc.emptyTxt}>{isAdmin ? _t("Tap \"Add\" to create your first building.") : _t("No buildings have been added.")}</Text>
               </View>
             }
           />}

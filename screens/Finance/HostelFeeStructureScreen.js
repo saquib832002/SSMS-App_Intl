@@ -20,6 +20,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
+import useSessionMonths from "../../hooks/useSessionMonths";
 import {
   fetchBranches,
   fetchClasses,
@@ -30,6 +31,7 @@ import {
   saveClassFeeStructure,
   fetchClassFeeStructure,
 } from "../../services/FeeServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 
 // ── Custom Dropdown — immune to Android dark mode ────────────────────────────
@@ -44,14 +46,14 @@ function Dropdown({ label, value, options, onChange, disabled }) {
         activeOpacity={0.7}
       >
         <Text style={[styles.dropTriggerTxt, !selected?.value && styles.dropPlaceholder]} numberOfLines={1}>
-          {selected?.label ?? label}
+          {_tx(selected?.label) ?? _tx(label)}
         </Text>
         <Feather name="chevron-down" size={15} color="#475569" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={styles.dropOverlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={styles.dropSheet}>
-            <Text style={styles.dropSheetTitle}>{label}</Text>
+            <Text style={styles.dropSheetTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={(o, i) => String(o.value) + i}
@@ -61,7 +63,7 @@ function Dropdown({ label, value, options, onChange, disabled }) {
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[styles.dropOptionTxt, String(o.value) === String(value) && styles.dropOptionTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) && <Feather name="check" size={14} color="#1e40af" />}
                 </TouchableOpacity>
@@ -103,7 +105,7 @@ const FeeAmountRow = memo(function FeeAmountRow({
 
   return (
     <View style={styles.amountRow}>
-      <Text style={styles.amountLabel}>{item.feeName}</Text>
+      <Text style={styles.amountLabel}>{_tx(item.feeName)}</Text>
       <TextInput
         style={styles.amountInput}
         placeholder="0"
@@ -122,6 +124,9 @@ const MonthlyFeeCard = memo(function MonthlyFeeCard({
   onCommit,
   disabled,
 }) {
+  // Months in the school's session order (e.g. Aug … Jul for a US school)
+  const SESSION_MONTHS = useSessionMonths();
+
   const [applyAll,      setApplyAll]      = useState(false);
   const [applyAllValue, setApplyAllValue] = useState("");
 
@@ -129,20 +134,20 @@ const MonthlyFeeCard = memo(function MonthlyFeeCard({
   const handleApplyAll = (checked) => {
     setApplyAll(checked);
     if (checked && applyAllValue.trim()) {
-      MONTHS.forEach(month => onCommit(fee.id, month, applyAllValue.trim()));
+      SESSION_MONTHS.forEach(month => onCommit(fee.id, month, applyAllValue.trim()));
     }
   };
 
   const handleApplyAllValueChange = (val) => {
     setApplyAllValue(val);
     if (applyAll && val.trim()) {
-      MONTHS.forEach(month => onCommit(fee.id, month, val.trim()));
+      SESSION_MONTHS.forEach(month => onCommit(fee.id, month, val.trim()));
     }
   };
 
   return (
     <View style={styles.monthlyCard}>
-      <Text style={styles.monthlyFeeTitle}>{fee.feeName}</Text>
+      <Text style={styles.monthlyFeeTitle}>{_tx(fee.feeName)}</Text>
 
       {/* ── Apply all row ── */}
       <View style={styles.applyAllRow}>
@@ -155,13 +160,13 @@ const MonthlyFeeCard = memo(function MonthlyFeeCard({
           <View style={[styles.checkbox, applyAll && styles.checkboxChecked]}>
             {applyAll && <Feather name="check" size={12} color="#fff" />}
           </View>
-          <Text style={styles.checkboxLabel}>Apply same fee to all months</Text>
+          <Text style={styles.checkboxLabel}>{_t("Apply same fee to all months")}</Text>
         </TouchableOpacity>
 
         {applyAll && (
           <TextInput
             style={styles.applyAllInput}
-            placeholder="Amount"
+            placeholder={_t("Amount")}
             placeholderTextColor="#94a3b8"
             keyboardType="numeric"
             value={applyAllValue}
@@ -173,12 +178,12 @@ const MonthlyFeeCard = memo(function MonthlyFeeCard({
 
       {/* ── Monthly grid ── */}
       <View style={styles.monthGrid}>
-        {MONTHS.map((month) => (
+        {SESSION_MONTHS.map((month) => (
           <MonthAmountInput
             key={`${fee.id}-${month}`}
             feeId={fee.id}
             month={month}
-            details={fee.months[month]}
+            details={_tx(fee.months[month])}
             onCommit={onCommit}
             disabled={disabled || applyAll}
           />
@@ -203,7 +208,7 @@ const MonthAmountInput = memo(function MonthAmountInput({
 
   return (
     <View style={styles.monthCell}>
-      <Text style={styles.monthLabel}>{month}</Text>
+      <Text style={styles.monthLabel}>{_tx(month)}</Text>
       <TextInput
         style={styles.monthInput}
         placeholder="0"
@@ -326,13 +331,19 @@ export default function HostelFeeStructureScreen() {
       try {
         setLoadingDropdowns(true);
 
+        // allSettled: one forbidden call (403) must not blank the whole screen
+        const results = await Promise.allSettled([
+          fetchBranches(user),
+          fetchClasses(user),
+          fetchSessions(user),
+          fetchFeeItems(user, "Hostel"),
+        ]);
         const [branchData, classData, sessionData, feeItemData] =
-          await Promise.all([
-            fetchBranches(user),
-            fetchClasses(user),
-            fetchSessions(user),
-            fetchFeeItems(user, "Hostel"),
-          ]);
+          results.map((r) => (r.status === "fulfilled" ? r.value : []));
+        const firstFail = results.find((r) => r.status === "rejected");
+        if (firstFail) {
+          Alert.alert(_t("Error"), _tx(firstFail.reason?.message) || _t("Failed to load fee structure setup"));
+        }
 
         const safeBranches = Array.isArray(branchData) ? branchData : [];
         const safeClasses = Array.isArray(classData) ? classData : [];
@@ -346,7 +357,7 @@ export default function HostelFeeStructureScreen() {
 
         initializeEmptyStructure(safeFeeItems);
       } catch (error) {
-        Alert.alert("Error", error.message || "Failed to load fee structure setup");
+        Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to load fee structure setup"));
       } finally {
         setLoadingDropdowns(false);
       }
@@ -367,7 +378,7 @@ export default function HostelFeeStructureScreen() {
 
   const loadFeeStructure = useCallback(async () => {
     if (!filters.sessionId || !filters.branchId || !filters.classId) {
-      Alert.alert("Validation", "Please select session, branch and class");
+      Alert.alert(_t("Validation"), _t("Please select session, branch and class"));
       return;
     }
 
@@ -386,7 +397,7 @@ export default function HostelFeeStructureScreen() {
       setMonthlyOptionalFees(merged.monthlyOptional);
       setStructureLoaded(true);
     } catch (error) {
-      Alert.alert("Error", error.message || "Failed to load fee structure");
+      Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to load fee structure"));
     } finally {
       setLoadingStructure(false);
     }
@@ -508,16 +519,16 @@ export default function HostelFeeStructureScreen() {
   const handleSave = async () => {
     const error = validate();
     if (error) {
-      Alert.alert("Validation", error);
+      Alert.alert(_t("Validation"), _tx(error));
       return;
     }
 
     try {
       setSaving(true);
       await saveClassFeeStructure(user, buildPayload());
-      Alert.alert("Success", "Hostel fee structure saved successfully");
+      Alert.alert(_t("Success"), _t("Hostel fee structure saved successfully"));
     } catch (error) {
-      Alert.alert("Error", error.message || "Failed to save fee structure");
+      Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to save fee structure"));
     } finally {
       setSaving(false);
     }
@@ -531,7 +542,7 @@ export default function HostelFeeStructureScreen() {
     return (
       <View style={styles.loaderWrap}>
         <ActivityIndicator size="large" color="#1e40af" />
-        <Text style={styles.loaderText}>Loading hostel fee structure setup...</Text>
+        <Text style={styles.loaderText}>{_t("Loading hostel fee structure setup...")}</Text>
       </View>
     );
   }
@@ -539,19 +550,17 @@ export default function HostelFeeStructureScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
-        <Text style={styles.screenTitle}>Hostel Fee Structure</Text>
-        <Text style={styles.screenSubtitle}>
-          Add, list, and update hostel fee amounts for all hostel fee items by class, session, and branch.
-        </Text>
+        <Text style={styles.screenTitle}>{_t("Hostel Fee Structure")}</Text>
+        <Text style={styles.screenSubtitle}>{_t("Add, list, and update hostel fee amounts for all hostel fee items by class, session, and branch.")}</Text>
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Select Hostel Fee Context</Text>
+          <Text style={styles.sectionTitle}>{_t("Select Hostel Fee Context")}</Text>
 
           <Dropdown
-            label="Select Session"
+            label={_t("Select Session")}
             value={filters.sessionId}
             options={[
-              { label: "Select Session", value: "" },
+              { label: _t("Select Session"), value: "" },
               ...sessionOptions.map(o => ({ label: o.session_name || o.session_year, value: String(o.session_id) }))
             ]}
             onChange={(v) => handleFilterChange("sessionId", v)}
@@ -559,10 +568,10 @@ export default function HostelFeeStructureScreen() {
           />
 
           <Dropdown
-            label="Select Branch"
+            label={_t("Select Branch")}
             value={filters.branchId}
             options={[
-              { label: "Select Branch", value: "" },
+              { label: _t("Select Branch"), value: "" },
               ...branchOptions.map(o => ({ label: o.branch_name, value: String(o.branch_id) }))
             ]}
             onChange={(v) => handleFilterChange("branchId", v)}
@@ -570,10 +579,10 @@ export default function HostelFeeStructureScreen() {
           />
 
           <Dropdown
-            label="Select Class"
+            label={_t("Select Class")}
             value={filters.classId}
             options={[
-              { label: "Select Class", value: "" },
+              { label: _t("Select Class"), value: "" },
               ...classOptions.map(o => ({ label: o.class_name, value: String(o.class_id) }))
             ]}
             onChange={(v) => handleFilterChange("classId", v)}
@@ -588,7 +597,7 @@ export default function HostelFeeStructureScreen() {
             {loadingStructure ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.primaryBtnText}>Load Fee Structure</Text>
+              <Text style={styles.primaryBtnText}>{_t("Load Fee Structure")}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -596,7 +605,7 @@ export default function HostelFeeStructureScreen() {
         {structureLoaded ? (
           <>
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>One Time Mandatory Fees</Text>
+              <Text style={styles.sectionTitle}>{_t("One Time Mandatory Fees")}</Text>
               {oneTimeMandatoryFees.length > 0 ? (
                 oneTimeMandatoryFees.map((item) => (
                   <FeeAmountRow
@@ -607,12 +616,12 @@ export default function HostelFeeStructureScreen() {
                   />
                 ))
               ) : (
-                <Text style={styles.emptyText}>No fees in this section</Text>
+                <Text style={styles.emptyText}>{_t("No fees in this section")}</Text>
               )}
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>One Time Optional Fees</Text>
+              <Text style={styles.sectionTitle}>{_t("One Time Optional Fees")}</Text>
               {oneTimeOptionalFees.length > 0 ? (
                 oneTimeOptionalFees.map((item) => (
                   <FeeAmountRow
@@ -623,12 +632,12 @@ export default function HostelFeeStructureScreen() {
                   />
                 ))
               ) : (
-                <Text style={styles.emptyText}>No fees in this section</Text>
+                <Text style={styles.emptyText}>{_t("No fees in this section")}</Text>
               )}
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Monthly Mandatory Fees</Text>
+              <Text style={styles.sectionTitle}>{_t("Monthly Mandatory Fees")}</Text>
               {monthlyMandatoryFees.length > 0 ? (
                 monthlyMandatoryFees.map((fee) => (
                   <MonthlyFeeCard
@@ -639,12 +648,12 @@ export default function HostelFeeStructureScreen() {
                   />
                 ))
               ) : (
-                <Text style={styles.emptyText}>No fees in this section</Text>
+                <Text style={styles.emptyText}>{_t("No fees in this section")}</Text>
               )}
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Monthly Optional Fees</Text>
+              <Text style={styles.sectionTitle}>{_t("Monthly Optional Fees")}</Text>
               {monthlyOptionalFees.length > 0 ? (
                 monthlyOptionalFees.map((fee) => (
                   <MonthlyFeeCard
@@ -655,7 +664,7 @@ export default function HostelFeeStructureScreen() {
                   />
                 ))
               ) : (
-                <Text style={styles.emptyText}>No fees in this section</Text>
+                <Text style={styles.emptyText}>{_t("No fees in this section")}</Text>
               )}
             </View>
 
@@ -667,15 +676,13 @@ export default function HostelFeeStructureScreen() {
               {saving ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.primaryBtnText}>Save Fee Structure</Text>
+                <Text style={styles.primaryBtnText}>{_t("Save Fee Structure")}</Text>
               )}
             </TouchableOpacity>
           </>
         ) : (
           <View style={styles.card}>
-            <Text style={styles.emptyText}>
-              Select session, branch, and class, then tap “Load Fee Structure”.
-            </Text>
+            <Text style={styles.emptyText}>{_t("Select session, branch, and class, then tap “Load Fee Structure”.")}</Text>
           </View>
         )}
       </ScrollView>
@@ -683,7 +690,7 @@ export default function HostelFeeStructureScreen() {
       {loadingStructure ? (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#1e40af" />
-          <Text style={styles.loadingText}>Loading hostel fee structure...</Text>
+          <Text style={styles.loadingText}>{_t("Loading hostel fee structure...")}</Text>
         </View>
       ) : null}
     </View>

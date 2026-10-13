@@ -26,6 +26,7 @@ import {
   deactivateFeeItem,
   deleteFeeItem,
 } from "../../services/FeeServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // const FEE_TYPE_OPTIONS = ["One Time", "Monthly", "Quarterly", "Yearly"];
 const FEE_TYPE_OPTIONS = ["One Time", "Monthly"];
@@ -73,12 +74,12 @@ const FeeItemForm = memo(function FeeItemForm({
   const handleSubmit = useCallback(() => {
     const error = validate();
     if (error) {
-      Alert.alert("Validation", error);
+      Alert.alert(_t("Validation"), _tx(error));
       return;
     }
     const taxPct = parseFloat(form.taxPercent) || 0;
     if (taxPct < 0 || taxPct > 100) {
-      Alert.alert("Validation", "Tax percent must be between 0 and 100");
+      Alert.alert(_t("Validation"), _t("Tax percent must be between 0 and 100"));
       return;
     }
     onSave({
@@ -91,71 +92,81 @@ const FeeItemForm = memo(function FeeItemForm({
   return (
     <View style={styles.formCard}>
       <Text style={styles.sectionTitle}>
-        {editingId ? "Edit Fee Item" : "Add Fee Item"}
+        {editingId ? _t("Edit Fee Item") : _t("Add Fee Item")}
       </Text>
 
+      <Text style={styles.fieldLabel}>{_t("Fee Item Name *")}</Text>
       <TextInput
         style={styles.input}
-        placeholder="Fee Item Name"
+        placeholder={_t("e.g. Tuition Fee, Transport Fee")}
+        placeholderTextColor="#94a3b8"
         value={form.feeName}
         onChangeText={(v) => handleChange("feeName", v)}
       />
 
+      <Text style={styles.fieldLabel}>{_t("Fee Code *")}</Text>
       <TextInput
         style={styles.input}
-        placeholder="Fee Code"
+        placeholder={_t("Short code, e.g. TUI, TRN")}
+        placeholderTextColor="#94a3b8"
+        autoCapitalize="characters"
         value={form.feeCode}
         onChangeText={(v) => handleChange("feeCode", v)}
       />
 
+      <Text style={styles.fieldLabel}>{_t("Fee Type *")}</Text>
                 <Dropdown
-            label="Select Fee Type"
+            label={_t("Select Fee Type")}
             value={form.feeType}
             options={[
-              { label: "Select Fee Type", value: "" },
+              { label: _t("Select Fee Type"), value: "" },
               ...FEE_TYPE_OPTIONS.map(item => ({ label: item, value: item }))
             ]}
             onChange={(v) => handleChange("feeType", v)}
             disabled={saving}
           />
 
+      <Text style={styles.fieldLabel}>{_t("Category *")}</Text>
                 <Dropdown
-            label="Select Category"
+            label={_t("Select Category")}
             value={form.category}
             options={[
-              { label: "Select Category", value: "" },
+              { label: _t("Select Category"), value: "" },
               ...CATEGORY_OPTIONS.map(item => ({ label: item, value: item }))
             ]}
             onChange={(v) => handleChange("category", v)}
             disabled={saving}
           />
 
+      <Text style={styles.fieldLabel}>{_t("Mandatory / Optional")}</Text>
                 <Dropdown
-            label="Select"
+            label={_t("Mandatory or Optional")}
             value={form.isMandatory}
             options={[
-              { label: "Mandatory", value: "Yes" },
-              { label: "Optional", value: "No" }
+              { label: _t("Mandatory"), value: "Yes" },
+              { label: _t("Optional"), value: "No" }
             ]}
             onChange={(v) => handleChange("isMandatory", v)}
             disabled={saving}
           />
 
-      <Text style={styles.fieldLabel}>Tax Rate (%)</Text>
+      <Text style={styles.fieldLabel}>{_t("Tax Rate (%)")}</Text>
       <TextInput
         style={styles.input}
-        placeholder="e.g. 18 for GST 18% (0 = no tax)"
+        placeholder={_t("e.g. 18 for GST 18% (0 = no tax)")}
+        placeholderTextColor="#94a3b8"
         value={form.taxPercent}
         onChangeText={(v) => handleChange("taxPercent", v)}
         keyboardType="decimal-pad"
       />
 
+      <Text style={styles.fieldLabel}>{_t("Tax Type")}</Text>
       <Dropdown
-        label="Tax Type"
+        label={_t("Tax Type")}
         value={form.taxInclusive}
         options={[
-          { label: "Exclusive (tax added on top)", value: "No" },
-          { label: "Inclusive (tax inside fee amount)", value: "Yes" },
+          { label: _t("Exclusive (tax added on top)"), value: "No" },
+          { label: _t("Inclusive (tax inside fee amount)"), value: "Yes" },
         ]}
         onChange={(v) => handleChange("taxInclusive", v)}
         disabled={saving}
@@ -170,14 +181,14 @@ const FeeItemForm = memo(function FeeItemForm({
           <ActivityIndicator color="#fff" />
         ) : (
           <Text style={styles.primaryBtnText}>
-            {editingId ? "Update Fee Item" : "Save Fee Item"}
+            {editingId ? _t("Update Fee Item") : _t("Save Fee Item")}
           </Text>
         )}
       </TouchableOpacity>
 
       {editingId ? (
         <TouchableOpacity style={styles.secondaryBtn} onPress={onCancel}>
-          <Text style={styles.secondaryBtnText}>Cancel Edit</Text>
+          <Text style={styles.secondaryBtnText}>{_t("Cancel Edit")}</Text>
         </TouchableOpacity>
       ) : null}
     </View>
@@ -201,8 +212,8 @@ const FeeItemCard = memo(function FeeItemCard({
     <View style={styles.itemCard}>
       <View style={styles.itemHeader}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.itemTitle}>{feeName}</Text>
-          <Text style={styles.itemSubText}>Code: {feeCode}</Text>
+          <Text style={styles.itemTitle}>{_tx(feeName)}</Text>
+          <Text style={styles.itemSubText}>{_t("Code: {feeCode}", { feeCode })}</Text>
         </View>
 
         <View
@@ -217,22 +228,20 @@ const FeeItemCard = memo(function FeeItemCard({
               status === "Active" ? styles.activeText : styles.inactiveText,
             ]}
           >
-            {status}
+            {_tx(status)}
           </Text>
         </View>
       </View>
 
       <View style={styles.metaRow}>
-        <Text style={styles.metaText}>Type: {feeType}</Text>
-        <Text style={styles.metaText}>Category: {item.category}</Text>
+        <Text style={styles.metaText}>{_t("Type: {feeType}", { feeType })}</Text>
+        <Text style={styles.metaText}>{_t("Category: {category}", { category: item.category })}</Text>
       </View>
 
       <View style={styles.metaRow}>
-        <Text style={styles.metaText}>Mandatory: {isMandatory}</Text>
+        <Text style={styles.metaText}>{_t("Mandatory: {isMandatory}", { isMandatory })}</Text>
         {parseFloat(item.tax_percent ?? 0) > 0 && (
-          <Text style={[styles.metaText, { color: "#0f4c81", fontWeight: "700" }]}>
-            Tax: {item.tax_percent}%{item.tax_inclusive == 1 ? " (incl.)" : ""}
-          </Text>
+          <Text style={[styles.metaText, { color: "#0f4c81", fontWeight: "700" }]}>{_t("Tax: {tax_percent}%{v}", { tax_percent: item.tax_percent, v: item.tax_inclusive == 1 ? (" " + _t("(incl.)") + "") : "" })}</Text>
         )}
       </View>
 
@@ -242,7 +251,7 @@ const FeeItemCard = memo(function FeeItemCard({
           onPress={() => onEdit(item)}
         >
           <Feather name="edit-2" size={14} color="#1e40af" />
-          <Text style={[styles.actionBtnText, { color: "#1e40af" }]}>Edit</Text>
+          <Text style={[styles.actionBtnText, { color: "#1e40af" }]}>{_t("Edit")}</Text>
         </TouchableOpacity>
 
         {isAdmin ? (
@@ -252,9 +261,7 @@ const FeeItemCard = memo(function FeeItemCard({
               onPress={() => onDeactivate(item)}
             >
               <Feather name="slash" size={14} color="#d97706" />
-              <Text style={[styles.actionBtnText, { color: "#d97706" }]}>
-                Deactivate
-              </Text>
+              <Text style={[styles.actionBtnText, { color: "#d97706" }]}>{_t("Deactivate")}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -262,9 +269,7 @@ const FeeItemCard = memo(function FeeItemCard({
               onPress={() => onDelete(item)}
             >
               <Feather name="trash-2" size={14} color="#dc2626" />
-              <Text style={[styles.actionBtnText, { color: "#dc2626" }]}>
-                Delete
-              </Text>
+              <Text style={[styles.actionBtnText, { color: "#dc2626" }]}>{_t("Delete")}</Text>
             </TouchableOpacity>
           </>
         ) : null}
@@ -287,14 +292,14 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
         activeOpacity={0.7}
       >
         <Text style={[_ddSt.triggerTxt, !selected?.value && _ddSt.placeholder]} numberOfLines={1}>
-          {loading ? "Loading…" : (selected?.label ?? label)}
+          {loading ? _t("Loading…") : (_tx(selected?.label) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={16} color="#475569" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={_ddSt.overlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={_ddSt.sheet}>
-            <Text style={_ddSt.sheetTitle}>{label}</Text>
+            <Text style={_ddSt.sheetTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={(o, i) => String(o.value) + i}
@@ -304,7 +309,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[_ddSt.optionTxt, String(o.value) === String(value) && _ddSt.optionTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) && <Feather name="check" size={14} color="#1e40af" />}
                 </TouchableOpacity>
@@ -348,7 +353,7 @@ export default function FeeItemScreen() {
       const items = await fetchFeeItems(user);
       setFeeItems(Array.isArray(items) ? items : []);
     } catch (error) {
-      Alert.alert("Error", error.message || "Failed to load fee items");
+      Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to load fee items"));
     } finally {
       setLoading(false);
     }
@@ -386,17 +391,17 @@ export default function FeeItemScreen() {
 
         if (editingId) {
           await updateFeeItem(user, editingId, form);
-          Alert.alert("Success", "Fee item updated successfully");
+          Alert.alert(_t("Success"), _t("Fee item updated successfully"));
         } else {
           await createFeeItem(user, form);
-          Alert.alert("Success", "Fee item added successfully");
+          Alert.alert(_t("Success"), _t("Fee item added successfully"));
         }
 
         setEditingId(null);
         setFormSeed(initialFormState);
         await loadFeeItems();
       } catch (error) {
-        Alert.alert("Error", error.message || "Failed to save fee item");
+        Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to save fee item"));
       } finally {
         setSaving(false);
       }
@@ -409,20 +414,20 @@ export default function FeeItemScreen() {
       if (!isAdmin) return;
 
       Alert.alert(
-        "Deactivate Fee Item",
-        `Do you want to deactivate "${item.fee_item_name || item.feeName}"?`,
+        _t("Deactivate Fee Item"),
+        _t("Do you want to deactivate \"{v}\"?", { v: item.fee_item_name || item.feeName }),
         [
-          { text: "Cancel", style: "cancel" },
+          { text: _t("Cancel"), style: "cancel" },
           {
-            text: "Deactivate",
+            text: _t("Deactivate"),
             style: "destructive",
             onPress: async () => {
               try {
                 await deactivateFeeItem(user, item.fee_item_id || item.id);
-                Alert.alert("Success", "Fee item deactivated successfully");
+                Alert.alert(_t("Success"), _t("Fee item deactivated successfully"));
                 await loadFeeItems();
               } catch (error) {
-                Alert.alert("Error", error.message || "Failed to deactivate fee item");
+                Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to deactivate fee item"));
               }
             },
           },
@@ -437,20 +442,20 @@ export default function FeeItemScreen() {
       if (!isAdmin) return;
 
       Alert.alert(
-        "Delete Fee Item",
-        `Do you want to permanently delete "${item.fee_item_name || item.feeName}"?`,
+        _t("Delete Fee Item"),
+        _t("Do you want to permanently delete \"{v}\"?", { v: item.fee_item_name || item.feeName }),
         [
-          { text: "Cancel", style: "cancel" },
+          { text: _t("Cancel"), style: "cancel" },
           {
-            text: "Delete",
+            text: _t("Delete"),
             style: "destructive",
             onPress: async () => {
               try {
                 await deleteFeeItem(user, item.fee_item_id || item.id);
-                Alert.alert("Success", "Fee item deleted successfully");
+                Alert.alert(_t("Success"), _t("Fee item deleted successfully"));
                 await loadFeeItems();
               } catch (error) {
-                Alert.alert("Error", error.message || "Failed to delete fee item");
+                Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to delete fee item"));
               }
             },
           },
@@ -483,10 +488,8 @@ export default function FeeItemScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
-        <Text style={styles.screenTitle}>Fee Item Master</Text>
-        <Text style={styles.screenSubtitle}>
-          Add and manage fee items like tuition, admission, exam, transport, and more.
-        </Text>
+        <Text style={styles.screenTitle}>{_t("Fee Item Master")}</Text>
+        <Text style={styles.screenSubtitle}>{_t("Add and manage fee items like tuition, admission, exam, transport, and more.")}</Text>
 
         <FeeItemForm
           initialValues={formSeed}
@@ -496,14 +499,12 @@ export default function FeeItemScreen() {
           onCancel={handleCancelEdit}
         />
 
-        <Text style={[styles.sectionTitle, { marginTop: 18 }]}>
-          Existing Fee Items
-        </Text>
+        <Text style={[styles.sectionTitle, { marginTop: 18 }]}>{_t("Existing Fee Items")}</Text>
 
         {loading ? (
           <View style={styles.loaderBox}>
             <ActivityIndicator size="large" color="#1e40af" />
-            <Text style={styles.loaderText}>Loading fee items...</Text>
+            <Text style={styles.loaderText}>{_t("Loading fee items...")}</Text>
           </View>
         ) : (
           <FlatList
@@ -517,7 +518,7 @@ export default function FeeItemScreen() {
             windowSize={5}
             contentContainerStyle={{ paddingBottom: 20 }}
             ListEmptyComponent={
-              <Text style={styles.emptyText}>No fee items found</Text>
+              <Text style={styles.emptyText}>{_t("No fee items found")}</Text>
             }
           />
         )}

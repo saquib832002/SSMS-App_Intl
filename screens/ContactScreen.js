@@ -13,11 +13,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BASE_URL } from "../Environment/EnvironmentConfig";
+import { _t, _tx } from "../services/i18n";
 
 // ── Safe JSON parse (strips PHP warnings) ───────────────────────────────────
 const safeJson = (raw) => {
   const idx = raw.indexOf('{');
-  if (idx === -1) throw new Error('Non-JSON response from server.');
+  if (idx === -1) throw new Error(_t("Non-JSON response from server."));
   return JSON.parse(raw.slice(idx));
 };
 
@@ -33,7 +34,7 @@ function Field({ label, required, icon, children }) {
   return (
     <View style={s.fieldWrap}>
       <Text style={s.label}>
-        {label}
+        {_tx(label)}
         {required && <Text style={{ color: '#dc2626' }}> *</Text>}
       </Text>
       <View style={s.inputBox}>
@@ -51,26 +52,24 @@ function SuccessCard({ ticketNumber, email, onNew, onBack, backLabel = '← Back
       <View style={s.successIcon}>
         <Feather name="check-circle" size={48} color="#16a34a" />
       </View>
-      <Text style={s.successTitle}>Ticket Submitted!</Text>
-      <Text style={s.successSub}>Your support request has been received.</Text>
+      <Text style={s.successTitle}>{_t("Ticket Submitted!")}</Text>
+      <Text style={s.successSub}>{_t("Your support request has been received.")}</Text>
 
       <View style={s.ticketBadge}>
-        <Text style={s.ticketLabel}>Ticket Number</Text>
-        <Text style={s.ticketNumber}>{ticketNumber}</Text>
+        <Text style={s.ticketLabel}>{_t("Ticket Number")}</Text>
+        <Text style={s.ticketNumber}>{_tx(ticketNumber)}</Text>
       </View>
 
-      <Text style={s.successNote}>
-        A confirmation email has been sent to{'\n'}
-        <Text style={{ fontWeight: '700', color: '#2563eb' }}>{email}</Text>
-        {'\n\n'}Our team will respond within 24–48 hours.
-      </Text>
+      <Text style={s.successNote}>{_t("A confirmation email has been sent to")}{'\n'}
+        <Text style={{ fontWeight: '700', color: '#2563eb' }}>{_tx(email)}</Text>
+        {'\n\n'}{_t("Our team will respond within 24–48 hours.")}</Text>
 
       <TouchableOpacity style={s.newBtn} onPress={onNew}>
         <Feather name="plus" size={16} color="#fff" />
-        <Text style={s.newBtnText}>  Submit Another</Text>
+        <Text style={s.newBtnText}>{" "}{_t("Submit Another")}</Text>
       </TouchableOpacity>
       <TouchableOpacity style={s.backBtn} onPress={onBack}>
-        <Text style={s.backBtnText}>{backLabel}</Text>
+        <Text style={s.backBtnText}>{_tx(backLabel)}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -146,11 +145,11 @@ export default function ContactScreen({ navigation, route }) {
 
   // ── Submit ticket ─────────────────────────────────────────────────────────
   const handleSubmit = useCallback(async () => {
-    if (!name.trim())        return Alert.alert('Validation', 'Please enter your name.');
-    if (!email.trim())       return Alert.alert('Validation', 'Please enter your email address.');
+    if (!name.trim())        return Alert.alert(_t("Validation"), _t("Please enter your name."));
+    if (!email.trim())       return Alert.alert(_t("Validation"), _t("Please enter your email address."));
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
-                             return Alert.alert('Validation', 'Please enter a valid email address.');
-    if (!description.trim()) return Alert.alert('Validation', 'Please describe your problem.');
+                             return Alert.alert(_t("Validation"), _t("Please enter a valid email address."));
+    if (!description.trim()) return Alert.alert(_t("Validation"), _t("Please describe your problem."));
 
     try {
       setSubmitting(true);
@@ -173,8 +172,7 @@ export default function ContactScreen({ navigation, route }) {
         // JWT middleware hasn't whitelisted submitTicket yet
         if (/token|authorization|auth/i.test(msg)) {
           throw new Error(
-            'The server is not yet configured to accept public support tickets.\n\n' +
-            'Please ask your administrator to add "submitTicket" to the JWT middleware public actions list on the server.'
+            _t("The server is not yet configured to accept public support tickets.\n\nPlease ask your administrator to add \"submitTicket\" to the JWT middleware public actions list on the server.")
           );
         }
         throw new Error(msg);
@@ -182,7 +180,7 @@ export default function ContactScreen({ navigation, route }) {
       setTicketResult({ ticketNumber: json.ticket_number, email: email.trim() });
       setView('success');
     } catch (e) {
-      Alert.alert('Error', e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     } finally {
       setSubmitting(false);
     }
@@ -201,10 +199,10 @@ export default function ContactScreen({ navigation, route }) {
         },
       });
       const json = safeJson(await res.text());
-      if (!json.status) throw new Error(json.message);
-      setTickets(json.data ?? []);
+      if (!json?.status) throw new Error(json?.message || _t("Failed to load tickets"));
+      setTickets(Array.isArray(json.data) ? json.data : []);
     } catch (e) {
-      Alert.alert('Error', e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     } finally {
       setLoadingList(false);
     }
@@ -216,8 +214,8 @@ export default function ContactScreen({ navigation, route }) {
 
   // ── Update ticket (admin) ─────────────────────────────────────────────────
   const handleUpdate = useCallback(async () => {
-    if (!updStatus) return Alert.alert('Validation', 'Please select a status.');
-    if (!updResponse.trim()) return Alert.alert('Validation', 'Please type a reply before saving.');
+    if (!updStatus) return Alert.alert(_t("Validation"), _t("Please select a status."));
+    if (!updResponse.trim()) return Alert.alert(_t("Validation"), _t("Please type a reply before saving."));
     try {
       setUpdating(true);
       const res = await fetch(`${BASE_URL}/UserServiceApi/updateTicket/${selectedTicket.ticket_id}`, {
@@ -240,9 +238,9 @@ export default function ContactScreen({ navigation, route }) {
         response: json.updated_response ?? prev.response,
       }));
       setUpdResponse('');
-      Alert.alert('Sent', json.message);
+      Alert.alert(_t("Sent"), _tx(json.message));
     } catch (e) {
-      Alert.alert('Error', e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     } finally {
       setUpdating(false);
     }
@@ -280,14 +278,14 @@ export default function ContactScreen({ navigation, route }) {
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={s.headerTitle}>
-              {view === 'list'   ? 'Support Tickets'
-             : view === 'detail' ? `Ticket ${selectedTicket?.ticket_number ?? ''}`
-             : 'Contact Support'}
+              {view === 'list'   ? _t("Support Tickets")
+             : view === 'detail' ? _t("Ticket {v}", { v: selectedTicket?.ticket_number ?? '' })
+             : _t("Contact Support")}
             </Text>
             <Text style={s.headerSub}>
-              {view === 'list'   ? 'Tap a ticket to view & respond'
-             : view === 'detail' ? 'Update status and send response'
-             : 'We typically respond within 24–48 hours'}
+              {view === 'list'   ? _t("Tap a ticket to view & respond")
+             : view === 'detail' ? _t("Update status and send response")
+             : _t("We typically respond within 24–48 hours")}
             </Text>
           </View>
           {isAdminUser && view !== 'list' && (
@@ -311,7 +309,7 @@ export default function ContactScreen({ navigation, route }) {
                 email={ticketResult.email}
                 onNew={resetForm}
                 onBack={() => navigation?.goBack()}
-                backLabel={storedToken ? '← Back' : '← Back to Login'}
+                backLabel={storedToken ? _t("← Back") : _t("← Back to Login")}
               />
             )}
 
@@ -321,22 +319,20 @@ export default function ContactScreen({ navigation, route }) {
                 <View style={s.cardIcon}>
                   <Feather name="headphones" size={28} color="#2563eb" />
                 </View>
-                <Text style={s.cardTitle}>Submit a Support Request</Text>
-                <Text style={s.cardSub}>
-                  Fill in the form below and our team will get back to you.
-                </Text>
+                <Text style={s.cardTitle}>{_t("Submit a Support Request")}</Text>
+                <Text style={s.cardSub}>{_t("Fill in the form below and our team will get back to you.")}</Text>
 
-                <Field label="Full Name" required icon="user">
+                <Field label={_t("Full Name")} required icon="user">
                   <TextInput
                     style={s.input}
-                    placeholder="Your full name"
+                    placeholder={_t("Your full name")}
                     placeholderTextColor="#94a3b8"
                     value={name}
                     onChangeText={setName}
                   />
                 </Field>
 
-                <Field label="Email Address" required icon="mail">
+                <Field label={_t("Email Address")} required icon="mail">
                   <TextInput
                     style={s.input}
                     placeholder="you@example.com"
@@ -348,10 +344,10 @@ export default function ContactScreen({ navigation, route }) {
                   />
                 </Field>
 
-                <Field label="Mobile Number" icon="phone">
+                <Field label={_t("Mobile Number")} icon="phone">
                   <TextInput
                     style={s.input}
-                    placeholder="+91 98765 43210 (optional)"
+                    placeholder={_t("+91 98765 43210 (optional)")}
                     placeholderTextColor="#94a3b8"
                     value={mobile}
                     onChangeText={setMobile}
@@ -359,10 +355,10 @@ export default function ContactScreen({ navigation, route }) {
                   />
                 </Field>
 
-                <Field label="School Code" icon="hash">
+                <Field label={_t("School Code")} icon="hash">
                   <TextInput
                     style={s.input}
-                    placeholder="If registered (optional)"
+                    placeholder={_t("If registered (optional)")}
                     placeholderTextColor="#94a3b8"
                     value={schoolCode}
                     onChangeText={v => setSchoolCode(v.toUpperCase())}
@@ -372,12 +368,11 @@ export default function ContactScreen({ navigation, route }) {
                 </Field>
 
                 <View style={s.fieldWrap}>
-                  <Text style={s.label}>
-                    Problem Description <Text style={{ color: '#dc2626' }}>*</Text>
+                  <Text style={s.label}>{_t("Problem Description")}{" "}<Text style={{ color: '#dc2626' }}>*</Text>
                   </Text>
                   <TextInput
                     style={[s.inputBox, s.textarea]}
-                    placeholder="Please describe your issue in detail…"
+                    placeholder={_t("Please describe your issue in detail…")}
                     placeholderTextColor="#94a3b8"
                     value={description}
                     onChangeText={setDescription}
@@ -397,7 +392,7 @@ export default function ContactScreen({ navigation, route }) {
                   {submitting
                     ? <ActivityIndicator color="#fff" />
                     : <><Feather name="send" size={17} color="#fff" />
-                        <Text style={s.submitBtnText}>  Submit Request</Text></>}
+                        <Text style={s.submitBtnText}>{" "}{_t("Submit Request")}</Text></>}
                 </TouchableOpacity>
               </View>
             )}
@@ -422,7 +417,7 @@ export default function ContactScreen({ navigation, route }) {
                       onPress={() => { setFilterStatus(opt); loadTickets(opt); }}
                     >
                       <Text style={[s.filterChipText, filterStatus === opt && { color: '#fff' }]}>
-                        {opt || 'All'}
+                        {_tx(opt) || _t("All")}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -433,7 +428,7 @@ export default function ContactScreen({ navigation, route }) {
                   : tickets.length === 0
                     ? <View style={s.emptyBox}>
                         <Feather name="inbox" size={40} color="#94a3b8" />
-                        <Text style={s.emptyText}>No tickets found</Text>
+                        <Text style={s.emptyText}>{_t("No tickets found")}</Text>
                       </View>
                     : tickets.map(t => {
                         const sc = STATUS_COLORS[t.status] ?? STATUS_COLORS['Open'];
@@ -445,14 +440,14 @@ export default function ContactScreen({ navigation, route }) {
                             activeOpacity={0.8}
                           >
                             <View style={s.ticketRowTop}>
-                              <Text style={s.ticketRowNum}>{t.ticket_number}</Text>
+                              <Text style={s.ticketRowNum}>{_tx(t.ticket_number)}</Text>
                               <View style={[s.statusBadge, { backgroundColor: sc.bg, borderColor: sc.border }]}>
-                                <Text style={[s.statusText, { color: sc.text }]}>{t.status}</Text>
+                                <Text style={[s.statusText, { color: sc.text }]}>{_tx(t.status)}</Text>
                               </View>
                             </View>
-                            <Text style={s.ticketRowName}>{t.name}</Text>
-                            <Text style={s.ticketRowEmail}>{t.email_address}</Text>
-                            <Text style={s.ticketRowDesc} numberOfLines={2}>{t.problem_description}</Text>
+                            <Text style={s.ticketRowName}>{_tx(t.name)}</Text>
+                            <Text style={s.ticketRowEmail}>{_tx(t.email_address)}</Text>
+                            <Text style={s.ticketRowDesc} numberOfLines={2}>{_tx(t.problem_description)}</Text>
                             <Text style={s.ticketRowDate}>{t.created?.slice(0, 10)}</Text>
                           </TouchableOpacity>
                         );
@@ -465,22 +460,22 @@ export default function ContactScreen({ navigation, route }) {
             {view === 'detail' && selectedTicket && (
               <View style={s.card}>
                 {/* Ticket info */}
-                <View style={s.detailRow}><Text style={s.detailLabel}>Ticket #</Text><Text style={s.detailValue}>{selectedTicket.ticket_number}</Text></View>
-                <View style={s.detailRow}><Text style={s.detailLabel}>Name</Text><Text style={s.detailValue}>{selectedTicket.name}</Text></View>
-                <View style={s.detailRow}><Text style={s.detailLabel}>Email</Text><Text style={s.detailValue}>{selectedTicket.email_address}</Text></View>
-                {!!selectedTicket.mobile_number && <View style={s.detailRow}><Text style={s.detailLabel}>Mobile</Text><Text style={s.detailValue}>{selectedTicket.mobile_number}</Text></View>}
-                {!!selectedTicket.ssms_client_code && <View style={s.detailRow}><Text style={s.detailLabel}>School Code</Text><Text style={s.detailValue}>{selectedTicket.ssms_client_code}</Text></View>}
-                <View style={s.detailRow}><Text style={s.detailLabel}>Submitted</Text><Text style={s.detailValue}>{selectedTicket.created?.slice(0, 16).replace('T', ' ')}</Text></View>
+                <View style={s.detailRow}><Text style={s.detailLabel}>{_t("Ticket #")}</Text><Text style={s.detailValue}>{_tx(selectedTicket.ticket_number)}</Text></View>
+                <View style={s.detailRow}><Text style={s.detailLabel}>{_t("Name")}</Text><Text style={s.detailValue}>{_tx(selectedTicket.name)}</Text></View>
+                <View style={s.detailRow}><Text style={s.detailLabel}>{_t("Email")}</Text><Text style={s.detailValue}>{_tx(selectedTicket.email_address)}</Text></View>
+                {!!selectedTicket.mobile_number && <View style={s.detailRow}><Text style={s.detailLabel}>{_t("Mobile")}</Text><Text style={s.detailValue}>{_tx(selectedTicket.mobile_number)}</Text></View>}
+                {!!selectedTicket.ssms_client_code && <View style={s.detailRow}><Text style={s.detailLabel}>{_t("School Code")}</Text><Text style={s.detailValue}>{_tx(selectedTicket.ssms_client_code)}</Text></View>}
+                <View style={s.detailRow}><Text style={s.detailLabel}>{_t("Submitted")}</Text><Text style={s.detailValue}>{selectedTicket.created?.slice(0, 16).replace('T', ' ')}</Text></View>
 
                 <View style={s.divider} />
 
-                <Text style={[s.label, { marginBottom: 6 }]}>Problem Description</Text>
-                <Text style={s.descText}>{selectedTicket.problem_description}</Text>
+                <Text style={[s.label, { marginBottom: 6 }]}>{_t("Problem Description")}</Text>
+                <Text style={s.descText}>{_tx(selectedTicket.problem_description)}</Text>
 
                 <View style={s.divider} />
 
                 {/* Status selector */}
-                <Text style={s.label}>Update Status <Text style={{ color: '#dc2626' }}>*</Text></Text>
+                <Text style={s.label}>{_t("Update Status")}{" "}<Text style={{ color: '#dc2626' }}>*</Text></Text>
                 <View style={s.statusRow}>
                   {['Open', 'In Progress', 'Resolved', 'Closed'].map(opt => (
                     <TouchableOpacity
@@ -488,7 +483,7 @@ export default function ContactScreen({ navigation, route }) {
                       style={[s.statusOpt, updStatus === opt && s.statusOptActive]}
                       onPress={() => setUpdStatus(opt)}
                     >
-                      <Text style={[s.statusOptText, updStatus === opt && { color: '#fff' }]}>{opt}</Text>
+                      <Text style={[s.statusOptText, updStatus === opt && { color: '#fff' }]}>{_tx(opt)}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -496,7 +491,7 @@ export default function ContactScreen({ navigation, route }) {
                 <View style={s.divider} />
 
                 {/* Read-only response thread */}
-                <Text style={[s.label, { marginBottom: 8 }]}>Response Thread</Text>
+                <Text style={[s.label, { marginBottom: 8 }]}>{_t("Response Thread")}</Text>
                 {selectedTicket.response ? (
                   <ScrollView
                     style={s.threadScroll}
@@ -511,33 +506,32 @@ export default function ContactScreen({ navigation, route }) {
                           <View key={i} style={s.threadEntry}>
                             <View style={s.threadMeta}>
                               <Feather name="clock" size={11} color="#64748b" />
-                              <Text style={s.threadTime}> {headerMatch[1]}</Text>
-                              <Text style={s.threadName}>  · {headerMatch[2]}</Text>
+                              <Text style={s.threadTime}> {_tx(headerMatch[1])}</Text>
+                              <Text style={s.threadName}>  · {_tx(headerMatch[2])}</Text>
                             </View>
-                            <Text style={s.threadBody}>{headerMatch[3]}</Text>
+                            <Text style={s.threadBody}>{_tx(headerMatch[3])}</Text>
                           </View>
                         );
                       }
                       return (
                         <View key={i} style={s.threadEntry}>
-                          <Text style={s.threadBody}>{entry}</Text>
+                          <Text style={s.threadBody}>{_tx(entry)}</Text>
                         </View>
                       );
                     })}
                   </ScrollView>
                 ) : (
                   <View style={s.threadEmpty}>
-                    <Text style={s.threadEmptyText}>No replies yet.</Text>
+                    <Text style={s.threadEmptyText}>{_t("No replies yet.")}</Text>
                   </View>
                 )}
 
                 {/* New reply input */}
-                <Text style={[s.label, { marginTop: 16 }]}>
-                  New Reply <Text style={{ color: '#dc2626' }}>*</Text>
+                <Text style={[s.label, { marginTop: 16 }]}>{_t("New Reply")}{" "}<Text style={{ color: '#dc2626' }}>*</Text>
                 </Text>
                 <TextInput
                   style={[s.inputBox, s.textarea]}
-                  placeholder="Type your reply… (will be appended and emailed)"
+                  placeholder={_t("Type your reply… (will be appended and emailed)")}
                   placeholderTextColor="#94a3b8"
                   value={updResponse}
                   onChangeText={setUpdResponse}
@@ -556,7 +550,7 @@ export default function ContactScreen({ navigation, route }) {
                   {updating
                     ? <ActivityIndicator color="#fff" />
                     : <><Feather name="check-circle" size={17} color="#fff" />
-                        <Text style={s.submitBtnText}>  Save & Send Email</Text></>}
+                        <Text style={s.submitBtnText}>{" "}{_t("Save & Send Email")}</Text></>}
                 </TouchableOpacity>
               </View>
             )}

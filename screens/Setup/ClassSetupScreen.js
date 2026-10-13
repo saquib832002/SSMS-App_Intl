@@ -19,6 +19,7 @@ import {
   updateClass,
   deleteClass,
 } from "../../services/SetupServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 export default function ClassSetupScreen() {
   const { user } = useContext(AuthContext);
@@ -53,7 +54,7 @@ export default function ClassSetupScreen() {
     setclasses(classList);
   } catch (error) {
     console.log("class Load Error:", error);
-    Alert.alert("Error", error.message || "Failed to load classes");
+    Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to load classes"));
   } finally {
     setLoading(false);
   }
@@ -90,7 +91,7 @@ export default function ClassSetupScreen() {
 
   const handleSave = async () => {
     if (!form.className.trim()) {
-      Alert.alert("Validation", "class name is required");
+      Alert.alert(_t("Validation"), _t("class name is required"));
       return;
     }
 
@@ -112,13 +113,13 @@ export default function ClassSetupScreen() {
       loadClasses();
 
       Alert.alert(
-        "Success",
+        _t("Success"),
         editingclass
-          ? "Class updated successfully"
-          : "Class created successfully with a default Section \"A\"."
+          ? _t("Class updated successfully")
+          : _t("Class created successfully with a default Section \"A\".")
       );
     } catch (error) {
-      Alert.alert("Error", error.message || "Failed to save class");
+      Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to save class"));
     } finally {
       setSaving(false);
     }
@@ -126,24 +127,24 @@ export default function ClassSetupScreen() {
 
   const handleDelete = (classId) => {
     Alert.alert(
-      "Delete class",
-      "Are you sure you want to delete this class?",
+      _t("Delete class"),
+      _t("Are you sure you want to delete this class?"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Delete",
+          text: _t("Delete"),
           style: "destructive",
           onPress: async () => {
             try {
               const response = await deleteClass(user, classId);
               loadClasses();
               if (response?.success) {
-              Alert.alert("Success", "class deleted successfully");
+              Alert.alert(_t("Success"), _t("class deleted successfully"));
               } else {
-                Alert.alert("Error", response?.message || "Failed to delete class");
+                Alert.alert(_t("Error"), _tx(response?.message) || _t("Failed to delete class"));
               }
             } catch (error) {
-              Alert.alert("Error", error.message || "Failed to delete class");
+              Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to delete class"));
             }
           },
         },
@@ -155,9 +156,9 @@ export default function ClassSetupScreen() {
    
     <View style={styles.card}>
       <View style={{ flex: 1 }}>
-        <Text style={styles.className}>{item.class_name}</Text>
+        <Text style={styles.className}>{_tx(item.class_name)}</Text>
         <Text style={styles.classDescription}>
-          {item.class_description || "No description added"}
+          {_tx(item.class_description) || _t("No description added")}
         </Text>
       </View>
 
@@ -185,27 +186,23 @@ export default function ClassSetupScreen() {
     contentContainerStyle={styles.contentContainer}
     showsVerticalScrollIndicator={false}
   >
-    <Text style={styles.pageSubtitle}>
-      Add, update and manage all classes for your school.
-    </Text>
+    <Text style={styles.pageSubtitle}>{_t("Add, update and manage all classes for your school.")}</Text>
 
     <TouchableOpacity style={styles.addClassButton} onPress={openAddModal}>
       <MaterialIcons name="add-circle-outline" size={20} color="#fff" />
-      <Text style={styles.addClassButtonText}>Add New Class</Text>
+      <Text style={styles.addClassButtonText}>{_t("Add New Class")}</Text>
     </TouchableOpacity>
 
     {loading ? (
       <View style={styles.loaderWrap}>
         <ActivityIndicator size="large" color="#1e40af" />
-        <Text style={styles.loaderText}>Loading classes...</Text>
+        <Text style={styles.loaderText}>{_t("Loading classes...")}</Text>
       </View>
     ) : classes.length === 0 ? (
       <View style={styles.emptyCard}>
         <MaterialIcons name="school" size={50} color="#94a3b8" />
-        <Text style={styles.emptyTitle}>No Classes Found</Text>
-        <Text style={styles.emptyText}>
-          Start by adding your first class for the school.
-        </Text>
+        <Text style={styles.emptyTitle}>{_t("No Classes Found")}</Text>
+        <Text style={styles.emptyText}>{_t("Start by adding your first class for the school.")}</Text>
       </View>
     ) : (
       classes.map((item) => (
@@ -216,15 +213,15 @@ export default function ClassSetupScreen() {
             </View>
 
             <View style={{ flex: 1 }}>
-              <Text style={styles.className}>{item.class_name}</Text>
+              <Text style={styles.className}>{_tx(item.class_name)}</Text>
               <Text style={styles.classDescription}>
-                {item.class_description || "No description added"}
+                {_tx(item.class_description) || _t("No description added")}
               </Text>
             </View>
 
             <View style={styles.statusBadge}>
               <Text style={styles.statusText}>
-                {item.status || "Active"}
+                {_tx(item.status) || _t("Active")}
               </Text>
             </View>
           </View>
@@ -235,7 +232,7 @@ export default function ClassSetupScreen() {
               onPress={() => openEditModal(item)}
             >
               <MaterialIcons name="edit" size={18} color="#1e40af" />
-              <Text style={styles.editButtonText}>Edit</Text>
+              <Text style={styles.editButtonText}>{_t("Edit")}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -243,7 +240,7 @@ export default function ClassSetupScreen() {
               onPress={() => handleDelete(item.class_id)}
             >
               <MaterialIcons name="delete-outline" size={18} color="#dc2626" />
-              <Text style={styles.deleteButtonText}>Delete</Text>
+              <Text style={styles.deleteButtonText}>{_t("Delete")}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -254,13 +251,13 @@ export default function ClassSetupScreen() {
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
           <Text style={styles.modalTitle}>
-            {editingclass ? "Edit Class" : "Add New Class"}
+            {editingclass ? _t("Edit Class") : _t("Add New Class")}
           </Text>
 
-          <Text style={styles.fieldLabel}>Class Name <Text style={{ color: "#ef4444" }}>*</Text></Text>
+          <Text style={styles.fieldLabel}>{_t("Class Name")}{" "}<Text style={{ color: "#ef4444" }}>*</Text></Text>
           <TextInput
             style={styles.input}
-            placeholder="Enter class name"
+            placeholder={_t("Enter class name")}
             placeholderTextColor="#94a3b8"
             value={form.className}
             onChangeText={(value) =>
@@ -268,10 +265,10 @@ export default function ClassSetupScreen() {
             }
           />
 
-          <Text style={styles.fieldLabel}>Description</Text>
+          <Text style={styles.fieldLabel}>{_t("Description")}</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
-            placeholder="Enter class description"
+            placeholder={_t("Enter class description")}
             placeholderTextColor="#94a3b8"
             multiline
             numberOfLines={4}
@@ -286,7 +283,7 @@ export default function ClassSetupScreen() {
               style={[styles.modalButton, styles.cancelButton]}
               onPress={() => setModalVisible(false)}
             >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.cancelButtonText}>{_t("Cancel")}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -298,7 +295,7 @@ export default function ClassSetupScreen() {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.saveButtonText}>
-                  {editingclass ? "Update Class" : "Save Class"}
+                  {editingclass ? _t("Update Class") : _t("Save Class")}
                 </Text>
               )}
             </TouchableOpacity>

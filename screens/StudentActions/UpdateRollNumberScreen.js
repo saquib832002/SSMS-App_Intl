@@ -20,6 +20,7 @@ import {
   fetchBranches, fetchSessions, fetchClasses, fetchSections,
   getEnrolledStudents, updateRollNumber, updateRollNumbers,
 } from '../../services/StudentServiceApi';
+import { _t, _tx } from "../../services/i18n";
 
 // ─── Colours ─────────────────────────────────────────────────────────────────
 const C = {
@@ -47,7 +48,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading: busy }) 
         activeOpacity={0.75}
       >
         <Text style={[dd.label, !selected?.value && dd.placeholder]} numberOfLines={1}>
-          {busy ? 'Loading…' : (selected?.label ?? label)}
+          {busy ? _t("Loading…") : (_tx(selected?.label) ?? _tx(label))}
         </Text>
         <Feather name={open ? 'chevron-up' : 'chevron-down'} size={12} color={C.indigo} />
       </TouchableOpacity>
@@ -55,7 +56,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading: busy }) 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={dd.overlay} activeOpacity={1} onPress={() => setOpen(false)}>
           <View style={dd.sheet}>
-            <Text style={dd.sheetTitle}>{label}</Text>
+            <Text style={dd.sheetTitle}>{_tx(label)}</Text>
             <ScrollView>
               {options.map(o => (
                 <TouchableOpacity
@@ -64,7 +65,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading: busy }) 
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[dd.optionTxt, String(o.value) === String(value) && dd.optionTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) && (
                     <Feather name="check" size={13} color={C.indigo} />
@@ -136,11 +137,11 @@ const StudentRow = React.memo(function StudentRow({
 
       <View style={st.rowStudent}>
         <View style={st.avatar}>
-          <Text style={st.avatarTxt}>{initial}</Text>
+          <Text style={st.avatarTxt}>{_tx(initial)}</Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={st.studentName} numberOfLines={1}>{fullName}</Text>
-          <Text style={st.regId}>{displayId}</Text>
+          <Text style={st.studentName} numberOfLines={1}>{_tx(fullName)}</Text>
+          <Text style={st.regId}>{_tx(displayId)}</Text>
         </View>
       </View>
 
@@ -251,7 +252,7 @@ export default function UpdateRollNumberScreen({ navigation }) {
   // load students
   const loadStudents = useCallback(async () => {
     if (!branchId || !sessionId || !classId || !sectionId) {
-      Alert.alert('Select all filters', 'Please choose Branch, Session, Class, and Section first.');
+      Alert.alert(_t("Select all filters"), _t("Please choose Branch, Session, Class, and Section first."));
       return;
     }
     setLoadingStudents(true);
@@ -260,7 +261,7 @@ export default function UpdateRollNumberScreen({ navigation }) {
       const { students: list } = await getEnrolledStudents(user, {
         branchId, sessionId, classId, sectionId, limit: 500,
       });
-      const sorted = [...list].sort((a, b) => {
+      const sorted = [...(Array.isArray(list) ? list : [])].sort((a, b) => {
         const ra = parseFloat(a.roll_number ?? a.rollNumber ?? '') || Infinity;
         const rb = parseFloat(b.roll_number ?? b.rollNumber ?? '') || Infinity;
         return ra - rb;
@@ -277,7 +278,7 @@ export default function UpdateRollNumberScreen({ navigation }) {
       setOriginalRolls(orig);
       setDotStates(dots);
     } catch (e) {
-      Alert.alert('Error', e.message ?? 'Failed to load students');
+      Alert.alert(_t("Error"), _tx(e.message) ?? _t("Failed to load students"));
     } finally {
       setLoadingStudents(false);
     }
@@ -301,7 +302,7 @@ export default function UpdateRollNumberScreen({ navigation }) {
       setTimeout(() => setDotStates(prev => ({ ...prev, [enrollmentId]: 'idle' })), 2000);
     } catch (e) {
       setDotStates(prev => ({ ...prev, [enrollmentId]: 'error' }));
-      Alert.alert('Save failed', e.message ?? 'Could not save roll number');
+      Alert.alert(_t("Save failed"), _tx(e.message) ?? _t("Could not save roll number"));
     }
   }, [user]);
 
@@ -311,7 +312,7 @@ export default function UpdateRollNumberScreen({ navigation }) {
       const k = s.enrollmentId ?? s.enrollment_id;
       return rollValuesRef.current[k] !== originalRolls[k];
     });
-    if (!dirty.length) { Alert.alert('No changes', 'All roll numbers are already saved.'); return; }
+    if (!dirty.length) { Alert.alert(_t("No changes"), _t("All roll numbers are already saved.")); return; }
     setSavingAll(true);
     try {
       await updateRollNumbers(user, dirty.map(s => {
@@ -332,9 +333,9 @@ export default function UpdateRollNumberScreen({ navigation }) {
           return d;
         });
       }, 2500);
-      Alert.alert('Saved', `${dirty.length} roll number${dirty.length > 1 ? 's' : ''} updated.`);
+      Alert.alert(_t("Saved"), _t("{length} roll number{pl} updated.", { length: dirty.length, pl: dirty.length > 1 ? 's' : '' }));
     } catch (e) {
-      Alert.alert('Save failed', e.message ?? 'Could not save roll numbers');
+      Alert.alert(_t("Save failed"), _tx(e.message) ?? _t("Could not save roll numbers"));
     } finally {
       setSavingAll(false);
     }
@@ -363,25 +364,25 @@ export default function UpdateRollNumberScreen({ navigation }) {
     <View style={st.filterCard}>
       <View style={st.filterGrid}>
         <View style={st.filterCell}>
-          <Text style={st.filterLabel}>Branch</Text>
-          <Dropdown label="— Branch —" value={branchId} options={branches}
+          <Text style={st.filterLabel}>{_t("Branch")}</Text>
+          <Dropdown label={_t("— Branch —")} value={branchId} options={branches}
             onChange={v => { setBranchId(v); setClassId(''); setSectionId(''); }}
             loading={loadingBranches} />
         </View>
         <View style={st.filterCell}>
-          <Text style={st.filterLabel}>Session</Text>
-          <Dropdown label="— Session —" value={sessionId} options={sessions}
+          <Text style={st.filterLabel}>{_t("Session")}</Text>
+          <Dropdown label={_t("— Session —")} value={sessionId} options={sessions}
             onChange={setSessionId} disabled={!branchId} loading={loadingSessions} />
         </View>
         <View style={st.filterCell}>
-          <Text style={st.filterLabel}>Class</Text>
-          <Dropdown label="— Class —" value={classId} options={classes}
+          <Text style={st.filterLabel}>{_t("Class")}</Text>
+          <Dropdown label={_t("— Class —")} value={classId} options={classes}
             onChange={v => { setClassId(v); setSectionId(''); }}
             disabled={!branchId} loading={loadingClasses} />
         </View>
         <View style={st.filterCell}>
-          <Text style={st.filterLabel}>Section</Text>
-          <Dropdown label="— Section —" value={sectionId} options={sections}
+          <Text style={st.filterLabel}>{_t("Section")}</Text>
+          <Dropdown label={_t("— Section —")} value={sectionId} options={sections}
             onChange={setSectionId} disabled={!classId} loading={loadingSections} />
         </View>
       </View>
@@ -395,7 +396,7 @@ export default function UpdateRollNumberScreen({ navigation }) {
           ? <ActivityIndicator size={16} color={C.white} />
           : <Feather name="users" size={15} color={C.white} />
         }
-        <Text style={st.loadBtnTxt}>{loadingStudents ? 'Loading…' : 'Load Students'}</Text>
+        <Text style={st.loadBtnTxt}>{loadingStudents ? _t("Loading…") : _t("Load Students")}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -403,9 +404,9 @@ export default function UpdateRollNumberScreen({ navigation }) {
   const colHeader = (
     <View style={st.colHeader}>
       <Text style={[st.colTxt, { width: 28 }]}>#</Text>
-      <Text style={[st.colTxt, { flex: 1 }]}>Student ({students.length})</Text>
-      <Text style={[st.colTxt, { width: 64, textAlign: 'center' }]}>Roll No.</Text>
-      <Text style={[st.colTxt, { width: 32, textAlign: 'center' }]}>Save</Text>
+      <Text style={[st.colTxt, { flex: 1 }]}>{_t("Student ({length})", { length: students.length })}</Text>
+      <Text style={[st.colTxt, { width: 64, textAlign: 'center' }]}>{_t("Roll No.")}</Text>
+      <Text style={[st.colTxt, { width: 32, textAlign: 'center' }]}>{_t("Save")}</Text>
       <Text style={[st.colTxt, { width: 18 }]}> </Text>
     </View>
   );
@@ -419,7 +420,7 @@ export default function UpdateRollNumberScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={st.backBtn}>
           <Feather name="arrow-left" size={20} color={C.white} />
         </TouchableOpacity>
-        <Text style={st.headerTitle}>Update Roll Numbers</Text>
+        <Text style={st.headerTitle}>{_t("Update Roll Numbers")}</Text>
         <View style={{ width: 36 }} />
       </View>
 
@@ -451,7 +452,7 @@ export default function UpdateRollNumberScreen({ navigation }) {
 
             {/* Fixed Save All footer */}
             <View style={st.footer}>
-              <Text style={st.footerHint}>Scroll up to hide filters · Tap ✓ to save one row</Text>
+              <Text style={st.footerHint}>{_t("Scroll up to hide filters · Tap ✓ to save one row")}</Text>
               <TouchableOpacity
                 style={[st.saveAllBtn, savingAll && st.saveAllBtnDisabled]}
                 onPress={saveAll}
@@ -462,7 +463,7 @@ export default function UpdateRollNumberScreen({ navigation }) {
                   ? <ActivityIndicator size={15} color={C.white} />
                   : <Feather name="upload-cloud" size={15} color={C.white} />
                 }
-                <Text style={st.saveAllTxt}>{savingAll ? 'Saving…' : 'Save All'}</Text>
+                <Text style={st.saveAllTxt}>{savingAll ? _t("Saving…") : _t("Save All")}</Text>
               </TouchableOpacity>
             </View>
           </>
@@ -475,8 +476,8 @@ export default function UpdateRollNumberScreen({ navigation }) {
                 <Feather name="users" size={44} color={C.muted} />
                 <Text style={st.emptyTxt}>
                   {canLoad
-                    ? 'Tap "Load Students" to begin'
-                    : 'Select Branch, Session, Class and Section above'}
+                    ? _t("Tap \"Load Students\" to begin")
+                    : _t("Select Branch, Session, Class and Section above")}
                 </Text>
               </View>
             )}

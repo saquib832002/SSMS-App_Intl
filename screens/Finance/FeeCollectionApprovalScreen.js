@@ -27,6 +27,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
 import { BASE_URL } from "../../Environment/EnvironmentConfig";
 
+import { fmtMoney, fmtDate as fmtLocalDate, currencySymbol, taxLabel } from "../../services/Locale";
+import { _t, _tx } from "../../services/i18n";
 // ─── API ──────────────────────────────────────────────────────────────────────
 //const BASE_URL = 'http://192.168.4.90/ssms5/';
 
@@ -48,7 +50,7 @@ const fetchPendingCollections = async (user, filters = {}) => {
     method: 'GET', headers: buildHeaders(user),
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok || json.status === false) throw new Error(json.message ?? `HTTP ${res.status}`);
+  if (!res.ok || json.status === false) throw new Error(json.message ?? _t("HTTP {status}", { status: res.status }));
   return json;
 };
 
@@ -61,17 +63,17 @@ const approveCollections = async (user, receiptNumbers) => {
     body:    JSON.stringify({ receipt_numbers: receiptNumbers }),
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok || json.status === false) throw new Error(json.message ?? `HTTP ${res.status}`);
+  if (!res.ok || json.status === false) throw new Error(json.message ?? _t("HTTP {status}", { status: res.status }));
   return json;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt     = (v) => (isNaN(parseFloat(v)) ? '0.00' : parseFloat(v).toFixed(2));
-const fmtCurr = (v, sym = '₹') => `${sym} ${fmt(v)}`;
+const fmtCurr  = (v) => fmtMoney(v);   // Region & formats (the school's currency and number style)
 const fmtDate = (d) => {
   if (!d) return '—';
   const x = new Date(d);
-  return isNaN(x) ? d : x.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return isNaN(x) ? d : fmtLocalDate(x, 'medium');
 };
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -115,7 +117,7 @@ export default function FeeCollectionApprovalScreen({ navigation }) {
   const [hasLoaded,     setHasLoaded]     = useState(false);
   const [approving,     setApproving]     = useState(false);  // "Approve All" spinner
   const [currency,      setCurrency]      = useState('');
-  const currSym = currency?.trim() || '₹';
+  const currSym = currencySymbol();
   const [approvingId,   setApprovingId]   = useState(null);   // single receipt spinner
   const [selectedIds,   setSelectedIds]   = useState(new Set());
   const [searchQ,       setSearchQ]       = useState('');
@@ -130,13 +132,13 @@ export default function FeeCollectionApprovalScreen({ navigation }) {
     try {
       setLoading(true);
       const res = await fetchPendingCollections(user);
-      setReceipts(res.receipts ?? []);
+      setReceipts(Array.isArray(res?.receipts) ? res.receipts : []);
       setSummary(res.summary  ?? null);
       setCurrency(res.currency ?? '');
       setHasLoaded(true);
       setSelectedIds(new Set());
     } catch (e) {
-      Alert.alert('Error', e.message ?? 'Failed to load pending collections.');
+      Alert.alert(_t("Error"), _tx(e.message) ?? _t("Failed to load pending collections."));
     } finally {
       setLoading(false);
     }
@@ -180,23 +182,23 @@ export default function FeeCollectionApprovalScreen({ navigation }) {
     if (!receiptNumbers.length) return;
     const label = single ? `receipt ${receiptNumbers[0]}` : `${receiptNumbers.length} receipt(s)`;
     Alert.alert(
-      'Confirm Approval',
-      `Approve ${label} and post ` +
-      `${fmtCurr(receipts.filter(r => receiptNumbers.includes(r.receipt_number))
-        .reduce((s, r) => s + parseFloat(r.total_collected ?? 0), 0))} to balance sheet?`,
+      _t("Confirm Approval"),
+      `${_t("Approve {label} and post", { label })} ` +
+      _t("{v} to balance sheet?", { v: fmtCurr(receipts.filter(r => receiptNumbers.includes(r.receipt_number))
+        .reduce((s, r) => s + parseFloat(r.total_collected ?? 0), 0)) }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: _t("Cancel"), style: 'cancel' },
         {
-          text: 'Approve',
+          text: _t("Approve"),
           style: 'default',
           onPress: async () => {
             try {
               single ? setApprovingId(receiptNumbers[0]) : setApproving(true);
               const res = await approveCollections(user, receiptNumbers);
-              Alert.alert('Approved ✓', res.message ?? `${receiptNumbers.length} receipt(s) approved and posted to balance sheet.`);
+              Alert.alert(_t("Approved ✓"), _tx(res.message) ?? _t("{length} receipt(s) approved and posted to balance sheet.", { length: receiptNumbers.length }));
               await loadData();
             } catch (e) {
-              Alert.alert('Error', e.message ?? 'Approval failed.');
+              Alert.alert(_t("Error"), _tx(e.message) ?? _t("Approval failed."));
             } finally {
               setApproving(false);
               setApprovingId(null);
@@ -242,13 +244,13 @@ export default function FeeCollectionApprovalScreen({ navigation }) {
             {/* Summary banner */}
             {hasLoaded && summary && (
               <View style={st.summaryBanner}>
-                <SumCell icon="receipt-long"  label="Pending"    value={String(summary.pending_count)} />
+                <SumCell icon="receipt-long"  label={_t("Pending")}    value={String(summary.pending_count)} />
                 <View style={st.sumDiv} />
-                <SumCell icon="pending-actions" label="Amount"   value={fmtCurr(summary.total_pending_amount, currSym)} color="#fca5a5" />
+                <SumCell icon="pending-actions" label={_t("Amount")}   value={fmtCurr(summary.total_pending_amount, currSym)} color="#fca5a5" />
                 <View style={st.sumDiv} />
-                <SumCell icon="check-circle"  label="Approved"   value={String(summary.approved_today ?? 0)} color="#4ade80" />
+                <SumCell icon="check-circle"  label={_t("Approved")}   value={String(summary.approved_today ?? 0)} color="#4ade80" />
                 <View style={st.sumDiv} />
-                <SumCell icon="account-balance" label="Posted"   value={fmtCurr(summary.approved_amount_today ?? 0, currSym)} color="#4ade80" />
+                <SumCell icon="account-balance" label={_t("Posted")}   value={fmtCurr(summary.approved_amount_today ?? 0, currSym)} color="#4ade80" />
               </View>
             )}
 
@@ -260,7 +262,7 @@ export default function FeeCollectionApprovalScreen({ navigation }) {
                     <MaterialIcons name="search" size={18} color={C.muted} style={{ marginLeft: 10 }} />
                     <TextInput
                       style={st.searchInput}
-                      placeholder="Search receipt, student, collector…"
+                      placeholder={_t("Search receipt, student, collector…")}
                       placeholderTextColor={C.muted}
                       value={searchQ}
                       onChangeText={setSearchQ}
@@ -283,7 +285,7 @@ export default function FeeCollectionApprovalScreen({ navigation }) {
                       name={allSelected ? 'check-box' : 'check-box-outline-blank'}
                       size={20} color={C.primary} />
                     <Text style={st.selAllText}>
-                      {allSelected ? 'Deselect All' : `Select All (${filtered.length})`}
+                      {allSelected ? _t("Deselect All") : _t("Select All ({length})", { length: filtered.length })}
                     </Text>
                   </TouchableOpacity>
 
@@ -298,8 +300,8 @@ export default function FeeCollectionApprovalScreen({ navigation }) {
                         : <MaterialIcons name="done-all" size={17} color="#fff" />}
                       <Text style={st.approveSelectedText}>
                         {approving
-                          ? 'Approving…'
-                          : `Approve ${selectedIds.size} · ${fmtCurr(selectedTotal, currSym)}`}
+                          ? _t("Approving…")
+                          : _t("Approve {size} · {selectedTotal}", { size: selectedIds.size, selectedTotal: fmtCurr(selectedTotal, currSym) })}
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -312,9 +314,7 @@ export default function FeeCollectionApprovalScreen({ navigation }) {
             {!isOwner && hasLoaded && (
               <View style={st.readOnlyBanner}>
                 <MaterialIcons name="lock" size={16} color={C.warning} />
-                <Text style={st.readOnlyText}>
-                  View only — you are not allowed to approve.
-                </Text>
+                <Text style={st.readOnlyText}>{_t("View only — you are not allowed to approve.")}</Text>
               </View>
             )}
 
@@ -322,15 +322,15 @@ export default function FeeCollectionApprovalScreen({ navigation }) {
             {!loading && hasLoaded && filtered.length === 0 && (
               <View style={st.emptyState}>
                 <MaterialIcons name="task-alt" size={56} color="#cbd5e1" />
-                <Text style={st.emptyTitle}>All clear!</Text>
-                <Text style={st.emptySub}>No pending receipts to approve.</Text>
+                <Text style={st.emptyTitle}>{_t("All clear!")}</Text>
+                <Text style={st.emptySub}>{_t("No pending receipts to approve.")}</Text>
               </View>
             )}
 
             {loading && !hasLoaded && (
               <View style={st.emptyState}>
                 <ActivityIndicator size="large" color={C.primary} />
-                <Text style={st.emptySub}>Loading pending collections…</Text>
+                <Text style={st.emptySub}>{_t("Loading pending collections…")}</Text>
               </View>
             )}
           </View>
@@ -366,36 +366,36 @@ export default function FeeCollectionApprovalScreen({ navigation }) {
                 <View style={st.cardTop}>
                   <View style={st.receiptBadge}>
                     <MaterialIcons name="receipt" size={13} color={C.primary} />
-                    <Text style={st.receiptNo}>{r.receipt_number}</Text>
+                    <Text style={st.receiptNo}>{_tx(r.receipt_number)}</Text>
                   </View>
                   <View style={{ flex: 1 }} />
                   <View style={[st.methodBadge, { backgroundColor: co + '18', borderColor: co + '40' }]}>
                     <MaterialIcons name={ic} size={11} color={co} />
-                    <Text style={[st.methodText, { color: co }]}>{r.payment_method || 'Cash'}</Text>
+                    <Text style={[st.methodText, { color: co }]}>{_tx(r.payment_method) || _t("Cash")}</Text>
                   </View>
                 </View>
 
                 {/* Row 2: student name */}
-                <Text style={st.studentName} numberOfLines={1}>{r.student_name || '—'}</Text>
+                <Text style={st.studentName} numberOfLines={1}>{_tx(r.student_name) || '—'}</Text>
                 <Text style={st.collectedBy}>
-                  <Text style={{ color: C.muted }}>Collected by: </Text>
-                  {r.collected_by || '—'}
+                  <Text style={{ color: C.muted }}>{_t("Collected by:")}{" "}</Text>
+                  {_tx(r.collected_by) || '—'}
                   {'  ·  '}{fmtDate(r.payment_date)}
                 </Text>
 
                 {/* Row 3: financial strip */}
                 <View style={st.finStrip}>
-                  <FinCell label="Fee Paid"  value={fmtCurr(r.total_paid, currSym)}       color={C.primary} />
+                  <FinCell label={_t("Fee Paid")}  value={fmtCurr(r.total_paid, currSym)}       color={C.primary} />
                   <View style={st.finDiv} />
                   {parseFloat(r.total_late_fee ?? 0) > 0 && (
                     <>
-                      <FinCell label="Late Fee" value={fmtCurr(r.total_late_fee, currSym)} color={C.warning} />
+                      <FinCell label={_t("Late Fee")} value={fmtCurr(r.total_late_fee, currSym)} color={C.warning} />
                       <View style={st.finDiv} />
                     </>
                   )}
-                  <FinCell label="Collected" value={fmtCurr(r.total_collected, currSym)}   color={C.success} />
+                  <FinCell label={_t("Collected")} value={fmtCurr(r.total_collected, currSym)}   color={C.success} />
                   <View style={st.finDiv} />
-                  <FinCell label="Balance"   value={fmtCurr(r.total_balance, currSym)}
+                  <FinCell label={_t("Balance")}   value={fmtCurr(r.total_balance, currSym)}
                     color={parseFloat(r.total_balance ?? 0) > 0 ? C.error : C.success} />
                 </View>
 
@@ -410,7 +410,7 @@ export default function FeeCollectionApprovalScreen({ navigation }) {
                     ? <ActivityIndicator size="small" color="#fff" />
                     : <MaterialIcons name="check-circle" size={16} color="#fff" />}
                   <Text style={st.approveBtnText}>
-                    {isApproving ? 'Approving…' : `Approve & Post  ${fmtCurr(r.total_collected, currSym)}`}
+                    {isApproving ? _t("Approving…") : _t("Approve & Post  {total_collected}", { total_collected: fmtCurr(r.total_collected, currSym) })}
                   </Text>
                 </TouchableOpacity>
                 )}
@@ -427,13 +427,14 @@ export default function FeeCollectionApprovalScreen({ navigation }) {
         onClose={() => setDetailModal(false)}
         onApprove={() => { setDetailModal(false); approveOne(detailRecord); }}
         isOwner={isOwner}
+        currSym={currSym}
       />
     </SafeAreaView>
   );
 }
 
 // ─── Receipt Detail Modal ─────────────────────────────────────────────────────
-function ReceiptDetailModal({ visible, record: r, onClose, onApprove, isOwner }) {
+function ReceiptDetailModal({ visible, record: r, onClose, onApprove, isOwner, currSym = currencySymbol() }) {
   if (!r) return null;
   const ic = METHOD_ICON[r.payment_method]  ?? 'payments';
   const co = METHOD_COLOR[r.payment_method] ?? C.primary;
@@ -451,7 +452,7 @@ function ReceiptDetailModal({ visible, record: r, onClose, onApprove, isOwner })
               <MaterialIcons name="receipt-long" size={22} color={C.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={st.modalTitle}>Receipt #{r.receipt_number}</Text>
+              <Text style={st.modalTitle}>{_t("Receipt #{receipt_number}", { receipt_number: r.receipt_number })}</Text>
               <Text style={st.modalSub}>{fmtDate(r.payment_date)}</Text>
             </View>
             <TouchableOpacity style={st.modalCloseBtn} onPress={onClose}>
@@ -461,44 +462,42 @@ function ReceiptDetailModal({ visible, record: r, onClose, onApprove, isOwner })
 
           {/* Amounts */}
           <View style={st.modalAmtRow}>
-            <AmtBox label="Fee Paid"   value={fmtCurr(r.total_paid, currSym)}       color={C.primary} />
+            <AmtBox label={_t("Fee Paid")}   value={fmtCurr(r.total_paid, currSym)}       color={C.primary} />
             {parseFloat(r.total_late_fee ?? 0) > 0 && (
-              <AmtBox label="Late Fee" value={fmtCurr(r.total_late_fee, currSym)}   color={C.warning} />
+              <AmtBox label={_t("Late Fee")} value={fmtCurr(r.total_late_fee, currSym)}   color={C.warning} />
             )}
-            <AmtBox label="Collected"  value={fmtCurr(r.total_collected, currSym)}  color={C.success} />
-            <AmtBox label="Balance"    value={fmtCurr(r.total_balance, currSym)}
+            <AmtBox label={_t("Collected")}  value={fmtCurr(r.total_collected, currSym)}  color={C.success} />
+            <AmtBox label={_t("Balance")}    value={fmtCurr(r.total_balance, currSym)}
               color={parseFloat(r.total_balance ?? 0) > 0 ? C.error : C.success} />
           </View>
 
           {/* Details */}
           <View style={st.modalDetails}>
-            <DetailRow label="Student"       value={r.student_name      || '—'} />
-            <DetailRow label="Enrollment #"  value={r.enrollment_id     || '—'} />
-            <DetailRow label="Collected By"  value={r.collected_by      || '—'} />
-            <DetailRow label="Payment Date"  value={fmtDate(r.payment_date)} />
-            <DetailRow label="Payment Method" value={r.payment_method   || 'Cash'} icon={ic} iconColor={co} />
-            <DetailRow label="Class"         value={r.class_name        || String(r.class_id   ?? '—')} />
-            <DetailRow label="Session"       value={r.session_name      || String(r.session_id ?? '—')} />
-            <DetailRow label="Branch"        value={r.branch_name       || String(r.branch_id  ?? '—')} />
+            <DetailRow label={_t("Student")}       value={r.student_name      || '—'} />
+            <DetailRow label={_t("Enrollment #")}  value={r.enrollment_id     || '—'} />
+            <DetailRow label={_t("Collected By")}  value={r.collected_by      || '—'} />
+            <DetailRow label={_t("Payment Date")}  value={fmtDate(r.payment_date)} />
+            <DetailRow label={_t("Payment Method")} value={r.payment_method   || 'Cash'} icon={ic} iconColor={co} />
+            <DetailRow label={_t("Class")}         value={r.class_name        || String(r.class_id   ?? '—')} />
+            <DetailRow label={_t("Session")}       value={r.session_name      || String(r.session_id ?? '—')} />
+            <DetailRow label={_t("Branch")}        value={r.branch_name       || String(r.branch_id  ?? '—')} />
           </View>
 
           {/* Fee items */}
           {(r.items ?? []).length > 0 && (
             <View style={st.modalItems}>
-              <Text style={st.modalItemsTitle}>Fee Items</Text>
+              <Text style={st.modalItemsTitle}>{_t("Fee Items")}</Text>
               {r.items.map((item, idx) => (
                 <View key={idx} style={[st.modalItemRow,
                   idx === r.items.length - 1 && { borderBottomWidth: 0 }]}>
                   <View style={{ flex: 1 }}>
-                    <Text style={st.modalItemName}>{item.fee_item_name}</Text>
-                    {item.month_no && <Text style={st.modalItemMeta}>Month: {item.month_no}</Text>}
+                    <Text style={st.modalItemName}>{_tx(item.fee_item_name)}</Text>
+                    {item.month_no && <Text style={st.modalItemMeta}>{_t("Month: {month_no}", { month_no: item.month_no })}</Text>}
                   </View>
                   <View style={{ alignItems: 'flex-end', gap: 3 }}>
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: C.success }}>
-                      Paid {fmtCurr(item.paid_amount, currSym)}
-                    </Text>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: C.success }}>{_t("Paid {paid_amount}", { paid_amount: fmtCurr(item.paid_amount, currSym) })}</Text>
                     {parseFloat(item.late_fee ?? 0) > 0 && (
-                      <Text style={{ fontSize: 11, color: C.warning }}>Late {fmtCurr(item.late_fee, currSym)}</Text>
+                      <Text style={{ fontSize: 11, color: C.warning }}>{_t("Late {late_fee}", { late_fee: fmtCurr(item.late_fee, currSym) })}</Text>
                     )}
                     <View style={[st.balPill, {
                       backgroundColor: parseFloat(item.balance_amount ?? 0) > 0 ? '#fef3c7' : '#dcfce7'
@@ -507,7 +506,7 @@ function ReceiptDetailModal({ visible, record: r, onClose, onApprove, isOwner })
                         color: parseFloat(item.balance_amount ?? 0) > 0 ? C.warning : C.success
                       }]}>
                         {parseFloat(item.balance_amount ?? 0) > 0
-                          ? `Bal ${fmtCurr(item.balance_amount, currSym)}` : '✓ Cleared'}
+                          ? _t("Bal {balance_amount}", { balance_amount: fmtCurr(item.balance_amount, currSym) }) : _t("✓ Cleared")}
                       </Text>
                     </View>
                   </View>
@@ -519,12 +518,12 @@ function ReceiptDetailModal({ visible, record: r, onClose, onApprove, isOwner })
           {/* Approve button */}
           <View style={st.modalFooter}>
             <TouchableOpacity style={st.modalCancelBtn} onPress={onClose}>
-              <Text style={st.modalCancelText}>Close</Text>
+              <Text style={st.modalCancelText}>{_t("Close")}</Text>
             </TouchableOpacity>
             {isOwner && (
             <TouchableOpacity style={st.modalApproveBtn} onPress={onApprove}>
               <MaterialIcons name="check-circle" size={18} color="#fff" style={{ marginRight: 8 }} />
-              <Text style={st.modalApproveText}>Approve & Post to Balance Sheet</Text>
+              <Text style={st.modalApproveText}>{_t("Approve & Post to Balance Sheet")}</Text>
             </TouchableOpacity>
             )}
           </View>
@@ -539,8 +538,8 @@ function SumCell({ icon, label, value, color }) {
   return (
     <View style={st.sumCell}>
       <MaterialIcons name={icon} size={15} color={color ?? 'rgba(255,255,255,0.85)'} />
-      <Text style={[st.sumValue, color && { color }]}>{value}</Text>
-      <Text style={st.sumLabel}>{label}</Text>
+      <Text style={[st.sumValue, color && { color }]}>{_tx(value)}</Text>
+      <Text style={st.sumLabel}>{_tx(label)}</Text>
     </View>
   );
 }
@@ -548,8 +547,8 @@ function SumCell({ icon, label, value, color }) {
 function FinCell({ label, value, color }) {
   return (
     <View style={st.finCell}>
-      <Text style={st.finLabel}>{label}</Text>
-      <Text style={[st.finValue, { color }]}>{value}</Text>
+      <Text style={st.finLabel}>{_tx(label)}</Text>
+      <Text style={[st.finValue, { color }]}>{_tx(value)}</Text>
     </View>
   );
 }
@@ -557,8 +556,8 @@ function FinCell({ label, value, color }) {
 function AmtBox({ label, value, color }) {
   return (
     <View style={st.amtBox}>
-      <Text style={st.amtLabel}>{label}</Text>
-      <Text style={[st.amtValue, { color }]}>{value}</Text>
+      <Text style={st.amtLabel}>{_tx(label)}</Text>
+      <Text style={[st.amtValue, { color }]}>{_tx(value)}</Text>
     </View>
   );
 }
@@ -566,10 +565,10 @@ function AmtBox({ label, value, color }) {
 function DetailRow({ label, value, icon, iconColor }) {
   return (
     <View style={st.detailRow}>
-      <Text style={st.detailLabel}>{label}</Text>
+      <Text style={st.detailLabel}>{_tx(label)}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
         {icon && <MaterialIcons name={icon} size={13} color={iconColor ?? C.muted} />}
-        <Text style={st.detailValue}>{value}</Text>
+        <Text style={st.detailValue}>{_tx(value)}</Text>
       </View>
     </View>
   );

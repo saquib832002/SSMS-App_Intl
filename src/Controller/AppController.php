@@ -8,6 +8,29 @@ use Cake\Event\EventInterface;
 
 class AppController extends Controller
 {
+    /**
+     * The school's local date (or another date() format) – Region & formats › time zone.
+     * Use instead of date('Y-m-d'): the server runs in UTC, so its "today" is wrong for most schools around midnight.
+     */
+    protected function schoolToday(string $format = 'Y-m-d'): string
+    {
+        $code = '';
+        try {
+            $code = strtoupper(trim((string)($this->request->getAttribute('jwt_client_code')
+                ?: $this->request->getHeaderLine('ssmsClientCode')
+                ?: ($this->request->getSession()->read('ssms_client_code') ?? ''))));
+        } catch (\Throwable $e) {
+        }
+        if ($code === '') {
+            return date($format);
+        }
+        try {
+            return \App\Service\Locale::now($code, $format);
+        } catch (\Throwable $e) {
+            return date($format);
+        }
+    }
+
     public function initialize(): void
     {
         parent::initialize();
@@ -22,10 +45,6 @@ class AppController extends Controller
     {
         parent::beforeFilter($event);
 
-        // DEBUG — remove after fixing
-        \Cake\Log\Log::error('AppController::beforeFilter controller=' .
-            $this->request->getParam('controller') . ' action=' .
-            $this->request->getParam('action'));
         // ── API controllers — JWT middleware handles auth ─────────────────────
         // AuthenticationComponent must allowUnauthenticated for all actions
         // otherwise it blocks every API request with a redirect
@@ -64,6 +83,24 @@ class AppController extends Controller
             'CertificateApi',
             'LeaveApi',
             'SubscriptionApi',
+            'OnlinePayApi',
+            'ReportCardApi',
+            'StudentLeaveApi',
+            'StaffAttendanceApi',
+            'SecurityApi',
+            'AuditApi',
+            'RolesApi',
+            'PrivacyApi',
+            'StudentRecordApi',
+            'MeetingApi',
+            'AnalyticsApi',
+            'ExamLogisticsApi',
+            'CoverApi',
+            'CalendarApi',
+            'SafetyApi',
+            'BusTrackingApi',
+            'LocaleApi',
+            'NotifyApi',
         ];
 
         if (in_array($this->request->getParam('controller'), $apiControllers, true)) {
@@ -93,6 +130,30 @@ class AppController extends Controller
             return;
         }
         $this->Authentication->allowUnauthenticated(['login', 'logout']);
+
+        // ── Web sign-in still valid? ("Sign out everywhere", password changed, account disabled)
+        $action = (string)$this->request->getParam('action');
+        if (!in_array($action, ['login', 'logout', 'loginVerify', 'loginSetup', 'setPassword'], true)) {
+            $session = $this->request->getSession();
+            $sid  = (string)$session->read('sec_sid');
+            $user = (string)$session->read('ssms_user_name');
+            if ($sid !== '' && $user !== '') {
+                try {
+                    $row     = \App\Service\AccountSecurity::lookup($user, $sid);
+                    $problem = \App\Service\AccountSecurity::tokenProblem($row, (int)$session->read('sec_iat'), $sid);
+                    if ($problem !== null) {
+                        $this->Authentication->logout();
+                        $session->destroy();
+                        $this->Flash->error($problem);
+                        $event->setResult($this->redirect('/login'));
+                        return;
+                    }
+                    \App\Service\AccountSecurity::touch($sid, $row['s_seen'] ?? null);
+                } catch (\Throwable $e) {
+                    // security tables not installed yet – carry on
+                }
+            }
+        }
 
         // ── Module access guard ───────────────────────────────────────────────
         // Maps controller prefixes → required module key.

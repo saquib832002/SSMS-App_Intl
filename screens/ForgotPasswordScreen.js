@@ -16,6 +16,7 @@ import {
   verifyForgotPasswordCode,
   resetForgotPassword,
 } from "../services/UserServiceApi";
+import { _t, _tx } from "../services/i18n";
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ForgotPasswordScreen({ navigation }) {
@@ -162,8 +163,8 @@ export default function ForgotPasswordScreen({ navigation }) {
         <View style={s.lockWrap}>
           <Feather name="shield" size={32} color="#fff" />
         </View>
-        <Text style={s.title}>Forgot Password</Text>
-        <Text style={s.subtitle}>Recover your account in 3 steps</Text>
+        <Text style={s.title}>{_t("Forgot Password")}</Text>
+        <Text style={s.subtitle}>{_t("Recover your account in 3 steps")}</Text>
       </View>
 
       <View style={s.card}>
@@ -176,7 +177,7 @@ export default function ForgotPasswordScreen({ navigation }) {
             activeOpacity={0.8}
           >
             <Feather name="mail" size={15} color={mode === "email" ? "#fff" : "#64748b"} />
-            <Text style={[s.modeTabTxt, mode === "email" && s.modeTabTxtActive]}>Email</Text>
+            <Text style={[s.modeTabTxt, mode === "email" && s.modeTabTxtActive]}>{_t("Email")}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[s.modeTab, mode === "whatsapp" && s.modeTabActiveWa]}
@@ -184,7 +185,7 @@ export default function ForgotPasswordScreen({ navigation }) {
             activeOpacity={0.8}
           >
             <Feather name="message-circle" size={15} color={mode === "whatsapp" ? "#fff" : "#64748b"} />
-            <Text style={[s.modeTabTxt, mode === "whatsapp" && s.modeTabTxtActive]}>WhatsApp</Text>
+            <Text style={[s.modeTabTxt, mode === "whatsapp" && s.modeTabTxtActive]}>{_t("WhatsApp")}</Text>
           </TouchableOpacity>
         </View>
 
@@ -195,37 +196,37 @@ export default function ForgotPasswordScreen({ navigation }) {
               <View style={[s.stepCircle, step >= n && (mode === "whatsapp" ? s.stepCircleWa : s.stepCircleActive)]}>
                 {step > n
                   ? <Feather name="check" size={14} color="#fff" />
-                  : <Text style={s.stepTxt}>{n}</Text>}
+                  : <Text style={s.stepTxt}>{_tx(n)}</Text>}
               </View>
               {i < 2 && <View style={[s.stepLine, step > n && (mode === "whatsapp" ? s.stepLineWa : s.stepLineActive)]} />}
             </React.Fragment>
           ))}
         </View>
         <Text style={s.stepLabel}>
-          {step === 1 ? "Identity Verification"
-           : step === 2 ? "Enter Code"
-           : "Set New Password"}
+          {step === 1 ? _t("Identity Verification")
+           : step === 2 ? _t("Enter Code")
+           : _t("Set New Password")}
         </Text>
 
         {/* ══════ STEP 1 ══════ */}
         {step === 1 && (
           <>
-            <Label>Username</Label>
+            <Label>{_t("Username")}</Label>
             <Input
               value={username}
               onChangeText={setUsername}
-              placeholder="Your login username"
+              placeholder={_t("Your login username")}
               autoCapitalize="none"
               icon="user"
             />
 
             {mode === "email" ? (
               <>
-                <Label>Email Address</Label>
+                <Label>{_t("Email Address")}</Label>
                 <Input
                   value={email}
                   onChangeText={setEmail}
-                  placeholder="Registered email"
+                  placeholder={_t("Registered email")}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   icon="mail"
@@ -233,7 +234,7 @@ export default function ForgotPasswordScreen({ navigation }) {
               </>
             ) : (
               <>
-                <Label>Mobile Number (with country code)</Label>
+                <Label>{_t("Mobile Number (with country code)")}</Label>
                 <Input
                   value={mobile}
                   onChangeText={setMobile}
@@ -243,17 +244,14 @@ export default function ForgotPasswordScreen({ navigation }) {
                 />
                 <View style={s.waNote}>
                   <Feather name="info" size={12} color="#15803d" />
-                  <Text style={s.waNoteText}>
-                    Include the country code exactly as registered. Example:{"\n"}
-                    <Text style={{ fontWeight: "700" }}>+919876543210</Text>{"\n"}
-                    (India +91 · UK +44 · US +1)
-                  </Text>
+                  <Text style={s.waNoteText}>{_t("Include the country code exactly as registered. Example:")}{"\n"}
+                    <Text style={{ fontWeight: "700" }}>+919876543210</Text>{"\n"}{_t("(India +91 · UK +44 · US +1)")}</Text>
                 </View>
               </>
             )}
 
             <Btn
-              label={mode === "email" ? "Send Verification Code" : "Get Code on WhatsApp"}
+              label={mode === "email" ? _t("Send Verification Code") : _t("Get Code on WhatsApp")}
               icon={mode === "whatsapp" ? "message-circle" : "send"}
               onPress={handleSendCode}
               loading={loading}
@@ -270,27 +268,22 @@ export default function ForgotPasswordScreen({ navigation }) {
                 <View style={s.waCardIcon}>
                   <Feather name="message-circle" size={28} color="#15803d" />
                 </View>
-                <Text style={s.waCardTitle}>Check Your WhatsApp</Text>
-                <Text style={s.waCardSub}>
-                  A message with your 6-digit code has been prepared.
-                  If WhatsApp didn't open automatically, tap the button below.
-                </Text>
+                <Text style={s.waCardTitle}>{_t("Check Your WhatsApp")}</Text>
+                <Text style={s.waCardSub}>{_t("A message with your 6-digit code has been prepared. If WhatsApp didn't open automatically, tap the button below.")}</Text>
                 <TouchableOpacity
                   style={s.waOpenBtn}
                   onPress={() => Linking.openURL(waUrl).catch(() => {})}
                   activeOpacity={0.8}
                 >
                   <Feather name="external-link" size={14} color="#fff" />
-                  <Text style={s.waOpenBtnTxt}>Open WhatsApp</Text>
+                  <Text style={s.waOpenBtnTxt}>{_t("Open WhatsApp")}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
-              <Text style={s.infoTxt}>
-                A 6-digit verification code has been sent to your email address.
-              </Text>
+              <Text style={s.infoTxt}>{_t("A 6-digit verification code has been sent to your email address.")}</Text>
             )}
 
-            <Label>Enter 6-Digit Code</Label>
+            <Label>{_t("Enter 6-Digit Code")}</Label>
             <TextInput
               style={s.codeInput}
               placeholder="– – – – – –"
@@ -302,7 +295,7 @@ export default function ForgotPasswordScreen({ navigation }) {
             />
 
             <Btn
-              label="Verify Code"
+              label={_t("Verify Code")}
               icon="check-circle"
               onPress={handleVerifyCode}
               loading={loading}
@@ -311,7 +304,7 @@ export default function ForgotPasswordScreen({ navigation }) {
 
             <TouchableOpacity style={s.resendBtn} onPress={() => { setStep(1); setVerificationCode(""); setWaUrl(null); }}>
               <Feather name="refresh-cw" size={13} color="#64748b" />
-              <Text style={s.resendTxt}>Resend / change details</Text>
+              <Text style={s.resendTxt}>{_t("Resend / change details")}</Text>
             </TouchableOpacity>
           </>
         )}
@@ -321,14 +314,14 @@ export default function ForgotPasswordScreen({ navigation }) {
           <>
             <View style={s.successBadge}>
               <Feather name="check-circle" size={20} color="#15803d" />
-              <Text style={s.successBadgeTxt}>Identity verified — set your new password</Text>
+              <Text style={s.successBadgeTxt}>{_t("Identity verified — set your new password")}</Text>
             </View>
 
-            <Label>New Password</Label>
+            <Label>{_t("New Password")}</Label>
             <View style={s.pwdRow}>
               <TextInput
                 style={[s.input, { flex: 1 }]}
-                placeholder="At least 6 characters"
+                placeholder={_t("At least 6 characters")}
                 placeholderTextColor="#94a3b8"
                 secureTextEntry={!showNewPwd}
                 value={newPassword}
@@ -339,11 +332,11 @@ export default function ForgotPasswordScreen({ navigation }) {
               </TouchableOpacity>
             </View>
 
-            <Label>Confirm Password</Label>
+            <Label>{_t("Confirm Password")}</Label>
             <View style={s.pwdRow}>
               <TextInput
                 style={[s.input, { flex: 1 }]}
-                placeholder="Re-enter new password"
+                placeholder={_t("Re-enter new password")}
                 placeholderTextColor="#94a3b8"
                 secureTextEntry={!showConfPwd}
                 value={confirmPassword}
@@ -357,12 +350,12 @@ export default function ForgotPasswordScreen({ navigation }) {
             {!!newPassword && !!confirmPassword && newPassword !== confirmPassword && (
               <View style={s.mismatch}>
                 <Feather name="alert-circle" size={13} color="#dc2626" />
-                <Text style={s.mismatchTxt}>Passwords do not match</Text>
+                <Text style={s.mismatchTxt}>{_t("Passwords do not match")}</Text>
               </View>
             )}
 
             <Btn
-              label="Reset Password"
+              label={_t("Reset Password")}
               icon="lock"
               onPress={handleResetPassword}
               loading={loading}
@@ -377,7 +370,7 @@ export default function ForgotPasswordScreen({ navigation }) {
 
 // ── Small shared sub-components ───────────────────────────────────────────────
 function Label({ children }) {
-  return <Text style={s.label}>{children}</Text>;
+  return <Text style={s.label}>{_tx(children)}</Text>;
 }
 
 function Input({ icon, ...props }) {
@@ -406,7 +399,7 @@ function Btn({ label, icon, onPress, loading, wa }) {
         ? <ActivityIndicator color="#fff" />
         : <>
             <Feather name={icon} size={16} color="#fff" />
-            <Text style={s.btnTxt}>{label}</Text>
+            <Text style={s.btnTxt}>{_tx(label)}</Text>
           </>}
     </TouchableOpacity>
   );

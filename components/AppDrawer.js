@@ -6,6 +6,7 @@ import { Modal, Pressable, View, Text, TouchableOpacity, StyleSheet } from "reac
 import { Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { AuthContext } from "../context/AuthContext";
+import { _t, _tx } from "../services/i18n";
 
 export default function AppDrawer({ visible, onClose }) {
   const navigation = useNavigation();
@@ -13,7 +14,7 @@ export default function AppDrawer({ visible, onClose }) {
 
   const menuItems = [
     {
-      label: "Profile",
+      label: _t("Profile"),
       icon: "user",
       action: () => {
         onClose();
@@ -21,7 +22,7 @@ export default function AppDrawer({ visible, onClose }) {
       },
     },
     {
-      label: "Settings",
+      label: _t("Settings"),
       icon: "settings",
       action: () => {
         onClose();
@@ -29,7 +30,7 @@ export default function AppDrawer({ visible, onClose }) {
       },
     },
     {
-      label: "Admin",
+      label: _t("Admin"),
       icon: "shield",
       action: () => {
         onClose();
@@ -37,7 +38,7 @@ export default function AppDrawer({ visible, onClose }) {
       },
     },
     {
-      label: "Notifications",
+      label: _t("Notifications"),
       icon: "bell",
       action: () => {
         onClose();
@@ -45,7 +46,7 @@ export default function AppDrawer({ visible, onClose }) {
       },
     },
     {
-      label: "Logout",
+      label: _t("Logout"),
       icon: "log-out",
       action: () => {
         onClose();
@@ -63,15 +64,15 @@ export default function AppDrawer({ visible, onClose }) {
               <Feather name="user" size={22} color="#fff" />
             </View>
             <View>
-              <Text style={drawerStyles.panelTitle}>{user?.name || "School User"}</Text>
-              <Text style={drawerStyles.panelSubtitle}>Quick actions & account</Text>
+              <Text style={drawerStyles.panelTitle}>{_tx(user?.name) || _t("School User")}</Text>
+              <Text style={drawerStyles.panelSubtitle}>{_t("Quick actions & account")}</Text>
             </View>
           </View>
 
           {menuItems.map((item) => (
             <TouchableOpacity key={item.label} style={drawerStyles.menuItem} onPress={item.action}>
               <Feather name={item.icon} size={18} color="#334155" />
-              <Text style={drawerStyles.menuText}>{item.label}</Text>
+              <Text style={drawerStyles.menuText}>{_tx(item.label)}</Text>
             </TouchableOpacity>
           ))}
         </Pressable>

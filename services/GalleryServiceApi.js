@@ -4,6 +4,7 @@
  */
 import { BASE_URL, HOST_NAME } from "../Environment/EnvironmentConfig";
 import { safeFetch } from "./apiInterceptor";
+import { _t } from "./i18n";
 
 const buildHeaders = (user) => ({
   Accept:         "application/json",
@@ -27,7 +28,7 @@ export const fetchGalleryPhotos = async (user) => {
     headers: buildHeaders(user),
   });
   const json = await res.json().catch(() => null);
-  if (!res.ok || !json) throw new Error(json?.message ?? "Failed to load gallery");
+  if (!res.ok || !json) throw new Error(json?.message ?? _t("Failed to load gallery"));
   const clientCode = user?.ssmsClientCode ?? "";
   const photos = (json.photos ?? []).map(p => ({
     ...p,
@@ -57,7 +58,7 @@ export const uploadGalleryPhoto = async (user, imageUri, caption = "") => {
     body:    form,
   });
   const json = await res.json().catch(() => null);
-  if (!res.ok || json?.status === false) throw new Error(json?.message ?? "Upload failed");
+  if (!res.ok || json?.status === false) throw new Error(json?.message ?? _t("Upload failed"));
   const clientCode = user?.ssmsClientCode ?? "";
   return {
     ...json.photo,
@@ -73,6 +74,6 @@ export const deleteGalleryPhoto = async (user, photoId) => {
     body:    JSON.stringify({ id: photoId }),
   });
   const json = await res.json().catch(() => null);
-  if (!res.ok || json?.status === false) throw new Error(json?.message ?? "Delete failed");
+  if (!res.ok || json?.status === false) throw new Error(json?.message ?? _t("Delete failed"));
   return true;
 };

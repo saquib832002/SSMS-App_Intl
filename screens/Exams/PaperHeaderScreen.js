@@ -17,14 +17,15 @@ import { fetchClasses, fetchBranches, fetchSessions } from "../../services/Setup
 import { fetchSubjects } from "../../services/SubjectServiceApi";
 import { fetchInstituteDetails } from "../../services/UserServiceApi";
 import { HOST_NAME } from "../../Environment/EnvironmentConfig";
+import { _t, _tx } from "../../services/i18n";
 
 const EXAM_TYPES = ["Unit Test", "Mid Term", "Half Yearly", "Annual", "Practice", "Quarterly"];
 
 const LANGUAGES = [
-  { key: "hi", label: "हिन्दी",   sub: "Hindi"   },
-  { key: "en", label: "English",  sub: "English"  },
-  { key: "ur", label: "اردو",     sub: "Urdu"     },
-  { key: "ar", label: "العربية",  sub: "Arabic"   },
+  { key: "hi", label: "हिन्दी",   get sub() { return _t("Hindi"); }   },
+  { key: "en", get label() { return _t("English"); },  get sub() { return _t("English"); }  },
+  { key: "ur", label: "اردو",     get sub() { return _t("Urdu"); }     },
+  { key: "ar", label: "العربية",  get sub() { return _t("Arabic"); }   },
 ];
 
 const DEFAULT_INSTRUCTIONS = {
@@ -43,10 +44,10 @@ function DropdownPicker({ label, value, placeholder, items, labelKey, valueKey, 
   const selected = items.find(i => String(i[valueKey]) === String(value));
   return (
     <>
-      <Text style={st.label}>{label}</Text>
+      <Text style={st.label}>{_tx(label)}</Text>
       <TouchableOpacity style={st.dropdown} onPress={() => setOpen(true)} activeOpacity={0.8}>
         <Text style={[st.dropdownTxt, !selected && st.dropdownPlaceholder]}>
-          {selected ? selected[labelKey] : placeholder}
+          {selected ? _tx(selected[labelKey]) : _tx(placeholder)}
         </Text>
         <Feather name="chevron-down" size={16} color="#64748b" />
       </TouchableOpacity>
@@ -55,7 +56,7 @@ function DropdownPicker({ label, value, placeholder, items, labelKey, valueKey, 
         <TouchableOpacity style={st.modalOverlay} activeOpacity={1} onPress={() => setOpen(false)} />
         <View style={st.modalSheet}>
           <View style={st.modalHandle} />
-          <Text style={st.modalTitle}>{label}</Text>
+          <Text style={st.modalTitle}>{_tx(label)}</Text>
           <FlatList
             data={items}
             keyExtractor={i => String(i[valueKey])}
@@ -67,7 +68,7 @@ function DropdownPicker({ label, value, placeholder, items, labelKey, valueKey, 
                   onPress={() => { onChange(String(item[valueKey])); setOpen(false); }}
                 >
                   <Text style={[st.modalItemTxt, isSelected && st.modalItemTxtSel]}>
-                    {item[labelKey]}
+                    {_tx(item[labelKey])}
                   </Text>
                   {isSelected && <Feather name="check" size={16} color="#2563eb" />}
                 </TouchableOpacity>
@@ -139,16 +140,16 @@ export default function PaperHeaderScreen({ navigation, route }) {
     } else {
       // Custom instructions — ask before overwriting
       Alert.alert(
-        "Update Instructions?",
-        "Replace the current instructions with the default text for the selected language?",
+        _t("Update Instructions?"),
+        _t("Replace the current instructions with the default text for the selected language?"),
         [
           {
-            text: "Keep my text",
+            text: _t("Keep my text"),
             style: "cancel",
             onPress: () => setLanguage(key), // still change language, keep text
           },
           {
-            text: "Replace",
+            text: _t("Replace"),
             onPress: doSwap,
           },
         ]
@@ -199,13 +200,13 @@ export default function PaperHeaderScreen({ navigation, route }) {
   }, [user]);
 
   const handleNext = async () => {
-    if (!title.trim()) { Alert.alert("Validation", "Paper title is required."); return; }
-    if (!classId)      { Alert.alert("Validation", "Please select a class.");   return; }
+    if (!title.trim()) { Alert.alert(_t("Validation"), _t("Paper title is required.")); return; }
+    if (!classId)      { Alert.alert(_t("Validation"), _t("Please select a class."));   return; }
     if (multiSubject && subjectIds.length < 2) {
-      Alert.alert("Validation", "Select at least 2 subjects for a combined paper."); return;
+      Alert.alert(_t("Validation"), _t("Select at least 2 subjects for a combined paper.")); return;
     }
     if (!multiSubject && !subjectId) {
-      Alert.alert("Validation", "Please select a subject."); return;
+      Alert.alert(_t("Validation"), _t("Please select a subject.")); return;
     }
 
     const instructionArr = instructions.split("\n").map(s => s.trim()).filter(Boolean);
@@ -266,7 +267,7 @@ export default function PaperHeaderScreen({ navigation, route }) {
         navigation.navigate("PaperBuilder", { paper });
       }
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to save paper header");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to save paper header"));
     } finally {
       setSaving(false);
     }
@@ -288,17 +289,17 @@ export default function PaperHeaderScreen({ navigation, route }) {
       <ScrollView contentContainerStyle={st.scroll} keyboardShouldPersistTaps="handled">
 
         {/* Paper title */}
-        <Label>Paper Title (internal name)</Label>
-        <Input placeholder="e.g. Class 10 Math Unit Test Oct 2026" value={title} onChangeText={setTitle} />
+        <Label>{_t("Paper Title (internal name)")}</Label>
+        <Input placeholder={_t("e.g. Class 10 Math Unit Test Oct 2026")} value={title} onChangeText={setTitle} />
 
         {/* Branch & Session — side by side */}
-        <SectionHead icon="git-branch" title="Branch & Session" />
+        <SectionHead icon="git-branch" title={_t("Branch & Session")} />
         <View style={st.row}>
           <View style={st.cell}>
             <DropdownPicker
-              label="Branch"
+              label={_t("Branch")}
               value={branchId}
-              placeholder="Branch…"
+              placeholder={_t("Branch…")}
               items={branches.length ? branches : [{ branch_id: "", branch_name: "—" }]}
               labelKey="branch_name"
               valueKey="branch_id"
@@ -307,9 +308,9 @@ export default function PaperHeaderScreen({ navigation, route }) {
           </View>
           <View style={st.cell}>
             <DropdownPicker
-              label="Session *"
+              label={_t("Session *")}
               value={sessionId}
-              placeholder="Session…"
+              placeholder={_t("Session…")}
               items={sessions}
               labelKey="session_name"
               valueKey="session_id"
@@ -319,13 +320,13 @@ export default function PaperHeaderScreen({ navigation, route }) {
         </View>
 
         {/* Class & Subject */}
-        <SectionHead icon="book-open" title="Class & Subject" />
+        <SectionHead icon="book-open" title={_t("Class & Subject")} />
         <View style={st.row}>
           <View style={st.cell}>
             <DropdownPicker
-              label="Class *"
+              label={_t("Class *")}
               value={classId}
-              placeholder="Class…"
+              placeholder={_t("Class…")}
               items={classes}
               labelKey="class_name"
               valueKey="class_id"
@@ -335,9 +336,9 @@ export default function PaperHeaderScreen({ navigation, route }) {
           {!multiSubject && (
             <View style={st.cell}>
               <DropdownPicker
-                label="Subject *"
+                label={_t("Subject *")}
                 value={subjectId}
-                placeholder="Subject…"
+                placeholder={_t("Subject…")}
                 items={subjects}
                 labelKey="subject_name"
                 valueKey="subject_id"
@@ -357,25 +358,25 @@ export default function PaperHeaderScreen({ navigation, route }) {
             {multiSubject && <Feather name="check" size={12} color="#fff" />}
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={st.multiToggleTxt}>Combined / Multi-Subject Paper</Text>
-            <Text style={st.multiToggleSub}>NEET, IIT JEE, or any paper spanning multiple subjects</Text>
+            <Text style={st.multiToggleTxt}>{_t("Combined / Multi-Subject Paper")}</Text>
+            <Text style={st.multiToggleSub}>{_t("NEET, IIT JEE, or any paper spanning multiple subjects")}</Text>
           </View>
         </TouchableOpacity>
 
         {/* Multi-subject picker */}
         {multiSubject && (
           <>
-            <Label>Select Subjects * (choose 2 or more)</Label>
+            <Label>{_t("Select Subjects * (choose 2 or more)")}</Label>
             <TouchableOpacity style={st.multiSubjectBtn} onPress={() => setSubjectPickerOpen(true)}>
               {subjectIds.length === 0 ? (
-                <Text style={st.multiSubjectPlaceholder}>Tap to select subjects…</Text>
+                <Text style={st.multiSubjectPlaceholder}>{_t("Tap to select subjects…")}</Text>
               ) : (
                 <View style={st.multiSubjectChips}>
                   {subjectIds.map(sid => {
                     const s = subjects.find(sub => String(sub.subject_id) === sid);
                     return s ? (
                       <View key={sid} style={st.subjectChip}>
-                        <Text style={st.subjectChipTxt}>{s.subject_name}</Text>
+                        <Text style={st.subjectChipTxt}>{_tx(s.subject_name)}</Text>
                         <TouchableOpacity
                           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                           onPress={() => setSubjectIds(prev => prev.filter(id => id !== sid))}
@@ -398,7 +399,7 @@ export default function PaperHeaderScreen({ navigation, route }) {
               <TouchableOpacity style={st.modalOverlay} activeOpacity={1} onPress={() => setSubjectPickerOpen(false)} />
               <View style={st.modalSheet}>
                 <View style={st.modalHandle} />
-                <Text style={st.modalTitle}>Select Subjects</Text>
+                <Text style={st.modalTitle}>{_t("Select Subjects")}</Text>
                 <FlatList
                   data={subjects}
                   keyExtractor={i => String(i.subject_id)}
@@ -412,7 +413,7 @@ export default function PaperHeaderScreen({ navigation, route }) {
                           isSel ? prev.filter(id => id !== sid) : [...prev, sid]
                         )}
                       >
-                        <Text style={[st.modalItemTxt, isSel && st.modalItemTxtSel]}>{item.subject_name}</Text>
+                        <Text style={[st.modalItemTxt, isSel && st.modalItemTxtSel]}>{_tx(item.subject_name)}</Text>
                         <View style={[st.multiCheck, isSel && st.multiCheckOn]}>
                           {isSel && <Feather name="check" size={12} color="#fff" />}
                         </View>
@@ -426,7 +427,7 @@ export default function PaperHeaderScreen({ navigation, route }) {
                     style={[st.nextBtn, { backgroundColor: "#059669" }]}
                     onPress={() => setSubjectPickerOpen(false)}
                   >
-                    <Text style={st.nextTxt}>Done ({subjectIds.length} selected)</Text>
+                    <Text style={st.nextTxt}>{_t("Done ({length} selected)", { length: subjectIds.length })}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -435,11 +436,11 @@ export default function PaperHeaderScreen({ navigation, route }) {
         )}
 
         {/* Exam details */}
-        <SectionHead icon="calendar" title="Exam Details" />
+        <SectionHead icon="calendar" title={_t("Exam Details")} />
         <DropdownPicker
-          label="Exam Type"
+          label={_t("Exam Type")}
           value={examType}
-          placeholder="Select exam type…"
+          placeholder={_t("Select exam type…")}
           items={EXAM_TYPES.map(t => ({ label: t, value: t }))}
           labelKey="label"
           valueKey="value"
@@ -448,18 +449,18 @@ export default function PaperHeaderScreen({ navigation, route }) {
 
         <View style={st.row}>
           <View style={st.cell}>
-            <Label>Duration (min)</Label>
+            <Label>{_t("Duration (min)")}</Label>
             <Input placeholder="90" keyboardType="numeric" value={duration} onChangeText={setDuration} />
           </View>
           <View style={st.cell}>
-            <Label>Total Marks</Label>
+            <Label>{_t("Total Marks")}</Label>
             <Input placeholder="auto" keyboardType="numeric" value={totalMarks} onChangeText={setTotalMarks} />
           </View>
         </View>
 
         {/* Instructions */}
-        <SectionHead icon="info" title="General Instructions" />
-        <Label>One instruction per line</Label>
+        <SectionHead icon="info" title={_t("General Instructions")} />
+        <Label>{_t("One instruction per line")}</Label>
         <TextInput
           style={st.textArea}
           multiline
@@ -467,13 +468,13 @@ export default function PaperHeaderScreen({ navigation, route }) {
           value={instructions}
           onChangeText={setInstructions}
           textAlignVertical="top"
-          placeholder="All questions are compulsory."
+          placeholder={_t("All questions are compulsory.")}
           placeholderTextColor="#9ca3af"
         />
 
         {/* Paper Language */}
-        <SectionHead icon="globe" title="Paper Language" />
-        <Label>Labels on the printed paper will appear in the selected language</Label>
+        <SectionHead icon="globe" title={_t("Paper Language")} />
+        <Label>{_t("Labels on the printed paper will appear in the selected language")}</Label>
         <View style={st.langRow}>
           {LANGUAGES.map(lang => {
             const sel = language === lang.key;
@@ -484,8 +485,8 @@ export default function PaperHeaderScreen({ navigation, route }) {
                 onPress={() => handleLanguageChange(lang.key)}
                 activeOpacity={0.75}
               >
-                <Text style={[st.langScript, sel && st.langScriptSel]}>{lang.label}</Text>
-                <Text style={[st.langSub, sel && st.langSubSel]}>{lang.sub}</Text>
+                <Text style={[st.langScript, sel && st.langScriptSel]}>{_tx(lang.label)}</Text>
+                <Text style={[st.langSub, sel && st.langSubSel]}>{_tx(lang.sub)}</Text>
               </TouchableOpacity>
             );
           })}
@@ -496,19 +497,19 @@ export default function PaperHeaderScreen({ navigation, route }) {
           {logoUrl ? (
             <Image source={{ uri: logoUrl }} style={st.previewLogo} resizeMode="contain" />
           ) : null}
-          <Text style={st.previewTitle}>{schoolName || "School Name"}</Text>
-          {schoolAddr ? <Text style={st.previewAddr}>{schoolAddr}</Text> : null}
+          <Text style={st.previewTitle}>{_tx(schoolName) || _t("School Name")}</Text>
+          {schoolAddr ? <Text style={st.previewAddr}>{_tx(schoolAddr)}</Text> : null}
           <View style={st.previewMeta}>
-            <Text style={st.previewMetaTxt}>Class: {selClass?.class_name ?? "—"}</Text>
+            <Text style={st.previewMetaTxt}>{_t("Class: {v}", { v: selClass?.class_name ?? "—" })}</Text>
             <Text style={st.previewMetaTxt}>
               {multiSubject
-                ? (selSubjectsPreview.length ? selSubjectsPreview.join(" · ") : "No subjects")
-                : `Subject: ${selSubject?.subject_name ?? "—"}`}
+                ? (selSubjectsPreview.length ? selSubjectsPreview.join(" · ") : _t("No subjects"))
+                : _t("Subject: {v}", { v: selSubject?.subject_name ?? "—" })}
             </Text>
-            <Text style={st.previewMetaTxt}>Marks: {totalMarks || "auto"}</Text>
+            <Text style={st.previewMetaTxt}>{_t("Marks: {v}", { v: totalMarks || "auto" })}</Text>
           </View>
           {selSession && (
-            <Text style={st.previewSession}>Session: {selSession.session_name}</Text>
+            <Text style={st.previewSession}>{_t("Session: {session_name}", { session_name: selSession.session_name })}</Text>
           )}
         </View>
 
@@ -519,7 +520,7 @@ export default function PaperHeaderScreen({ navigation, route }) {
         <TouchableOpacity style={st.nextBtn} onPress={handleNext} disabled={saving}>
           {saving ? <ActivityIndicator color="#fff" /> : (
             <>
-              <Text style={st.nextTxt}>{isEdit ? "Save Changes" : "Next: Add Questions"}</Text>
+              <Text style={st.nextTxt}>{isEdit ? _t("Save Changes") : _t("Next: Add Questions")}</Text>
               <Feather name="arrow-right" size={18} color="#fff" />
             </>
           )}
@@ -531,7 +532,7 @@ export default function PaperHeaderScreen({ navigation, route }) {
 
 // ── Mini components ───────────────────────────────────────────────────────────
 function Label({ children }) {
-  return <Text style={st.label}>{children}</Text>;
+  return <Text style={st.label}>{_tx(children)}</Text>;
 }
 function Input(props) {
   return <TextInput style={st.input} placeholderTextColor="#9ca3af" {...props} />;
@@ -540,7 +541,7 @@ function SectionHead({ icon, title }) {
   return (
     <View style={st.sectionHead}>
       <Feather name={icon} size={14} color="#2563eb" />
-      <Text style={st.sectionHeadTxt}>{title}</Text>
+      <Text style={st.sectionHeadTxt}>{_tx(title)}</Text>
     </View>
   );
 }

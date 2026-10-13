@@ -13,16 +13,15 @@ import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
 import { startAttempt, getSections } from "../../services/TestSeriesServiceApi";
 
+import { fmtDateTime as fmtDT } from "../../services/Locale";
+import { _t, _tx } from "../../services/i18n";
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtDateTime(str) {
   if (!str) return "—";
   const d = new Date(str);
   if (isNaN(d)) return str;
-  return d.toLocaleString("en-IN", {
-    day: "2-digit", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
+  return fmtDT(d);
 }
 
 // ── Detail row card ───────────────────────────────────────────────────────────
@@ -33,8 +32,8 @@ function DetailCard({ icon, label, value, iconColor = "#2563eb" }) {
         <Feather name={icon} size={16} color={iconColor} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={s.detailLabel}>{label}</Text>
-        <Text style={s.detailValue}>{value}</Text>
+        <Text style={s.detailLabel}>{_tx(label)}</Text>
+        <Text style={s.detailValue}>{_tx(value)}</Text>
       </View>
     </View>
   );
@@ -56,7 +55,7 @@ export default function TestLobbyScreen({ navigation, route }) {
   const testId = test?.test_id ?? test?.id;
 
   useEffect(() => {
-    if (!testId) return;
+    if (!testId) { setSectionsLoading(false); return; }
     setSectionsLoading(true);
     getSections(user, testId)
       .then((res) => setSections(Array.isArray(res?.data) ? res.data : []))
@@ -90,7 +89,7 @@ export default function TestLobbyScreen({ navigation, route }) {
                              : null,
       });
     } catch (e) {
-      Alert.alert("Error", e.message || "Could not start test. Please try again.");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Could not start test. Please try again."));
     } finally {
       setStarting(false);
     }
@@ -99,7 +98,7 @@ export default function TestLobbyScreen({ navigation, route }) {
   const handleViewResult = () => {
     const attemptId = test?.my_attempt?.attempt_id ?? test?.my_attempt?.id;
     if (!attemptId) {
-      Alert.alert("Not available", "Result data is not available yet.");
+      Alert.alert(_t("Not available"), _t("Result data is not available yet."));
       return;
     }
     navigation.navigate("TestResult", { attemptId, test });
@@ -108,7 +107,7 @@ export default function TestLobbyScreen({ navigation, route }) {
   if (!test) {
     return (
       <View style={[s.root, s.center]}>
-        <Text style={{ color: "#fff", fontSize: 15 }}>No test data found.</Text>
+        <Text style={{ color: "#fff", fontSize: 15 }}>{_t("No test data found.")}</Text>
       </View>
     );
   }
@@ -128,12 +127,12 @@ export default function TestLobbyScreen({ navigation, route }) {
         ),
       ];
       if (negVals.length === 0) return "No negative marking";
-      if (negVals.length === 1) return `Yes (−${negVals[0]} per wrong answer)`;
-      return `Yes (varies by section: −${negVals.join(", −")})`;
+      if (negVals.length === 1) return _t("Yes (−{v} per wrong answer)", { v: negVals[0] });
+      return _t("Yes (varies by section: −{v})", { v: negVals.join(", −") });
     }
     // Sections not yet loaded — fall back to test-level field while loading
     if (sectionsLoading) return "Loading…";
-    if (negRatio > 0) return `Yes (−${negRatio} per wrong answer)`;
+    if (negRatio > 0) return _t("Yes (−{negRatio} per wrong answer)", { negRatio });
     return "No negative marking";
   })();
 
@@ -159,56 +158,56 @@ export default function TestLobbyScreen({ navigation, route }) {
             <View style={s.titleIconWrap}>
               <MaterialIcons name="assignment" size={28} color="#2563eb" />
             </View>
-            <Text style={s.testTitle}>{test.title ?? "Test"}</Text>
+            <Text style={s.testTitle}>{_tx(test.title) ?? _t("Test")}</Text>
             {!!test.series_name && (
-              <Text style={s.seriesName}>{test.series_name}</Text>
+              <Text style={s.seriesName}>{_tx(test.series_name)}</Text>
             )}
           </View>
 
           {/* Exam details */}
-          <Text style={s.sectionLabel}>Exam Details</Text>
+          <Text style={s.sectionLabel}>{_t("Exam Details")}</Text>
           <View style={s.detailsGrid}>
             <DetailCard
               icon="clock"
-              label="Duration"
+              label={_t("Duration")}
               value={`${test.duration_minutes ?? "—"} minutes`}
               iconColor="#2563eb"
             />
             <DetailCard
               icon="list"
-              label="Total Questions"
+              label={_t("Total Questions")}
               value={String(test.question_count ?? test.total_questions ?? "—")}
               iconColor="#7c3aed"
             />
             <DetailCard
               icon="award"
-              label="Total Marks"
+              label={_t("Total Marks")}
               value={String(test.total_marks ?? "—")}
               iconColor="#ea580c"
             />
             <DetailCard
               icon="check-square"
-              label="Passing Marks"
+              label={_t("Passing Marks")}
               value={String(test.passing_marks ?? "—")}
               iconColor="#16a34a"
             />
             {sections.length > 0 && (
               <DetailCard
                 icon="layers"
-                label="Sections"
+                label={_t("Sections")}
                 value={`${sections.length} section${sections.length !== 1 ? "s" : ""}`}
                 iconColor="#7c3aed"
               />
             )}
             <DetailCard
               icon="minus-circle"
-              label="Negative Marking"
+              label={_t("Negative Marking")}
               value={negativeMarkingText}
               iconColor={negRatio > 0 ? "#dc2626" : "#64748b"}
             />
             <DetailCard
               icon="calendar"
-              label="Scheduled"
+              label={_t("Scheduled")}
               value={`${fmtDateTime(test.scheduled_start)} → ${fmtDateTime(test.scheduled_end)}`}
               iconColor="#0891b2"
             />
@@ -217,9 +216,9 @@ export default function TestLobbyScreen({ navigation, route }) {
           {/* Instructions */}
           {!!test.instructions && (
             <>
-              <Text style={s.sectionLabel}>Instructions</Text>
+              <Text style={s.sectionLabel}>{_t("Instructions")}</Text>
               <View style={s.instrBox}>
-                <Text style={s.instrTxt}>{test.instructions}</Text>
+                <Text style={s.instrTxt}>{_tx(test.instructions)}</Text>
               </View>
             </>
           )}
@@ -227,24 +226,18 @@ export default function TestLobbyScreen({ navigation, route }) {
           {/* Sections */}
           {sections.length > 0 && (
             <>
-              <Text style={s.sectionLabel}>Sections</Text>
+              <Text style={s.sectionLabel}>{_t("Sections")}</Text>
               {sections.map((sec, idx) => (
                 <View key={String(sec.id ?? idx)} style={s.sectionRow}>
                   <View style={s.sectionDot} />
                   <View style={{ flex: 1 }}>
-                    <Text style={s.sectionName}>{sec.section_name ?? sec.name}</Text>
-                    <Text style={s.sectionInstr}>
-                      {sec.question_count ?? 0} question{(sec.question_count ?? 0) !== 1 ? "s" : ""}
-                      {" · "}+{sec.marks_per_question ?? 1} / Q
-                      {parseFloat(sec.negative_per_question ?? 0) > 0
-                        ? `  ·  −${sec.negative_per_question} / wrong`
-                        : ""}
-                    </Text>
+                    <Text style={s.sectionName}>{_tx(sec.section_name) ?? _tx(sec.name)}</Text>
+                    <Text style={s.sectionInstr}>{_t("{v} question{pl} · +{v2} / Q{v3}", { v: sec.question_count ?? 0, pl: (sec.question_count ?? 0) !== 1 ? "s" : "", v2: sec.marks_per_question ?? 1, v3: parseFloat(sec.negative_per_question ?? 0) > 0
+                        ? `  ${_t("·  −{negative_per_question} / wrong", { negative_per_question: sec.negative_per_question })}`
+                        : "" })}</Text>
                   </View>
                   <View style={s.sectionBadge}>
-                    <Text style={s.sectionBadgeTxt}>
-                      {(sec.question_count ?? 0)} Qs
-                    </Text>
+                    <Text style={s.sectionBadgeTxt}>{_t("{v} Qs", { v: sec.question_count ?? 0 })}</Text>
                   </View>
                 </View>
               ))}
@@ -254,11 +247,7 @@ export default function TestLobbyScreen({ navigation, route }) {
           {/* Warning */}
           <View style={s.warningBox}>
             <Feather name="alert-triangle" size={16} color="#b45309" />
-            <Text style={s.warningTxt}>
-              Once started, the timer cannot be paused. Make sure you are in a stable
-              environment before starting. Submit before time runs out — the test
-              auto-submits when the timer reaches zero.
-            </Text>
+            <Text style={s.warningTxt}>{_t("Once started, the timer cannot be paused. Make sure you are in a stable environment before starting. Submit before time runs out — the test auto-submits when the timer reaches zero.")}</Text>
           </View>
 
           {/* CTA */}
@@ -266,16 +255,14 @@ export default function TestLobbyScreen({ navigation, route }) {
             {alreadySubmitted ? (
               <TouchableOpacity style={s.resultBtn} onPress={handleViewResult}>
                 <Feather name="bar-chart-2" size={18} color="#fff" />
-                <Text style={s.ctaBtnTxt}>View Result</Text>
+                <Text style={s.ctaBtnTxt}>{_t("View Result")}</Text>
               </TouchableOpacity>
             ) : hasInProgressAttempt ? (
               <>
                 {/* Resume banner */}
                 <View style={s.resumeBanner}>
                   <Feather name="alert-circle" size={15} color="#fbbf24" />
-                  <Text style={s.resumeBannerTxt}>
-                    You have an unfinished attempt. Resume to continue from where you left off.
-                  </Text>
+                  <Text style={s.resumeBannerTxt}>{_t("You have an unfinished attempt. Resume to continue from where you left off.")}</Text>
                 </View>
                 <TouchableOpacity
                   style={[s.resumeBtn, starting && { opacity: 0.7 }]}
@@ -288,7 +275,7 @@ export default function TestLobbyScreen({ navigation, route }) {
                   ) : (
                     <>
                       <Feather name="rotate-ccw" size={20} color="#fff" />
-                      <Text style={s.ctaBtnTxt}>Resume Test</Text>
+                      <Text style={s.ctaBtnTxt}>{_t("Resume Test")}</Text>
                     </>
                   )}
                 </TouchableOpacity>
@@ -305,7 +292,7 @@ export default function TestLobbyScreen({ navigation, route }) {
                 ) : (
                   <>
                     <Feather name="play-circle" size={20} color="#fff" />
-                    <Text style={s.ctaBtnTxt}>Start Test</Text>
+                    <Text style={s.ctaBtnTxt}>{_t("Start Test")}</Text>
                   </>
                 )}
               </TouchableOpacity>

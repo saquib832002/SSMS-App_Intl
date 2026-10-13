@@ -22,6 +22,7 @@ import { AuthContext } from "../../context/AuthContext";
 import { getLeaderboard } from "../../services/TestSeriesServiceApi";
 import { fetchInstituteDetails } from "../../services/UserServiceApi";
 import { BASE_URL } from "../../Environment/EnvironmentConfig";
+import { _t, _th, _tx } from "../../services/i18n";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -48,16 +49,16 @@ function PodiumCard({ entry, position }) {
   const cfg = MEDAL_CONFIG[position];
   return (
     <View style={[s.podiumCard, { backgroundColor: cfg.bg, borderColor: cfg.border, borderLeftColor: cfg.leftBar }]}>
-      <Text style={s.podiumEmoji}>{cfg.emoji}</Text>
+      <Text style={s.podiumEmoji}>{_tx(cfg.emoji)}</Text>
       <View style={s.podiumInfo}>
         <Text style={[s.podiumName, { color: cfg.nameFg }]} numberOfLines={1}>
-          {entry.student_name}
+          {_tx(entry.student_name)}
         </Text>
         <View style={s.podiumMetaRow}>
           <Text style={s.podiumMeta}>
-            {entry.correct_count ?? 0}✓{"  "}
-            {entry.wrong_count ?? 0}✗{"  "}
-            {entry.unattempted_count ?? 0}–
+            {_tx(entry.correct_count) ?? 0}✓{"  "}
+            {_tx(entry.wrong_count) ?? 0}✗{"  "}
+            {_tx(entry.unattempted_count) ?? 0}–
           </Text>
           {entry.time_spent_seconds != null && (
             <Text style={s.podiumMeta}>{formatTime(entry.time_spent_seconds)}</Text>
@@ -65,8 +66,8 @@ function PodiumCard({ entry, position }) {
         </View>
       </View>
       <View style={s.podiumScoreBox}>
-        <Text style={[s.podiumScore, { color: cfg.nameFg }]}>{entry.obtained_marks ?? 0}</Text>
-        <Text style={s.podiumScoreMax}>/{entry.total_marks ?? "—"}</Text>
+        <Text style={[s.podiumScore, { color: cfg.nameFg }]}>{_tx(entry.obtained_marks) ?? 0}</Text>
+        <Text style={s.podiumScoreMax}>/{_tx(entry.total_marks) ?? "—"}</Text>
       </View>
     </View>
   );
@@ -85,10 +86,10 @@ function LeaderRow({ entry, isCurrentUser }) {
       {/* Rank */}
       <View style={s.rankCell}>
         {cfg ? (
-          <Text style={s.rankEmoji}>{cfg.emoji}</Text>
+          <Text style={s.rankEmoji}>{_tx(cfg.emoji)}</Text>
         ) : (
           <Text style={[s.rankNum, isCurrentUser && { color: "#2563eb" }]}>
-            #{entry.rank}
+            #{_tx(entry.rank)}
           </Text>
         )}
       </View>
@@ -100,32 +101,32 @@ function LeaderRow({ entry, isCurrentUser }) {
             style={[s.entryName, isCurrentUser && { color: "#2563eb", fontWeight: "800" }]}
             numberOfLines={1}
           >
-            {entry.student_name}
+            {_tx(entry.student_name)}
           </Text>
           {isCurrentUser && (
             <View style={s.meChip}>
-              <Text style={s.meChipTxt}>You</Text>
+              <Text style={s.meChipTxt}>{_t("You")}</Text>
             </View>
           )}
         </View>
         {entry.roll_number ? (
-          <Text style={s.entryRoll}>Roll #{entry.roll_number}</Text>
+          <Text style={s.entryRoll}>{_t("Roll #{roll_number}", { roll_number: entry.roll_number })}</Text>
         ) : null}
       </View>
 
       {/* Score */}
       <View style={s.scoreCell}>
         <Text style={[s.entryScore, isCurrentUser && { color: "#2563eb" }]}>
-          {entry.obtained_marks ?? 0}
+          {_tx(entry.obtained_marks) ?? 0}
         </Text>
-        <Text style={s.entryScoreMax}>/{entry.total_marks ?? "—"}</Text>
+        <Text style={s.entryScoreMax}>/{_tx(entry.total_marks) ?? "—"}</Text>
       </View>
 
       {/* Correct / Wrong / Skipped */}
       <View style={s.cwCell}>
-        <Text style={s.entryCorrect}>{entry.correct_count ?? 0}✓</Text>
-        <Text style={s.entryWrong}>{entry.wrong_count ?? 0}✗</Text>
-        <Text style={s.entrySkipped}>{entry.unattempted_count ?? 0}–</Text>
+        <Text style={s.entryCorrect}>{_tx(entry.correct_count) ?? 0}✓</Text>
+        <Text style={s.entryWrong}>{_tx(entry.wrong_count) ?? 0}✗</Text>
+        <Text style={s.entrySkipped}>{_tx(entry.unattempted_count) ?? 0}–</Text>
       </View>
 
       {/* Time */}
@@ -152,7 +153,7 @@ export default function TestLeaderboardScreen({ route, navigation }) {
   const [exporting, setExporting] = useState(false);
 
   const load = useCallback(async () => {
-    if (!testId) return;
+    if (!testId) { setLoading(false); return; }
     try {
       setLoading(true);
       const res = await getLeaderboard(user, testId);
@@ -166,7 +167,7 @@ export default function TestLeaderboardScreen({ route, navigation }) {
       );
       if (me) setMyRank(me.rank);
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load leaderboard");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load leaderboard"));
     } finally {
       setLoading(false);
     }
@@ -182,7 +183,7 @@ export default function TestLeaderboardScreen({ route, navigation }) {
   // ── PDF Export ───────────────────────────────────────────────────────────────
   const handleExportPdf = async () => {
     if (entries.length === 0) {
-      Alert.alert("Nothing to export", "The leaderboard is empty.");
+      Alert.alert(_t("Nothing to export"), _t("The leaderboard is empty."));
       return;
     }
     try {
@@ -412,7 +413,7 @@ export default function TestLeaderboardScreen({ route, navigation }) {
 </html>`;
 
       // 6. Generate PDF
-      const { uri } = await Print.printToFileAsync({ html, base64: false });
+      const { uri } = await Print.printToFileAsync({ html: _th(html), base64: false });
 
       // 7. Share
       const canShare = await Sharing.isAvailableAsync();
@@ -423,10 +424,10 @@ export default function TestLeaderboardScreen({ route, navigation }) {
           UTI: "com.adobe.pdf",
         });
       } else {
-        Alert.alert("Saved", `PDF saved to: ${uri}`);
+        Alert.alert(_t("Saved"), _t("PDF saved to: {uri}", { uri }));
       }
     } catch (e) {
-      Alert.alert("Export failed", e.message || "Could not generate PDF.");
+      Alert.alert(_t("Export failed"), _tx(e.message) || _t("Could not generate PDF."));
     } finally {
       setExporting(false);
     }
@@ -453,9 +454,7 @@ export default function TestLeaderboardScreen({ route, navigation }) {
         <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
           <Feather name="arrow-left" size={20} color="#0f172a" />
         </TouchableOpacity>
-        <Text style={s.navTitle} numberOfLines={1}>
-          Leaderboard
-        </Text>
+        <Text style={s.navTitle} numberOfLines={1}>{_t("Leaderboard")}</Text>
         {isAdmin ? (
           <TouchableOpacity
             style={s.exportBtn}
@@ -479,11 +478,11 @@ export default function TestLeaderboardScreen({ route, navigation }) {
         <View style={s.titleStrip}>
           <Feather name="award" size={14} color="#2563eb" />
           <Text style={s.titleStripTxt} numberOfLines={1}>
-            {testTitle}
+            {_tx(testTitle)}
           </Text>
           {myRank != null && (
             <View style={s.myRankBadge}>
-              <Text style={s.myRankTxt}>Your rank: #{myRank}</Text>
+              <Text style={s.myRankTxt}>{_t("Your rank: #{myRank}", { myRank })}</Text>
             </View>
           )}
         </View>
@@ -492,12 +491,12 @@ export default function TestLeaderboardScreen({ route, navigation }) {
       {loading ? (
         <View style={s.loadWrap}>
           <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={s.loadTxt}>Loading leaderboard…</Text>
+          <Text style={s.loadTxt}>{_t("Loading leaderboard…")}</Text>
         </View>
       ) : entries.length === 0 ? (
         <View style={s.loadWrap}>
           <Feather name="award" size={44} color="#cbd5e1" />
-          <Text style={s.emptyTxt}>No results yet</Text>
+          <Text style={s.emptyTxt}>{_t("No results yet")}</Text>
         </View>
       ) : (
         <FlatList
@@ -511,7 +510,7 @@ export default function TestLeaderboardScreen({ route, navigation }) {
               {/* Podium — top 3 */}
               {top3.length > 0 && (
                 <View style={s.podiumSection}>
-                  <Text style={s.podiumLabel}>Top Performers</Text>
+                  <Text style={s.podiumLabel}>{_t("Top Performers")}</Text>
                   {top3.map((e) => (
                     <PodiumCard key={String(e.rank)} entry={e} position={e.rank} />
                   ))}
@@ -521,11 +520,11 @@ export default function TestLeaderboardScreen({ route, navigation }) {
               {/* Table header */}
               {rest.length > 0 && (
                 <View style={s.tableHeader}>
-                  <Text style={[s.thTxt, { width: 42 }]}>Rank</Text>
-                  <Text style={[s.thTxt, { flex: 1 }]}>Student</Text>
-                  <Text style={[s.thTxt, { width: 60, textAlign: "center" }]}>Score</Text>
-                  <Text style={[s.thTxt, { width: 60, textAlign: "center" }]}>C / W / S</Text>
-                  <Text style={[s.thTxt, { width: 52, textAlign: "center" }]}>Time</Text>
+                  <Text style={[s.thTxt, { width: 42 }]}>{_t("Rank")}</Text>
+                  <Text style={[s.thTxt, { flex: 1 }]}>{_t("Student")}</Text>
+                  <Text style={[s.thTxt, { width: 60, textAlign: "center" }]}>{_t("Score")}</Text>
+                  <Text style={[s.thTxt, { width: 60, textAlign: "center" }]}>{_t("C / W / S")}</Text>
+                  <Text style={[s.thTxt, { width: 52, textAlign: "center" }]}>{_t("Time")}</Text>
                 </View>
               )}
             </>

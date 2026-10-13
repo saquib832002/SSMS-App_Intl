@@ -14,6 +14,7 @@ import { AuthContext } from "../../context/AuthContext";
 import {
   fetchExams, createExam, updateExam, deleteExam, toggleExamRelease,
 } from "../../services/ExamServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 export default function ExamScreen({ navigation }) {
   const { user } = useContext(AuthContext);
@@ -37,7 +38,7 @@ export default function ExamScreen({ navigation }) {
       const data = await fetchExams(user);
       setExams(Array.isArray(data) ? data : []);
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load exams");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load exams"));
     } finally {
       setLoading(false);
     }
@@ -65,7 +66,7 @@ export default function ExamScreen({ navigation }) {
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!examName.trim()) {
-      Alert.alert("Validation", "Exam name is required.");
+      Alert.alert(_t("Validation"), _t("Exam name is required."));
       return;
     }
     try {
@@ -78,9 +79,9 @@ export default function ExamScreen({ navigation }) {
       }
       setModalVisible(false);
       load();
-      Alert.alert("Success", editing ? "Exam updated." : "Exam added.");
+      Alert.alert(_t("Success"), editing ? _t("Exam updated.") : _t("Exam added."));
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to save exam");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to save exam"));
     } finally {
       setSaving(false);
     }
@@ -89,19 +90,19 @@ export default function ExamScreen({ navigation }) {
   // ── Delete ────────────────────────────────────────────────────────────────
   const handleDelete = (item) => {
     Alert.alert(
-      "Delete Exam",
-      `Delete "${item.exam_name}"?`,
+      _t("Delete Exam"),
+      _t("Delete \"{exam_name}\"?", { exam_name: item.exam_name }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Delete", style: "destructive",
+          text: _t("Delete"), style: "destructive",
           onPress: async () => {
             try {
               await deleteExam(user, item.exam_id);
               load();
-              Alert.alert("Deleted", "Exam deleted successfully.");
+              Alert.alert(_t("Deleted"), _t("Exam deleted successfully."));
             } catch (e) {
-              Alert.alert("Error", e.message || "Failed to delete exam");
+              Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to delete exam"));
             }
           },
         },
@@ -119,7 +120,7 @@ export default function ExamScreen({ navigation }) {
         e.exam_id === item.exam_id ? { ...e, is_released: res.is_released } : e
       ));
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to update exam visibility");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to update exam visibility"));
     } finally {
       setTogglingId(null);
     }
@@ -142,13 +143,13 @@ export default function ExamScreen({ navigation }) {
         </View>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <Text style={sc.examName}>{item.exam_name}</Text>
+            <Text style={sc.examName}>{_tx(item.exam_name)}</Text>
             <View style={[sc.catBadge, { backgroundColor: bg }]}>
-              <Text style={[sc.catBadgeTxt, { color: fg }]}>{cat}</Text>
+              <Text style={[sc.catBadgeTxt, { color: fg }]}>{_tx(cat)}</Text>
             </View>
           </View>
           {item.created ? (
-            <Text style={sc.examDate}>Created {item.created.slice(0, 10)}</Text>
+            <Text style={sc.examDate}>{_t("Created {v}", { v: item.created.slice(0, 10) })}</Text>
           ) : null}
         </View>
       </View>
@@ -170,7 +171,7 @@ export default function ExamScreen({ navigation }) {
                 color={item.is_released == 1 ? "#15803d" : "#64748b"}
               />}
           <Text style={[sc.releasePillTxt, item.is_released == 1 ? { color: "#15803d" } : { color: "#64748b" }]}>
-            {item.is_released == 1 ? "Released" : "Hidden"}
+            {item.is_released == 1 ? _t("Released") : _t("Hidden")}
           </Text>
         </TouchableOpacity>
 
@@ -202,10 +203,10 @@ export default function ExamScreen({ navigation }) {
         >
           <Feather name="arrow-left" size={20} color="#1e40af" />
         </TouchableOpacity>
-        <Text style={sc.headerTitle}>Exams</Text>
+        <Text style={sc.headerTitle}>{_t("Exams")}</Text>
         <TouchableOpacity style={sc.addBtn} onPress={openAdd}>
           <Feather name="plus" size={16} color="#fff" />
-          <Text style={sc.addBtnTxt}>Add Exam</Text>
+          <Text style={sc.addBtnTxt}>{_t("Add Exam")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -214,7 +215,7 @@ export default function ExamScreen({ navigation }) {
         <Feather name="search" size={13} color="#94a3b8" style={{ marginRight: 8 }} />
         <TextInput
           style={sc.searchInput}
-          placeholder="Search exams…"
+          placeholder={_t("Search exams…")}
           placeholderTextColor="#94a3b8"
           value={search}
           onChangeText={setSearch}
@@ -230,7 +231,7 @@ export default function ExamScreen({ navigation }) {
       {loading
         ? <View style={sc.loader}>
             <ActivityIndicator size="large" color="#1e40af" />
-            <Text style={sc.loaderTxt}>Loading exams…</Text>
+            <Text style={sc.loaderTxt}>{_t("Loading exams…")}</Text>
           </View>
         : <FlatList
             data={filtered}
@@ -241,9 +242,9 @@ export default function ExamScreen({ navigation }) {
             ListEmptyComponent={
               <View style={sc.empty}>
                 <Feather name="edit-3" size={38} color="#cbd5e1" />
-                <Text style={sc.emptyTxt}>No exams found</Text>
+                <Text style={sc.emptyTxt}>{_t("No exams found")}</Text>
                 <Text style={sc.emptySubTxt}>
-                  {search ? "Try a different search term" : 'Tap "Add Exam" to create one'}
+                  {search ? _t("Try a different search term") : _t("Tap \"Add Exam\" to create one")}
                 </Text>
               </View>
             }
@@ -256,7 +257,7 @@ export default function ExamScreen({ navigation }) {
 
             <View style={sc.modalHeader}>
               <Text style={sc.modalTitle}>
-                {editing ? "Edit Exam" : "Add Exam"}
+                {editing ? _t("Edit Exam") : _t("Add Exam")}
               </Text>
               <TouchableOpacity
                 style={sc.modalClose}
@@ -267,12 +268,11 @@ export default function ExamScreen({ navigation }) {
               </TouchableOpacity>
             </View>
 
-            <Text style={sc.fieldLabel}>
-              Exam Name <Text style={{ color: "#ef4444" }}>*</Text>
+            <Text style={sc.fieldLabel}>{_t("Exam Name")}{" "}<Text style={{ color: "#ef4444" }}>*</Text>
             </Text>
             <TextInput
               style={sc.input}
-              placeholder="e.g. Annual Exam, Mid Term"
+              placeholder={_t("e.g. Annual Exam, Mid Term")}
               placeholderTextColor="#94a3b8"
               value={examName}
               onChangeText={setExamName}
@@ -280,7 +280,7 @@ export default function ExamScreen({ navigation }) {
               editable={!saving}
             />
 
-            <Text style={sc.fieldLabel}>Category <Text style={{ color: "#ef4444" }}>*</Text></Text>
+            <Text style={sc.fieldLabel}>{_t("Category")}{" "}<Text style={{ color: "#ef4444" }}>*</Text></Text>
             <View style={sc.catGrid}>
               {CATEGORIES.map(cat => {
                 const active = examCategory === cat;
@@ -292,7 +292,7 @@ export default function ExamScreen({ navigation }) {
                     onPress={() => setExamCategory(cat)}
                     disabled={saving}
                   >
-                    <Text style={[sc.catChipTxt, { color: active ? "#fff" : fg }]}>{cat}</Text>
+                    <Text style={[sc.catChipTxt, { color: active ? "#fff" : fg }]}>{_tx(cat)}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -307,12 +307,12 @@ export default function ExamScreen({ navigation }) {
             >
               <View style={{ flex: 1 }}>
                 <Text style={[sc.releaseToggleTitle, isReleased && { color: "#15803d" }]}>
-                  {isReleased ? "Visible to students" : "Hidden from students"}
+                  {isReleased ? _t("Visible to students") : _t("Hidden from students")}
                 </Text>
                 <Text style={sc.releaseToggleSub}>
                   {isReleased
-                    ? "Results & marksheet visible in student/parent portal"
-                    : "Exam is in preparation — not shown in student portal"}
+                    ? _t("Results & marksheet visible in student/parent portal")
+                    : _t("Exam is in preparation — not shown in student portal")}
                 </Text>
               </View>
               <View style={[sc.togglePill, isReleased && sc.togglePillOn]}>
@@ -326,7 +326,7 @@ export default function ExamScreen({ navigation }) {
                 onPress={() => setModalVisible(false)}
                 disabled={saving}
               >
-                <Text style={sc.cancelBtnTxt}>Cancel</Text>
+                <Text style={sc.cancelBtnTxt}>{_t("Cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[sc.saveBtn, saving && { opacity: 0.6 }]}
@@ -338,7 +338,7 @@ export default function ExamScreen({ navigation }) {
                   : <>
                       <Feather name="check" size={14} color="#fff" />
                       <Text style={sc.saveBtnTxt}>
-                        {editing ? "Update" : "Save"}
+                        {editing ? _t("Update") : _t("Save")}
                       </Text>
                     </>}
               </TouchableOpacity>

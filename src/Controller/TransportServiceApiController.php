@@ -153,12 +153,12 @@ class TransportServiceApiController extends AppController
         $db   = $this->getTableLocator()->get('SsmsTransportStops')->getConnection();
         $db->execute(
             "UPDATE ssms_transport_stops SET
-                stop_name = ?, stop_order = ?, latitude = ?, longitude = ?,
+                stop_name = ?, stop_order = COALESCE(?, stop_order), latitude = ?, longitude = ?,
                 pickup_time = ?, dropoff_time = ?, modified = NOW()
              WHERE stop_id = ? AND ssms_client_code = ?",
             [
                 trim((string)($data['stop_name'] ?? '')),
-                (int)($data['stop_order'] ?? 1),
+                isset($data['stop_order']) && $data['stop_order'] !== '' ? (int)$data['stop_order'] : null,   // editing a stop keeps its place in the route
                 !empty($data['latitude'])   ? (float)$data['latitude']   : null,
                 !empty($data['longitude'])  ? (float)$data['longitude']  : null,
                 !empty($data['pickup_time'])  ? $data['pickup_time']  : null,
@@ -181,6 +181,32 @@ class TransportServiceApiController extends AppController
             [(int)$id, $clientCode]
         );
         return $this->_json(['status' => true, 'message' => 'Stop deleted.']);
+    }
+
+    /** POST reorderStops {route_id, ordered_ids: [stop_id, …]} – the pick-up order (live bus tracking uses it). */
+    public function reorderStops()
+    {
+        $this->request->allowMethod(['post']);
+        $clientCode = $this->request->getHeaderLine('ssmsClientCode');
+        if (!$clientCode) return $this->_unauth();
+
+        $routeId = (int)($this->request->getData('route_id') ?? 0);
+        $ids     = $this->request->getData('ordered_ids');
+        if (!$routeId || !is_array($ids) || !$ids) {
+            return $this->_json(['status' => false, 'message' => 'Choose the route and the stops.']);
+        }
+        $db  = $this->getTableLocator()->get('SsmsTransportStops')->getConnection();
+        $own = array_map('intval', array_column($db->execute(
+            "SELECT stop_id FROM ssms_transport_stops WHERE route_id = ? AND ssms_client_code = ?", [$routeId, $clientCode]
+        )->fetchAll('assoc'), 'stop_id'));
+        $order = 1;
+        foreach ($ids as $id) {
+            if (in_array((int)$id, $own, true)) {
+                $db->execute("UPDATE ssms_transport_stops SET stop_order = ?, modified = NOW() WHERE stop_id = ? AND route_id = ? AND ssms_client_code = ?",
+                    [$order++, (int)$id, $routeId, $clientCode]);
+            }
+        }
+        return $this->_json(['status' => true, 'message' => 'Stop order saved.']);
     }
 
     // ── Vehicles ──────────────────────────────────────────────────────────────

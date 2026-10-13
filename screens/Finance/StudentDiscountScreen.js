@@ -22,6 +22,7 @@ import {
   fetchEnrolledForDiscount, fetchFeeItems,
 } from "../../services/FeeServiceApi";
 import { fetchSessions, fetchBranches, fetchClasses, fetchSections } from "../../services/SetupServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Reusable Dropdown ─────────────────────────────────────────────────────────
 function DD({ label, value, options, onChange, disabled, loading }) {
@@ -35,7 +36,7 @@ function DD({ label, value, options, onChange, disabled, loading }) {
         activeOpacity={0.75}
       >
         <Text style={[sc.ddTxt, !sel?.value && sc.ddPh]} numberOfLines={1}>
-          {loading ? "Loading…" : (sel?.label ?? label)}
+          {loading ? _t("Loading…") : (_tx(sel?.label) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={13} color="#94a3b8" />
       </TouchableOpacity>
@@ -44,7 +45,7 @@ function DD({ label, value, options, onChange, disabled, loading }) {
         <TouchableOpacity style={sc.overlay} activeOpacity={1} onPress={() => setOpen(false)}>
           <View style={sc.sheet}>
             <View style={sc.sheetHead}>
-              <Text style={sc.sheetTitle}>{label}</Text>
+              <Text style={sc.sheetTitle}>{_tx(label)}</Text>
               <TouchableOpacity onPress={() => setOpen(false)} style={sc.sheetClose}>
                 <Feather name="x" size={14} color="#64748b" />
               </TouchableOpacity>
@@ -58,7 +59,7 @@ function DD({ label, value, options, onChange, disabled, loading }) {
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[sc.optTxt, String(o.value) === String(value) && sc.optTxtAct]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) &&
                     <Feather name="check" size={13} color="#1e40af" />}
@@ -84,12 +85,12 @@ function DiscountRow({ item, index, onChange }) {
       <View style={sc.feeRowTop}>
         <View style={sc.feeNameWrap}>
           <View style={[sc.feeDot, hasDis && sc.feeDotActive]} />
-          <Text style={sc.feeName}>{item.fee_item_name}</Text>
-          {item.fee_type ? <Text style={sc.feeType}>{item.fee_type}</Text> : null}
+          <Text style={sc.feeName}>{_tx(item.fee_item_name)}</Text>
+          {item.fee_type ? <Text style={sc.feeType}>{_tx(item.fee_type)}</Text> : null}
         </View>
         <View style={sc.feeAmtWrap}>
           {hasDis && (
-            <Text style={sc.feeNetBadge}>{pct}% off</Text>
+            <Text style={sc.feeNetBadge}>{_t("{pct}% off", { pct })}</Text>
           )}
         </View>
       </View>
@@ -115,7 +116,7 @@ function DiscountRow({ item, index, onChange }) {
           style={sc.reasonInput}
           value={item.reason ?? ""}
           onChangeText={v => onChange(index, "reason", v)}
-          placeholder="Reason  e.g. EWS / Scholarship / Staff ward"
+          placeholder={_t("Reason  e.g. EWS / Scholarship / Staff ward")}
           placeholderTextColor="#94a3b8"
         />
       </View>
@@ -124,9 +125,8 @@ function DiscountRow({ item, index, onChange }) {
       {hasDis && (
         <View style={sc.feeBreakdown}>
           <Text style={sc.breakdownTxt}>
-            <Text style={sc.breakdownGreen}>{pct}% discount</Text>
-            {"  "}applied to every instalment at collection time
-          </Text>
+            <Text style={sc.breakdownGreen}>{_t("{pct}% discount", { pct })}</Text>
+            {"  "}{_t("applied to every instalment at collection time")}</Text>
         </View>
       )}
     </View>
@@ -163,12 +163,18 @@ export default function StudentDiscountScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const [se, br, cl] = await Promise.all([
+        // allSettled: a 403 on one list must not leave the others empty
+        const results = await Promise.allSettled([
           fetchSessions(user), fetchBranches(user), fetchClasses(user),
         ]);
-        setSessions(Array.isArray(se) ? se : se?.data ?? []);
-        setBranches(Array.isArray(br) ? br : br?.data ?? []);
-        setClasses( Array.isArray(cl) ? cl : cl?.data ?? []);
+        const [se, br, cl] = results.map(r => (r.status === "fulfilled" ? r.value : null));
+        const toArr = (v) => (Array.isArray(v) ? v : Array.isArray(v?.data) ? v.data : []);
+        setSessions(toArr(se));
+        setBranches(toArr(br));
+        setClasses( toArr(cl));
+        // One alert with the server's message (e.g. NO_PERMISSION) if any call failed
+        const failMsg = results.map(r => (r.status === "rejected" ? r.reason?.message : r.value?.status === false ? r.value?.message : null)).find(Boolean);
+        if (failMsg) Alert.alert(_t("Error"), _tx(failMsg));
       } catch {}
       finally { setLoadingFilters(false); }
     })();
@@ -178,7 +184,7 @@ export default function StudentDiscountScreen() {
   useEffect(() => {
     if (!selClass) { setSections([]); return; }
     fetchSections(user, selClass)
-      .then(d => setSections(Array.isArray(d) ? d : d?.data ?? []))
+      .then(d => setSections(Array.isArray(d) ? d : Array.isArray(d?.data) ? d.data : []))
       .catch(() => {});
   }, [selClass]);
 
@@ -186,7 +192,7 @@ export default function StudentDiscountScreen() {
   const handleFindStudents = useCallback(async () => {
     if (!user) return;
     if (!selSession || !selClass) {
-      Alert.alert("Required", "Please select Session and Class first.");
+      Alert.alert(_t("Required"), _t("Please select Session and Class first."));
       return;
     }
     setLoadingStudents(true);
@@ -198,10 +204,11 @@ export default function StudentDiscountScreen() {
         sessionId: selSession,
         branchId:  selBranch,
       });
-      setStudents(list);
-      if (!list.length)
-        Alert.alert("No Students", "No enrolled students found for the selected filters.");
-    } catch (e) { Alert.alert("Error", e.message); }
+      const safeList = Array.isArray(list) ? list : [];
+      setStudents(safeList);
+      if (!safeList.length)
+        Alert.alert(_t("No Students"), _t("No enrolled students found for the selected filters."));
+    } catch (e) { Alert.alert(_t("Error"), _tx(e?.message) || _t("Failed to load students.")); }
     finally { setLoadingStudents(false); }
   }, [user, selSession, selBranch, selClass, selSection]);
 
@@ -220,13 +227,13 @@ export default function StudentDiscountScreen() {
       ]);
       const itemList = Array.isArray(allItems) ? allItems : [];
       if (!itemList.length) {
-        Alert.alert("No Fee Items", "No fee items found. Set up Fee Items first.");
+        Alert.alert(_t("No Fee Items"), _t("No fee items found. Set up Fee Items first."));
         setDiscounts([]);
         return;
       }
       // Merge with any existing discounts for this student
       const merged = itemList.map(fi => {
-        const ex = existing.find(d => String(d.fee_item_id) === String(fi.fee_item_id));
+        const ex = (Array.isArray(existing) ? existing : []).find(d => String(d.fee_item_id) === String(fi.fee_item_id));
         return {
           fee_item_id:      fi.fee_item_id,
           fee_item_name:    fi.fee_item_name,
@@ -236,7 +243,7 @@ export default function StudentDiscountScreen() {
         };
       });
       setDiscounts(merged);
-    } catch (e) { Alert.alert("Error", e.message); }
+    } catch (e) { Alert.alert(_t("Error"), _tx(e?.message) || _t("Failed to load discounts.")); }
     finally { setLoadingDis(false); }
   }, [user, selClass, selSession, selBranch]);
 
@@ -266,9 +273,9 @@ export default function StudentDiscountScreen() {
         student?.branch_id ?? selBranch,
         items
       );
-      if (res.status === false) throw new Error(res.message);
-      Alert.alert("✓ Saved", "Discounts saved successfully.");
-    } catch (e) { Alert.alert("Error", e.message); }
+      if (res?.status === false) throw new Error(res.message || _t("Failed to save discounts."));
+      Alert.alert(_t("✓ Saved"), _t("Discounts saved successfully."));
+    } catch (e) { Alert.alert(_t("Error"), _tx(e?.message) || _t("Failed to save discounts.")); }
     finally { setSaving(false); }
   };
 
@@ -277,15 +284,15 @@ export default function StudentDiscountScreen() {
   const totalItems      = discounts.length;
 
   // ── Dropdown options ────────────────────────────────────────────────────────
-  const sessionOpts = [{ label: "Select Session", value: "" },
+  const sessionOpts = [{ label: _t("Select Session"), value: "" },
     ...sessions.map(s => ({ label: s.session_name ?? s.session_year ?? String(s.session_id), value: String(s.session_id) }))];
-  const branchOpts  = [{ label: "All Branches",   value: "" },
+  const branchOpts  = [{ label: _t("All Branches"),   value: "" },
     ...branches.map(b  => ({ label: b.branch_name,  value: String(b.branch_id)  }))];
-  const classOpts   = [{ label: "Select Class",   value: "" },
+  const classOpts   = [{ label: _t("Select Class"),   value: "" },
     ...classes.map(c   => ({ label: c.class_name,   value: String(c.class_id)   }))];
-  const sectionOpts = [{ label: "All Sections",   value: "" },
+  const sectionOpts = [{ label: _t("All Sections"),   value: "" },
     ...sections.map(s  => ({ label: s.section_name, value: String(s.section_id) }))];
-  const studentOpts = [{ label: "Select Student", value: "" },
+  const studentOpts = [{ label: _t("Select Student"), value: "" },
     ...students.map(s  => ({
       label: `${s.student_name}  —  ${s.enrollment_id}`,
       value: String(s.enrollment_id),
@@ -311,34 +318,34 @@ export default function StudentDiscountScreen() {
               <Feather name="percent" size={18} color="#1e40af" />
             </View>
             <View>
-              <Text style={sc.pageTitle}>Fee Discounts</Text>
-              <Text style={sc.pageSub}>Assign EWS / scholarship discounts per student</Text>
+              <Text style={sc.pageTitle}>{_t("Fee Discounts")}</Text>
+              <Text style={sc.pageSub}>{_t("Assign EWS / scholarship discounts per student")}</Text>
             </View>
           </View>
 
           {/* ── Filter card ── */}
           <View style={sc.card}>
-            <Text style={sc.cardTitle}>FILTERS</Text>
+            <Text style={sc.cardTitle}>{_t("FILTERS")}</Text>
             <View style={sc.filterGrid}>
               <View style={sc.filterCell}>
-                <Text style={sc.lbl}>Session <Text style={sc.req}>*</Text></Text>
-                <DD label="Select Session" value={selSession} options={sessionOpts}
+                <Text style={sc.lbl}>{_t("Session")}{" "}<Text style={sc.req}>*</Text></Text>
+                <DD label={_t("Select Session")} value={selSession} options={sessionOpts}
                   onChange={setSelSession} loading={loadingFilters} />
               </View>
               <View style={sc.filterCell}>
-                <Text style={sc.lbl}>Branch</Text>
-                <DD label="All Branches" value={selBranch} options={branchOpts}
+                <Text style={sc.lbl}>{_t("Branch")}</Text>
+                <DD label={_t("All Branches")} value={selBranch} options={branchOpts}
                   onChange={setSelBranch} loading={loadingFilters} />
               </View>
               <View style={sc.filterCell}>
-                <Text style={sc.lbl}>Class <Text style={sc.req}>*</Text></Text>
-                <DD label="Select Class" value={selClass} options={classOpts}
+                <Text style={sc.lbl}>{_t("Class")}{" "}<Text style={sc.req}>*</Text></Text>
+                <DD label={_t("Select Class")} value={selClass} options={classOpts}
                   onChange={v => { setSelClass(v); setSelEnrollId(""); setDiscounts([]); }}
                   loading={loadingFilters} />
               </View>
               <View style={sc.filterCell}>
-                <Text style={sc.lbl}>Section</Text>
-                <DD label="All Sections" value={selSection} options={sectionOpts}
+                <Text style={sc.lbl}>{_t("Section")}</Text>
+                <DD label={_t("All Sections")} value={selSection} options={sectionOpts}
                   onChange={setSelSection} disabled={!selClass} />
               </View>
             </View>
@@ -349,17 +356,17 @@ export default function StudentDiscountScreen() {
               activeOpacity={0.85}
             >
               {loadingStudents
-                ? <><ActivityIndicator color="#fff" size="small" /><Text style={sc.findBtnTxt}>Loading…</Text></>
-                : <><Feather name="users" size={14} color="#fff" /><Text style={sc.findBtnTxt}>Find Students</Text></>}
+                ? <><ActivityIndicator color="#fff" size="small" /><Text style={sc.findBtnTxt}>{_t("Loading…")}</Text></>
+                : <><Feather name="users" size={14} color="#fff" /><Text style={sc.findBtnTxt}>{_t("Find Students")}</Text></>}
             </TouchableOpacity>
           </View>
 
           {/* ── Student selector ── */}
           {students.length > 0 && (
             <View style={sc.card}>
-              <Text style={sc.cardTitle}>SELECT STUDENT</Text>
+              <Text style={sc.cardTitle}>{_t("SELECT STUDENT")}</Text>
               <DD
-                label="Select Student — Enrollment ID"
+                label={_t("Select Student — Enrollment ID")}
                 value={selEnrollId}
                 options={studentOpts}
                 onChange={handleSelectStudent}
@@ -372,11 +379,11 @@ export default function StudentDiscountScreen() {
                     </Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={sc.stuName}>{selStudent.student_name}</Text>
+                    <Text style={sc.stuName}>{_tx(selStudent.student_name)}</Text>
                     <Text style={sc.stuMeta}>
-                      {selStudent.class_name}{selStudent.section_name ? ` · ${selStudent.section_name}` : ""}
-                      {"  ·  Enroll: "}{selStudent.enrollment_id}
-                      {selStudent.roll_number ? `  ·  Roll: ${selStudent.roll_number}` : ""}
+                      {_tx(selStudent.class_name)}{selStudent.section_name ? ` · ${_tx(selStudent.section_name)}` : ""}
+                      {("  " + _t("·  Enroll:") + " ")}{_tx(selStudent.enrollment_id)}
+                      {selStudent.roll_number ? `  ${_t("·  Roll: {roll_number}", { roll_number: selStudent.roll_number })}` : ""}
                     </Text>
                   </View>
                 </View>
@@ -388,15 +395,15 @@ export default function StudentDiscountScreen() {
           {loadingDis && (
             <View style={sc.loadingWrap}>
               <ActivityIndicator color="#1e40af" size="small" />
-              <Text style={sc.loadingTxt}>Loading fee structure…</Text>
+              <Text style={sc.loadingTxt}>{_t("Loading fee structure…")}</Text>
             </View>
           )}
 
           {/* ── Fee items + discounts ── */}
           {!loadingDis && discounts.length > 0 && (
             <View style={sc.card}>
-              <Text style={sc.cardTitle}>FEE ITEMS & DISCOUNTS</Text>
-              <Text style={sc.cardSub}>Enter discount % for each fee item. Leave 0 for no discount.</Text>
+              <Text style={sc.cardTitle}>{_t("FEE ITEMS & DISCOUNTS")}</Text>
+              <Text style={sc.cardSub}>{_t("Enter discount % for each fee item. Leave 0 for no discount.")}</Text>
 
               {discounts.map((d, i) => (
                 <DiscountRow key={d.fee_item_id} item={d} index={i} onChange={updateRow} />
@@ -405,16 +412,16 @@ export default function StudentDiscountScreen() {
               {/* ── Totals ── */}
               <View style={sc.totals}>
                 <View style={sc.totalRow}>
-                  <Text style={sc.totalLbl}>Total Fee Items</Text>
-                  <Text style={sc.totalVal}>{totalItems}</Text>
+                  <Text style={sc.totalLbl}>{_t("Total Fee Items")}</Text>
+                  <Text style={sc.totalVal}>{_tx(totalItems)}</Text>
                 </View>
                 <View style={sc.totalRow}>
-                  <Text style={[sc.totalLbl, { color: "#16a34a" }]}>Items with Discount</Text>
-                  <Text style={[sc.totalVal, { color: "#16a34a" }]}>{discountedItems}</Text>
+                  <Text style={[sc.totalLbl, { color: "#16a34a" }]}>{_t("Items with Discount")}</Text>
+                  <Text style={[sc.totalVal, { color: "#16a34a" }]}>{_tx(discountedItems)}</Text>
                 </View>
                 <View style={sc.totalDivider} />
                 <View style={sc.totalRow}>
-                  <Text style={sc.totalNetLbl}>Discount applied at collection time</Text>
+                  <Text style={sc.totalNetLbl}>{_t("Discount applied at collection time")}</Text>
                 </View>
               </View>
 
@@ -426,8 +433,8 @@ export default function StudentDiscountScreen() {
                 activeOpacity={0.85}
               >
                 {saving
-                  ? <><ActivityIndicator color="#fff" size="small" /><Text style={sc.saveBtnTxt}>Saving…</Text></>
-                  : <><Feather name="check-circle" size={16} color="#fff" /><Text style={sc.saveBtnTxt}>Save Discounts</Text></>}
+                  ? <><ActivityIndicator color="#fff" size="small" /><Text style={sc.saveBtnTxt}>{_t("Saving…")}</Text></>
+                  : <><Feather name="check-circle" size={16} color="#fff" /><Text style={sc.saveBtnTxt}>{_t("Save Discounts")}</Text></>}
               </TouchableOpacity>
             </View>
           )}
@@ -436,8 +443,8 @@ export default function StudentDiscountScreen() {
           {!loadingDis && selEnrollId && discounts.length === 0 && (
             <View style={sc.emptyWrap}>
               <Feather name="alert-circle" size={32} color="#cbd5e1" />
-              <Text style={sc.emptyTxt}>No fee structure found</Text>
-              <Text style={sc.emptySub}>Set up Class Fees for this class and session first.</Text>
+              <Text style={sc.emptyTxt}>{_t("No fee structure found")}</Text>
+              <Text style={sc.emptySub}>{_t("Set up Class Fees for this class and session first.")}</Text>
             </View>
           )}
 

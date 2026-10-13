@@ -21,13 +21,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather }      from "@expo/vector-icons";
 import { AuthContext }  from "../../context/AuthContext";
 import { getHomeworkDetail, markStudents } from "../../services/HomeworkServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Status options ────────────────────────────────────────────────────────────
 const STATUSES = [
-  { key: "pending",    label: "Pending",    color: "#94a3b8", bg: "#f1f5f9" },
-  { key: "submitted",  label: "Submitted",  color: "#2563eb", bg: "#eff6ff" },
-  { key: "completed",  label: "Completed",  color: "#15803d", bg: "#dcfce7" },
-  { key: "incomplete", label: "Incomplete", color: "#dc2626", bg: "#fee2e2" },
+  { key: "pending",    get label() { return _t("Pending"); },    color: "#94a3b8", bg: "#f1f5f9" },
+  { key: "submitted",  get label() { return _t("Submitted"); },  color: "#2563eb", bg: "#eff6ff" },
+  { key: "completed",  get label() { return _t("Completed"); },  color: "#15803d", bg: "#dcfce7" },
+  { key: "incomplete", get label() { return _t("Incomplete"); }, color: "#dc2626", bg: "#fee2e2" },
 ];
 
 function StatusChip({ value, onChange }) {
@@ -42,7 +43,7 @@ function StatusChip({ value, onChange }) {
       onPress={next}
       activeOpacity={0.7}
     >
-      <Text style={[mk.chipTxt, { color: cur.color }]}>{cur.label}</Text>
+      <Text style={[mk.chipTxt, { color: cur.color }]}>{_tx(cur.label)}</Text>
       <Feather name="refresh-cw" size={10} color={cur.color} />
     </TouchableOpacity>
   );
@@ -58,9 +59,9 @@ const StudentRow = React.memo(function StudentRow({ student, draft, onUpdate, di
       {/* Name + roll */}
       <View style={mk.nameCell}>
         {dirty && <View style={mk.dirtyDot} />}
-        <Text style={mk.rollNo}>#{student.rollNumber ?? "—"}</Text>
-        <Text style={mk.name} numberOfLines={2}>{name}</Text>
-        <Text style={mk.enrollId}>{student.enrollmentId}</Text>
+        <Text style={mk.rollNo}>#{_tx(student.rollNumber) ?? "—"}</Text>
+        <Text style={mk.name} numberOfLines={2}>{_tx(name)}</Text>
+        <Text style={mk.enrollId}>{_tx(student.enrollmentId)}</Text>
       </View>
 
       {/* Controls */}
@@ -90,7 +91,7 @@ const StudentRow = React.memo(function StudentRow({ student, draft, onUpdate, di
           style={mk.remarksInput}
           value={draft.teacherRemarks}
           onChangeText={v => onUpdate("teacherRemarks", v)}
-          placeholder="Remarks..."
+          placeholder={_t("Remarks...")}
           placeholderTextColor="#94a3b8"
           multiline
         />
@@ -104,15 +105,15 @@ function SummaryBar({ summary }) {
   return (
     <View style={mk.summaryBar}>
       {[
-        { label: "Total",      n: summary.total,      color: "#334155" },
-        { label: "Done",       n: summary.completed,  color: "#15803d" },
-        { label: "Submitted",  n: summary.submitted,  color: "#2563eb" },
-        { label: "Incomplete", n: summary.incomplete, color: "#dc2626" },
-        { label: "Pending",    n: summary.pending,    color: "#94a3b8" },
+        { label: _t("Total"),      n: summary.total,      color: "#334155" },
+        { label: _t("Done"),       n: summary.completed,  color: "#15803d" },
+        { label: _t("Submitted"),  n: summary.submitted,  color: "#2563eb" },
+        { label: _t("Incomplete"), n: summary.incomplete, color: "#dc2626" },
+        { label: _t("Pending"),    n: summary.pending,    color: "#94a3b8" },
       ].map(item => (
         <View key={item.label} style={mk.summaryChip}>
-          <Text style={[mk.summaryN, { color: item.color }]}>{item.n}</Text>
-          <Text style={mk.summaryL}>{item.label}</Text>
+          <Text style={[mk.summaryN, { color: item.color }]}>{_tx(item.n)}</Text>
+          <Text style={mk.summaryL}>{_tx(item.label)}</Text>
         </View>
       ))}
     </View>
@@ -139,11 +140,12 @@ export default function HomeworkMarkScreen({ route, navigation }) {
       const res = await getHomeworkDetail(user, homeworkId, sessionId);
       setHomework(res.homework);
       setSummary(res.summary);
-      setStudents(res.students ?? []);
+      const list = Array.isArray(res?.students) ? res.students : [];
+      setStudents(list);
 
       // Initialise drafts from server state
       const initial = {};
-      (res.students ?? []).forEach(s => {
+      list.forEach(s => {
         initial[s.enrollmentId] = {
           completionStatus:     s.completionStatus     ?? "pending",
           completionPercentage: s.completionPercentage != null ? String(s.completionPercentage) : "",
@@ -153,7 +155,7 @@ export default function HomeworkMarkScreen({ route, navigation }) {
       setDrafts(initial);
       setDirtyIds(new Set());
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     } finally {
       setLoading(false);
     }
@@ -185,7 +187,7 @@ export default function HomeworkMarkScreen({ route, navigation }) {
       });
 
     if (payload.length === 0) {
-      Alert.alert("No changes", "No students have been modified.");
+      Alert.alert(_t("No changes"), _t("No students have been modified."));
       return;
     }
 
@@ -196,12 +198,12 @@ export default function HomeworkMarkScreen({ route, navigation }) {
         user?.staffId ?? user?.userId ?? null
       );
       Alert.alert(
-        "Saved",
-        res.message ?? `Marked ${res.marked} student(s).`,
-        [{ text: "OK", onPress: load }]
+        _t("Saved"),
+        _tx(res.message) ?? _t("Marked {marked} student(s).", { marked: res.marked }),
+        [{ text: _t("OK"), onPress: load }]
       );
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     } finally {
       setSaving(false);
     }
@@ -226,7 +228,7 @@ export default function HomeworkMarkScreen({ route, navigation }) {
           <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 4 }}>
             <Feather name="arrow-left" size={20} color="#1e40af" />
           </TouchableOpacity>
-          <Text style={mk.headerTitle} numberOfLines={1}>{title ?? "Mark Students"}</Text>
+          <Text style={mk.headerTitle} numberOfLines={1}>{_tx(title) ?? _t("Mark Students")}</Text>
         </View>
         <ActivityIndicator style={{ marginTop: 60 }} size="large" color="#2563eb" />
       </SafeAreaView>
@@ -245,9 +247,9 @@ export default function HomeworkMarkScreen({ route, navigation }) {
             <Feather name="arrow-left" size={20} color="#1e40af" />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={mk.headerTitle} numberOfLines={1}>{homework?.title ?? title}</Text>
+            <Text style={mk.headerTitle} numberOfLines={1}>{_tx(homework?.title) ?? _tx(title)}</Text>
             <Text style={mk.headerSub}>
-              {homework?.assigned_date ?? homework?.assignedDate}
+              {_tx(homework?.assigned_date) ?? _tx(homework?.assignedDate)}
             </Text>
           </View>
           <TouchableOpacity
@@ -257,7 +259,7 @@ export default function HomeworkMarkScreen({ route, navigation }) {
           >
             {saving
               ? <ActivityIndicator color="#fff" size="small" />
-              : <><Feather name="save" size={14} color="#fff" /><Text style={mk.saveBtnTxt}>Save</Text></>
+              : <><Feather name="save" size={14} color="#fff" /><Text style={mk.saveBtnTxt}>{_t("Save")}</Text></>
             }
           </TouchableOpacity>
         </View>
@@ -267,17 +269,17 @@ export default function HomeworkMarkScreen({ route, navigation }) {
           <View style={mk.classBanner}>
             <View style={mk.classBannerItem}>
               <Feather name="book-open" size={13} color="#1e40af" />
-              <Text style={mk.classBannerLabel}>Class</Text>
+              <Text style={mk.classBannerLabel}>{_t("Class")}</Text>
               <Text style={mk.classBannerValue}>
-                {homework.class_name ?? homework.className ?? "—"}
+                {_tx(homework.class_name) ?? _tx(homework.className) ?? "—"}
               </Text>
             </View>
             <View style={mk.classBannerDivider} />
             <View style={mk.classBannerItem}>
               <Feather name="layers" size={13} color="#1e40af" />
-              <Text style={mk.classBannerLabel}>Section</Text>
+              <Text style={mk.classBannerLabel}>{_t("Section")}</Text>
               <Text style={mk.classBannerValue}>
-                {homework.section_name ?? homework.sectionName ?? "All"}
+                {_tx(homework.section_name) ?? _tx(homework.sectionName) ?? _t("All")}
               </Text>
             </View>
             {homework.subject_name || homework.subjectName ? (
@@ -285,9 +287,9 @@ export default function HomeworkMarkScreen({ route, navigation }) {
                 <View style={mk.classBannerDivider} />
                 <View style={mk.classBannerItem}>
                   <Feather name="tag" size={13} color="#1e40af" />
-                  <Text style={mk.classBannerLabel}>Subject</Text>
+                  <Text style={mk.classBannerLabel}>{_t("Subject")}</Text>
                   <Text style={mk.classBannerValue} numberOfLines={1}>
-                    {homework.subject_name ?? homework.subjectName}
+                    {_tx(homework.subject_name) ?? _tx(homework.subjectName)}
                   </Text>
                 </View>
               </>
@@ -295,18 +297,18 @@ export default function HomeworkMarkScreen({ route, navigation }) {
             <View style={mk.classBannerDivider} />
             <View style={mk.classBannerItem}>
               <Feather name="users" size={13} color="#1e40af" />
-              <Text style={mk.classBannerLabel}>Students</Text>
-              <Text style={mk.classBannerValue}>{students.length}</Text>
+              <Text style={mk.classBannerLabel}>{_t("Students")}</Text>
+              <Text style={mk.classBannerValue}>{_tx(students.length)}</Text>
             </View>
           </View>
         )}
 
         {/* Summary */}
-        {summary && <SummaryBar summary={summary} />}
+        {summary && <SummaryBar summary={_tx(summary)} />}
 
         {/* Quick mark bar */}
         <View style={mk.quickBar}>
-          <Text style={mk.quickLabel}>Mark all as:</Text>
+          <Text style={mk.quickLabel}>{_t("Mark all as:")}</Text>
           {["completed", "incomplete", "pending"].map(st => {
             const cfg = STATUSES.find(s => s.key === st);
             return (
@@ -315,7 +317,7 @@ export default function HomeworkMarkScreen({ route, navigation }) {
                 style={[mk.quickBtn, { borderColor: cfg.color }]}
                 onPress={() => markAll(st)}
               >
-                <Text style={[mk.quickBtnTxt, { color: cfg.color }]}>{cfg.label}</Text>
+                <Text style={[mk.quickBtnTxt, { color: cfg.color }]}>{_tx(cfg.label)}</Text>
               </TouchableOpacity>
             );
           })}
@@ -323,8 +325,8 @@ export default function HomeworkMarkScreen({ route, navigation }) {
 
         {/* Column headers */}
         <View style={mk.colHeader}>
-          <Text style={[mk.colHd, { width: 110 }]}>Student</Text>
-          <Text style={[mk.colHd, { flex: 1 }]}>Status · % · Remarks</Text>
+          <Text style={[mk.colHd, { width: 110 }]}>{_t("Student")}</Text>
+          <Text style={[mk.colHd, { flex: 1 }]}>{_t("Status · % · Remarks")}</Text>
         </View>
 
         {/* Student list */}
@@ -332,7 +334,7 @@ export default function HomeworkMarkScreen({ route, navigation }) {
           ? (
             <View style={mk.empty}>
               <Feather name="users" size={36} color="#cbd5e1" />
-              <Text style={mk.emptyTxt}>No enrolled students found.</Text>
+              <Text style={mk.emptyTxt}>{_t("No enrolled students found.")}</Text>
             </View>
           )
           : (

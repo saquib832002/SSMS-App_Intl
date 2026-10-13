@@ -22,6 +22,7 @@ import { AuthContext } from "../../context/AuthContext";
 import { fetchClasses, fetchSessions, fetchBranches, fetchSections, fetchIdCardData } from "../../services/StudentServiceApi";
 import { HOST_NAME as _HOST_NAME } from "../../Environment/EnvironmentConfig";
 import { fetchIdCardConfig, ID_CARD_CONFIG_DEFAULTS } from "../../services/SchoolSettingsServiceApi";
+import { _t, _th, _tx } from "../../services/i18n";
 
 // Strip trailing slash so URL construction never produces double //
 const HOST_NAME = _HOST_NAME.replace(/\/+$/, '');
@@ -397,13 +398,13 @@ function buildPdfHtml(students, schoolInfo, theme, cfg = {}) {
 const ColourPickerModal = React.memo(function ColourPickerModal({
   visible, zone, currentColor, onSelect, onClose,
 }) {
-  const zoneLabel = { header: "Header", body: "Body Background", footer: "Footer" }[zone] ?? zone;
+  const zoneLabel = { header: _t("Header"), body: "Body Background", footer: "Footer" }[zone] ?? zone;
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={cp.overlay} onPress={onClose} activeOpacity={1}>
         <TouchableOpacity style={cp.sheet} onPress={() => {}} activeOpacity={1}>
           <View style={cp.handle} />
-          <Text style={cp.title}>Pick {zoneLabel} Colour</Text>
+          <Text style={cp.title}>{_t("Pick {zoneLabel} Colour", { zoneLabel })}</Text>
           <View style={cp.swatchGrid}>
             {SWATCHES.map(c => (
               <TouchableOpacity
@@ -415,7 +416,7 @@ const ColourPickerModal = React.memo(function ColourPickerModal({
             ))}
           </View>
           <TouchableOpacity style={cp.cancelBtn} onPress={onClose}>
-            <Text style={cp.cancelTxt}>Cancel</Text>
+            <Text style={cp.cancelTxt}>{_t("Cancel")}</Text>
           </TouchableOpacity>
         </TouchableOpacity>
       </TouchableOpacity>
@@ -427,8 +428,8 @@ const ColourPickerModal = React.memo(function ColourPickerModal({
 const Row = React.memo(function Row({ label, value, color }) {
   return (
     <View style={st.row}>
-      <Text style={st.rowLabel}>{label} :</Text>
-      <Text style={[st.rowValue, { color }]} numberOfLines={1}>{value ?? "—"}</Text>
+      <Text style={st.rowLabel}>{_tx(label)} :</Text>
+      <Text style={[st.rowValue, { color }]} numberOfLines={1}>{_tx(value) ?? "—"}</Text>
     </View>
   );
 });
@@ -438,13 +439,13 @@ const DetailRow = React.memo(function DetailRow({ icon, label, value, color = "#
   if (!value && !fixedLines) return null;
   return (
     <View style={st.dRow}>
-      <Text style={st.dIcon}>{icon}</Text>
-      <Text style={st.dLabel} numberOfLines={1}>{label}</Text>
+      <Text style={st.dIcon}>{_tx(icon)}</Text>
+      <Text style={st.dLabel} numberOfLines={1}>{_tx(label)}</Text>
       <Text style={[st.dColon]}>:</Text>
       <Text
         style={[st.dValue, { color }, fixedLines ? { minHeight: fixedLines * 14 } : null]}
         numberOfLines={fixedLines || 2}
-      >{value ?? ""}</Text>
+      >{_tx(value) ?? ""}</Text>
     </View>
   );
 });
@@ -524,10 +525,10 @@ const IdCard = React.memo(function IdCard({ s, theme: T, schoolInfo, ssmsClientC
             </Text>
             {C.showSchoolAddress && !!schoolInfo?.address && (
               <Text style={[st.headerAddress, { color: T.header.sub }]} numberOfLines={1}>
-                {schoolInfo.address}
+                {_tx(schoolInfo.address)}
               </Text>
             )}
-            {C.showTagline && <Text style={st.headerTagline}>{C.taglineText || "LEARN | GROW | SUCCEED"}</Text>}
+            {C.showTagline && <Text style={st.headerTagline}>{_tx(C.taglineText) || _t("LEARN | GROW | SUCCEED")}</Text>}
           </View>
         </View>
 
@@ -538,17 +539,17 @@ const IdCard = React.memo(function IdCard({ s, theme: T, schoolInfo, ssmsClientC
             {C.showEstdYear && (
               <View style={{ alignItems: "center" }}>
                 <Text style={{ fontSize: 14, marginBottom: 1 }}>🎓</Text>
-                <Text style={[st.estdText, { color: T.header.sub }]}>{L.estd} {C.estdYear || "2020"}</Text>
+                <Text style={[st.estdText, { color: T.header.sub }]}>{_tx(L.estd)} {_tx(C.estdYear) || "2020"}</Text>
               </View>
             )}
             {C.showBusRoute && !!s.busRoute && (
               <View style={{ alignItems: "center" }}>
                 <Text style={{ fontSize: 9, lineHeight: 10, includeFontPadding: false }}>🚌</Text>
                 <View style={[st.busOval, { backgroundColor: T.footer.bg }]}>
-                  <Text style={st.busOvalTxt} numberOfLines={1}>{L.bus}</Text>
+                  <Text style={st.busOvalTxt} numberOfLines={1}>{_tx(L.bus)}</Text>
                 </View>
                 <Text style={[st.busRouteTxt, { color: T.header.sub }]} numberOfLines={1}>
-                  {s.busRoute}
+                  {_tx(s.busRoute)}
                 </Text>
               </View>
             )}
@@ -571,25 +572,25 @@ const IdCard = React.memo(function IdCard({ s, theme: T, schoolInfo, ssmsClientC
           <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 2 }}>
             {C.showAdmissionNo && !!s.admissionNumber && (
               <View style={{ alignItems: "center" }}>
-                <Text style={[st.estdText, { color: T.header.sub }]} numberOfLines={1}>{L.admNo}</Text>
+                <Text style={[st.estdText, { color: T.header.sub }]} numberOfLines={1}>{_tx(L.admNo)}</Text>
                 <Text style={[st.idNoText, { color: "#fff" }]} numberOfLines={1}>
-                  {s.admissionNumber}
+                  {_tx(s.admissionNumber)}
                 </Text>
               </View>
             )}
             {!!s.enrollmentId && (
               <View style={{ alignItems: "center" }}>
-                <Text style={[st.estdText, { color: T.header.sub }]} numberOfLines={1}>{L.enrollRoll}</Text>
+                <Text style={[st.estdText, { color: T.header.sub }]} numberOfLines={1}>{_tx(L.enrollRoll)}</Text>
                 <Text style={[st.idNoText, { color: "#fff" }]} numberOfLines={1}>
-                  {s.enrollmentId}
+                  {_tx(s.enrollmentId)}
                 </Text>
               </View>
             )}
             {C.showBloodGroup && !!s.bloodGroup && (
               <View style={{ alignItems: "center" }}>
-                <Text style={[st.estdText, { color: T.header.sub }]} numberOfLines={1}>🩸 {L.bloodGroup}</Text>
+                <Text style={[st.estdText, { color: T.header.sub }]} numberOfLines={1}>🩸 {_tx(L.bloodGroup)}</Text>
                 <Text style={[st.idNoText, { color: "#fff" }]} numberOfLines={1}>
-                  {s.bloodGroup}
+                  {_tx(s.bloodGroup)}
                 </Text>
               </View>
             )}
@@ -610,7 +611,7 @@ const IdCard = React.memo(function IdCard({ s, theme: T, schoolInfo, ssmsClientC
       {/* ══ STUDENT BANNER (oval pill on blue bg) ══ */}
       <View style={[st.studentBannerWrap, { backgroundColor: T.header.bg }]}>
         <View style={[st.studentBannerPill, { backgroundColor: T.footer.bg }]}>
-          <Text style={[st.studentBannerText, { color: "#fff" }]}>STUDENT</Text>
+          <Text style={[st.studentBannerText, { color: "#fff" }]}>{_t("STUDENT")}</Text>
         </View>
       </View>
 
@@ -623,14 +624,14 @@ const IdCard = React.memo(function IdCard({ s, theme: T, schoolInfo, ssmsClientC
 
       {/* ══ DETAIL ROWS ══ */}
       <View style={[st.detailsBlock, { backgroundColor: T.body.bg }]}>
-        {C.showFatherName    && <DetailRow icon="👤" label={L.father}        value={s.fatherName} />}
-        {C.showMotherName    && <DetailRow icon="👩" label={L.mother}        value={s.motherName} />}
-        {C.showDateOfBirth   && <DetailRow icon="📅" label={L.dob}           value={fmtDob(s.dob)} />}
-        {C.showGender        && <DetailRow icon="⚧️" label={L.gender}         value={s.gender} />}
-        <DetailRow icon="🎓" label={L.classGrade}
+        {C.showFatherName    && <DetailRow icon="👤" label={_tx(L.father)}        value={s.fatherName} />}
+        {C.showMotherName    && <DetailRow icon="👩" label={_tx(L.mother)}        value={s.motherName} />}
+        {C.showDateOfBirth   && <DetailRow icon="📅" label={_tx(L.dob)}           value={fmtDob(s.dob)} />}
+        {C.showGender        && <DetailRow icon="⚧️" label={_tx(L.gender)}         value={s.gender} />}
+        <DetailRow icon="🎓" label={_tx(L.classGrade)}
           value={`${s.className ?? ""}${s.section ? " (" + s.section + ")" : ""}`} />
-        {C.showParentPhone   && <DetailRow icon="📞" label={L.parentContact} value={s.parentPhone ?? s.fatherPhone ?? s.motherPhone} />}
-        {C.showStudentAddress && <DetailRow icon="📍" label={L.address}       value={s.address} color="#475569" fixedLines={2} />}
+        {C.showParentPhone   && <DetailRow icon="📞" label={_tx(L.parentContact)} value={s.parentPhone ?? s.fatherPhone ?? s.motherPhone} />}
+        {C.showStudentAddress && <DetailRow icon="📍" label={_tx(L.address)}       value={s.address} color="#475569" fixedLines={2} />}
       </View>
 
       {/* ══ BARCODE ══ */}
@@ -646,21 +647,21 @@ const IdCard = React.memo(function IdCard({ s, theme: T, schoolInfo, ssmsClientC
               {principalSigUri
                 ? <Image source={{ uri: principalSigUri }} style={st.sigImage} resizeMode="contain" />
                 : <View style={st.sigLine} />}
-              <Text style={st.sigLabel}>{L.principal}</Text>
+              <Text style={st.sigLabel}>{_tx(L.principal)}</Text>
             </View>
           )}
           {!!schoolInfo?.phone && (
             <View style={{ alignItems: "center" }}>
-              <Text style={st.validLabel}>📞 {L.contact}</Text>
-              <Text style={[st.validValue, { color: T.header.bg }]}>{schoolInfo.phone}</Text>
+              <Text style={st.validLabel}>📞 {_tx(L.contact)}</Text>
+              <Text style={[st.validValue, { color: T.header.bg }]}>{_tx(schoolInfo.phone)}</Text>
             </View>
           )}
           {C.showValidityYear && (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
               <Text style={{ fontSize: 20 }}>🛡️</Text>
               <View style={{ alignItems: "flex-end" }}>
-                <Text style={st.validLabel}>{L.validUpto}</Text>
-                <Text style={[st.validValue, { color: T.header.bg }]}>{s.sessionName ?? "—"}</Text>
+                <Text style={st.validLabel}>{_tx(L.validUpto)}</Text>
+                <Text style={[st.validValue, { color: T.header.bg }]}>{_tx(s.sessionName) ?? "—"}</Text>
               </View>
             </View>
           )}
@@ -671,8 +672,8 @@ const IdCard = React.memo(function IdCard({ s, theme: T, schoolInfo, ssmsClientC
       {C.showIfFoundBar && (
         <View style={[st.contactBar, { backgroundColor: T.header.bg }]}>
           <Text style={st.contactItem}>
-            {C.ifFoundText || "If found, please return this card to the school."}
-            {C.showSchoolPhoneInFooter && schoolInfo?.phone ? `  📞 ${schoolInfo.phone}` : ""}
+            {_tx(C.ifFoundText) || _t("If found, please return this card to the school.")}
+            {C.showSchoolPhoneInFooter && schoolInfo?.phone ? `  📞 ${_tx(schoolInfo.phone)}` : ""}
           </Text>
         </View>
       )}
@@ -696,14 +697,14 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
         activeOpacity={0.7}
       >
         <Text style={[_ddSt.triggerTxt, !selected?.value && _ddSt.placeholder]} numberOfLines={1}>
-          {loading ? "Loading…" : (selected?.label ?? label)}
+          {loading ? _t("Loading…") : (_tx(selected?.label) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={16} color="#475569" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={_ddSt.overlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={_ddSt.sheet}>
-            <Text style={_ddSt.sheetTitle}>{label}</Text>
+            <Text style={_ddSt.sheetTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={(o, i) => String(o.value) + i}
@@ -713,7 +714,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[_ddSt.optionTxt, String(o.value) === String(value) && _ddSt.optionTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) && <Feather name="check" size={14} color="#2563eb" />}
                 </TouchableOpacity>
@@ -806,11 +807,15 @@ export default function StudentIdCardScreen({ navigation }) {
     let cancelled = false;
     (async () => {
       try {
-        const [cls, sess, brnch] = await Promise.all([
+        // allSettled: a denied sessions call must not also blank the classes (and vice versa)
+        const settled = await Promise.allSettled([
           fetchClasses(user),
           fetchSessions(user),
           fetchBranches(user).catch(() => []),
         ]);
+        const [cls, sess, brnch] = settled.map(r => (r.status === "fulfilled" ? r.value : []));
+        const failed = settled.find(r => r.status === "rejected");
+        if (failed && !cancelled) Alert.alert(_t("Error"), _tx(failed.reason?.message) ?? _t("Failed to load filters"));
         if (!cancelled) {
           // Normalize — API may return array directly or wrapped in {data:[]}
           const clsList  = Array.isArray(cls)        ? cls        : Array.isArray(cls?.data)   ? cls.data   : [];
@@ -825,7 +830,7 @@ export default function StudentIdCardScreen({ navigation }) {
         }
       } catch (e) {
         console.log("StudentIdCard filter load error:", e.message);
-        if (!cancelled) Alert.alert("Error", e.message ?? "Failed to load filters");
+        if (!cancelled) Alert.alert(_t("Error"), _tx(e.message) ?? _t("Failed to load filters"));
       } finally {
         if (!cancelled) setLoadingFilters(false);
       }
@@ -867,7 +872,7 @@ export default function StudentIdCardScreen({ navigation }) {
   }, [classId]);
 
   const classOptions = useMemo(() => [
-    { label: "— Select Class —", value: "" },
+    { label: _t("— Select Class —"), value: "" },
     ...classes
       .filter(c => c.class_id != null && c.class_name)
       .map(c => ({ label: c.class_name, value: String(c.class_id) })),
@@ -876,39 +881,39 @@ export default function StudentIdCardScreen({ navigation }) {
   const sessionOptions = useMemo(() => {
     const items = sessions
       .filter(s => s.session_id != null)
-      .map(s => ({ label: s.session_name ?? s.session_year ?? `Session ${s.session_id}`, value: String(s.session_id) }));
+      .map(s => ({ label: s.session_name ?? s.session_year ?? _t("Session {session_id}", { session_id: s.session_id }), value: String(s.session_id) }));
     // Only add a placeholder when there are multiple sessions to choose from
-    return items.length > 1 ? [{ label: "— Select Session —", value: "" }, ...items] : items;
+    return items.length > 1 ? [{ label: _t("— Select Session —"), value: "" }, ...items] : items;
   }, [sessions]);
 
   const branchOptions = useMemo(() => {
     const items = branches
       .filter(b => b.branch_id != null)
-      .map(b => ({ label: b.branch_name ?? `Branch ${b.branch_id}`, value: String(b.branch_id) }));
+      .map(b => ({ label: b.branch_name ?? _t("Branch {branch_id}", { branch_id: b.branch_id }), value: String(b.branch_id) }));
     // No "All Branches" — require a specific branch; placeholder only when multiple exist
-    return items.length > 1 ? [{ label: "— Select Branch —", value: "" }, ...items] : items;
+    return items.length > 1 ? [{ label: _t("— Select Branch —"), value: "" }, ...items] : items;
   }, [branches]);
 
   const sectionOptions = useMemo(() => {
     const items = sections
       .filter(s => s.section_id != null)
-      .map(s => ({ label: s.section_name ?? `Section ${s.section_id}`, value: String(s.section_id) }));
+      .map(s => ({ label: s.section_name ?? _t("Section {section_id}", { section_id: s.section_id }), value: String(s.section_id) }));
     // Keep "All Sections" only when there are multiple to choose from
-    return items.length > 1 ? [{ label: "— All Sections —", value: "" }, ...items] : items;
+    return items.length > 1 ? [{ label: _t("— All Sections —"), value: "" }, ...items] : items;
   }, [sections]);
  
   // ── Fetch students ───────────────────────────────────────────────────────
   const handleFetch = useCallback(async () => {
-    if (!classId)   { Alert.alert("Validation", "Please select a class.");   return; }
-    if (!sessionId) { Alert.alert("Validation", "Please select a session."); return; }
+    if (!classId)   { Alert.alert(_t("Validation"), _t("Please select a class."));   return; }
+    if (!sessionId) { Alert.alert(_t("Validation"), _t("Please select a session.")); return; }
     try {
       setLoading(true);
       setStudents([]);
       const data = await fetchIdCardData(user, { classId, sessionId, branchId: selectedBranch, sectionId: selectedSection });
-      setStudents(data.students ?? []);
-      setSchoolInfo(data.school  ?? null);
+      setStudents(Array.isArray(data?.students) ? data.students : []);
+      setSchoolInfo(data?.school ?? null);
     } catch (e) {
-      Alert.alert("Error", e.message ?? "Failed to load students");
+      Alert.alert(_t("Error"), _tx(e.message) ?? _t("Failed to load students"));
     } finally {
       setLoading(false);
     }
@@ -919,7 +924,7 @@ export default function StudentIdCardScreen({ navigation }) {
 
   const handleGeneratePdf = useCallback(async () => {
     if (!students.length) {
-      Alert.alert("No Students", "Please load students first.");
+      Alert.alert(_t("No Students"), _t("Please load students first."));
       return;
     }
     try {
@@ -929,7 +934,7 @@ export default function StudentIdCardScreen({ navigation }) {
       await new Promise(resolve => setTimeout(resolve, 50));
 
       const html = buildPdfHtml(students, schoolInfo, theme, idCardConfig);
-      const { uri } = await Print.printToFileAsync({ html, base64: false });
+      const { uri } = await Print.printToFileAsync({ html: _th(html), base64: false });
 
       // Delete previous temp file to prevent cache buildup
       if (lastPdfUri.current && lastPdfUri.current !== uri) {
@@ -947,10 +952,10 @@ export default function StudentIdCardScreen({ navigation }) {
           UTI:         "com.adobe.pdf",
         });
       } else {
-        Alert.alert("PDF Generated", `Saved to: ${uri}`);
+        Alert.alert(_t("PDF Generated"), _t("Saved to: {uri}", { uri }));
       }
     } catch (e) {
-      Alert.alert("Error", e.message ?? "PDF generation failed");
+      Alert.alert(_t("Error"), _tx(e.message) ?? _t("PDF generation failed"));
     } finally {
       setGenerating(false);
     }
@@ -976,7 +981,7 @@ export default function StudentIdCardScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={st.backBtn}>
           <Feather name="arrow-left" size={20} color="#2563eb" />
         </TouchableOpacity>
-        <Text style={st.headerTitle}>Student ID Cards</Text>
+        <Text style={st.headerTitle}>{_t("Student ID Cards")}</Text>
         {students.length > 0 && (
           <TouchableOpacity
             style={[st.pdfBtn, generating && { opacity: 0.6 }]}
@@ -985,7 +990,7 @@ export default function StudentIdCardScreen({ navigation }) {
           >
             {generating
               ? <ActivityIndicator size="small" color="#fff" />
-              : <><Feather name="download" size={15} color="#fff" /><Text style={st.pdfBtnText}> PDF</Text></>}
+              : <><Feather name="download" size={15} color="#fff" /><Text style={st.pdfBtnText}>{" "}{_t("PDF")}</Text></>}
           </TouchableOpacity>
         )}
       </View>
@@ -1012,15 +1017,15 @@ export default function StudentIdCardScreen({ navigation }) {
           <View>
             {/* ── Filters ── */}
             <View style={st.filterCard}>
-              <Text style={st.filterTitle}>Select Filters</Text>
+              <Text style={st.filterTitle}>{_t("Select Filters")}</Text>
 
               {/* Row 1: Branch (if any) | Session */}
               <View style={st.filterRow}>
                 {branches.length > 0 && (
                   <View style={st.filterCol}>
-                    <Text style={st.filterLabel}>Branch</Text>
+                    <Text style={st.filterLabel}>{_t("Branch")}</Text>
                     <Dropdown
-                      label="All Branches"
+                      label={_t("All Branches")}
                       value={selectedBranch}
                       options={branchOptions}
                       onChange={setSelectedBranch}
@@ -1030,9 +1035,9 @@ export default function StudentIdCardScreen({ navigation }) {
                   </View>
                 )}
                 <View style={st.filterCol}>
-                  <Text style={st.filterLabel}>Session</Text>
+                  <Text style={st.filterLabel}>{_t("Session")}</Text>
                   <Dropdown
-                    label="Session"
+                    label={_t("Session")}
                     value={sessionId}
                     options={sessionOptions}
                     onChange={setSessionId}
@@ -1045,9 +1050,9 @@ export default function StudentIdCardScreen({ navigation }) {
               {/* Row 2: Class | Section */}
               <View style={st.filterRow}>
                 <View style={st.filterCol}>
-                  <Text style={st.filterLabel}>Class</Text>
+                  <Text style={st.filterLabel}>{_t("Class")}</Text>
                   <Dropdown
-                    label="Class"
+                    label={_t("Class")}
                     value={classId}
                     options={classOptions}
                     onChange={setClassId}
@@ -1056,9 +1061,9 @@ export default function StudentIdCardScreen({ navigation }) {
                   />
                 </View>
                 <View style={st.filterCol}>
-                  <Text style={st.filterLabel}>Section</Text>
+                  <Text style={st.filterLabel}>{_t("Section")}</Text>
                   <Dropdown
-                    label="All Sections"
+                    label={_t("All Sections")}
                     value={selectedSection}
                     options={sectionOptions}
                     onChange={setSelectedSection}
@@ -1073,14 +1078,14 @@ export default function StudentIdCardScreen({ navigation }) {
                 disabled={loading || loadingFilters}
               >
                 {loading
-                  ? <><ActivityIndicator color="#fff" size="small" /><Text style={st.loadBtnText}> Loading…</Text></>
-                  : <><Feather name="users" size={16} color="#fff" /><Text style={st.loadBtnText}> Load Students</Text></>}
+                  ? <><ActivityIndicator color="#fff" size="small" /><Text style={st.loadBtnText}>{" "}{_t("Loading…")}</Text></>
+                  : <><Feather name="users" size={16} color="#fff" /><Text style={st.loadBtnText}>{" "}{_t("Load Students")}</Text></>}
               </TouchableOpacity>
             </View>
  
             {/* ── Colour Theme Picker ── */}
             <View style={st.themeCard}>
-              <Text style={st.filterTitle}>🎨 Card Colour Theme</Text>
+              <Text style={st.filterTitle}>{_t("🎨 Card Colour Theme")}</Text>
  
               <ScrollView horizontal showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{ gap: 8, paddingBottom: 12 }}
@@ -1095,22 +1100,22 @@ export default function StudentIdCardScreen({ navigation }) {
                     <View style={[st.themePreview, { backgroundColor: t.body.bg, borderTopWidth: 1.5, borderBottomWidth: 1.5, borderColor: t.body.border }]} />
                     <View style={[st.themePreview, { backgroundColor: t.footer.bg }]} />
                     <Text style={[st.themeChipText, selectedTheme.id === t.id && { color: "#2563eb" }]}
-                      numberOfLines={1}>{t.name}</Text>
+                      numberOfLines={1}>{_tx(t.name)}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
  
-              <Text style={st.customLabel}>Customise Individual Zones</Text>
+              <Text style={st.customLabel}>{_t("Customise Individual Zones")}</Text>
               <View style={st.zoneRow}>
                 {[
-                  { key: "header", label: "Header", bg: theme.header.bg },
-                  { key: "body",   label: "Body",   bg: theme.body.bg   },
-                  { key: "footer", label: "Footer", bg: theme.footer.bg },
+                  { key: "header", label: _t("Header"), bg: theme.header.bg },
+                  { key: "body",   label: _t("Body"),   bg: theme.body.bg   },
+                  { key: "footer", label: _t("Footer"), bg: theme.footer.bg },
                 ].map(z => (
                   <TouchableOpacity key={z.key} style={st.zonePicker}
                     onPress={() => openPicker(z.key)}>
                     <View style={[st.zoneColorDot, { backgroundColor: z.bg }]} />
-                    <Text style={st.zonePickerLabel}>{z.label}</Text>
+                    <Text style={st.zonePickerLabel}>{_tx(z.label)}</Text>
                     <Feather name="chevron-down" size={12} color="#64748b" />
                   </TouchableOpacity>
                 ))}
@@ -1119,7 +1124,7 @@ export default function StudentIdCardScreen({ navigation }) {
               {customColors && (
                 <TouchableOpacity style={st.resetBtn} onPress={() => setCustomColors(null)}>
                   <Feather name="rotate-ccw" size={13} color="#2563eb" />
-                  <Text style={st.resetBtnText}> Reset to theme defaults</Text>
+                  <Text style={st.resetBtnText}>{" "}{_t("Reset to theme defaults")}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -1130,13 +1135,9 @@ export default function StudentIdCardScreen({ navigation }) {
                 <View style={st.summaryBar}>
                   <View style={st.summaryLeft}>
                     <Feather name="check-circle" size={16} color="#16a34a" />
-                    <Text style={st.summaryText}>
-                      {students.length} student{students.length !== 1 ? "s" : ""} loaded
-                    </Text>
+                    <Text style={st.summaryText}>{_t("{length} student{pl} loaded", { length: students.length, pl: students.length !== 1 ? "s" : "" })}</Text>
                   </View>
-                  <Text style={st.summaryPages}>
-                    ~{Math.ceil(students.length / 6)} page{Math.ceil(students.length / 6) !== 1 ? "s" : ""} • 2 cols × 3 rows
-                  </Text>
+                  <Text style={st.summaryPages}>{_t("~{v} page{pl} • 2 cols × 3 rows", { v: Math.ceil(students.length / 6), pl: Math.ceil(students.length / 6) !== 1 ? "s" : "" })}</Text>
                 </View>
                 <TouchableOpacity
                   style={[st.generateBtn, generating && { opacity: 0.6 }]}
@@ -1144,12 +1145,10 @@ export default function StudentIdCardScreen({ navigation }) {
                   disabled={generating}
                 >
                   {generating
-                    ? <><ActivityIndicator color="#fff" size="small" /><Text style={st.generateBtnText}>  Generating PDF…</Text></>
-                    : <><Feather name="file-text" size={18} color="#fff" /><Text style={st.generateBtnText}>  Generate & Download PDF</Text></>}
+                    ? <><ActivityIndicator color="#fff" size="small" /><Text style={st.generateBtnText}>{" "}{_t("Generating PDF…")}</Text></>
+                    : <><Feather name="file-text" size={18} color="#fff" /><Text style={st.generateBtnText}>{" "}{_t("Generate & Download PDF")}</Text></>}
                 </TouchableOpacity>
-                <Text style={st.previewLabel}>
-                  Preview — {selectedTheme.name}{customColors ? " (customised)" : ""}
-                </Text>
+                <Text style={st.previewLabel}>{_t("Preview — {name}{v}", { name: selectedTheme.name, v: customColors ? (" " + _t("(customised)") + "") : "" })}</Text>
               </>
             )}
  
@@ -1157,10 +1156,8 @@ export default function StudentIdCardScreen({ navigation }) {
             {!loading && students.length === 0 && (
               <View style={st.emptyState}>
                 <Feather name="credit-card" size={48} color="#cbd5e1" />
-                <Text style={st.emptyTitle}>No ID Cards Yet</Text>
-                <Text style={st.emptyText}>
-                  Select a class and session above, then tap Load Students.
-                </Text>
+                <Text style={st.emptyTitle}>{_t("No ID Cards Yet")}</Text>
+                <Text style={st.emptyText}>{_t("Select a class and session above, then tap Load Students.")}</Text>
               </View>
             )}
           </View>

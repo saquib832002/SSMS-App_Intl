@@ -1,6 +1,7 @@
 //const BASE_URL = "http://192.168.4.90/ssms5/UserServiceApi";
 import { BASE_URL as _BASE_URL_RAW } from "../Environment/EnvironmentConfig";
 import { safeFetch } from "./apiInterceptor";
+import { _t } from "./i18n";
 // Strip trailing slash so URLs never have double-slash
 const BASE_URL = _BASE_URL_RAW.replace(/\/+$/, "");
 
@@ -62,7 +63,7 @@ export const fetchUserProfile = async (user) => {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data.status === false)
-    throw new Error(data.message || "Failed to load profile");
+    throw new Error(data.message || _t("Failed to load profile"));
   return data.data ?? null;
 };
 
@@ -74,7 +75,7 @@ export const fetchStudentUsers = async (user, statusFilter = '') => {
     headers: buildHeaders(user),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || data.status === false) throw new Error(data.message || 'Failed to load accounts');
+  if (!res.ok || data.status === false) throw new Error(data.message || _t("Failed to load accounts"));
   return data.data ?? [];
 };
 
@@ -85,13 +86,13 @@ export const toggleStudentUserStatus = async (user, userName, status) => {
     body:    JSON.stringify({ userName, status }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || data.status === false) throw new Error(data.message || 'Failed to update status');
+  if (!res.ok || data.status === false) throw new Error(data.message || _t("Failed to update status"));
   return data;
 };
 
 export const registerTrialUser = ({ form, photoAsset, onProgress }) => {
   return new Promise((resolve, reject) => {
-    if (!form) return reject(new Error("registerTrialUser: form is missing"));
+    if (!form) return reject(new Error(_t("registerTrialUser: form is missing")));
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${BASE_URL}/UserServiceApi/registerTrialUser`);
@@ -103,17 +104,17 @@ export const registerTrialUser = ({ form, photoAsset, onProgress }) => {
      // console.log("registerTrialUser response:", text.substring(0, 300));
       const json = safeJsonFromText(text);
       if (!json) {
-        return reject(new Error(`Server did not return JSON (HTTP ${xhr.status}). Preview: ${text.slice(0, 120)}`));
+        return reject(new Error(_t("Server did not return JSON (HTTP {status}). Preview: {v}", { status: xhr.status, v: text.slice(0, 120) })));
       }
       if (xhr.status >= 200 && xhr.status < 300 && json.status !== false) {
         resolve(json);
       } else {
-        reject(new Error(json.message || `Request failed HTTP ${xhr.status}`));
+        reject(new Error(json.message || _t("Request failed HTTP {status}", { status: xhr.status })));
       }
     };
 
-    xhr.onerror   = () => reject(new Error("Network error"));
-    xhr.ontimeout = () => reject(new Error("Request timed out after 30s"));
+    xhr.onerror   = () => reject(new Error(_t("Network error")));
+    xhr.ontimeout = () => reject(new Error(_t("Request timed out after 30s")));
 
     if (xhr.upload && typeof onProgress === "function") {
       xhr.upload.onprogress = (e) => {
@@ -150,7 +151,7 @@ export const fetchUsers = async (user) => {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data.status === false) {
-    throw new Error(data.message || "Failed to fetch users");
+    throw new Error(data.message || _t("Failed to fetch users"));
   }
   return data;
 };
@@ -163,7 +164,7 @@ export const createUser = async (payload, user) => {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data.status === false) {
-    throw new Error(data.message || "Failed to create user");
+    throw new Error(data.message || _t("Failed to create user"));
   }
   return data;
 };
@@ -176,7 +177,7 @@ export const updateUser = async (userName, payload, user) => {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data.status === false) {
-    throw new Error(data.message || "Failed to update user");
+    throw new Error(data.message || _t("Failed to update user"));
   }
   return data;
 };
@@ -188,7 +189,7 @@ export const deleteUser = async (userName, user) => {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data.status === false) {
-    throw new Error(data.message || "Failed to delete user");
+    throw new Error(data.message || _t("Failed to delete user"));
   }
   return data;
 };
@@ -205,7 +206,7 @@ export const sendForgotPasswordCode = async (payload) => {
   const data = await response.json();
 
   if (!response.ok || data.status === false) {
-    throw new Error(data.message || "Failed to send code");
+    throw new Error(data.message || _t("Failed to send code"));
   }
 
   return data;
@@ -223,7 +224,7 @@ export const verifyForgotPasswordCode = async (payload) => {
   const data = await response.json();
 
   if (!response.ok || data.status === false) {
-    throw new Error(data.message || "Invalid verification code");
+    throw new Error(data.message || _t("Invalid verification code"));
   }
 
   return data;
@@ -241,7 +242,7 @@ export const resetForgotPassword = async (payload) => {
   const data = await response.json();
 
   if (!response.ok || data.status === false) {
-    throw new Error(data.message || "Failed to reset password");
+    throw new Error(data.message || _t("Failed to reset password"));
   }
 
   return data;
@@ -267,13 +268,13 @@ export const updateUserPhoto = (user, photoAsset) => {
         if (xhr.status >= 200 && xhr.status < 300 && json.status !== false)
           resolve(json);
         else
-          reject(new Error(json.message || `HTTP ${xhr.status}`));
+          reject(new Error(json.message || _t("HTTP {status}", { status: xhr.status })));
       } catch {
-        reject(new Error("Invalid server response"));
+        reject(new Error(_t("Invalid server response")));
       }
     };
-    xhr.onerror   = () => reject(new Error("Network error"));
-    xhr.ontimeout = () => reject(new Error("Request timed out"));
+    xhr.onerror   = () => reject(new Error(_t("Network error")));
+    xhr.ontimeout = () => reject(new Error(_t("Request timed out")));
 
     const fd  = new FormData();
     const uri = photoAsset.uri;
@@ -293,7 +294,7 @@ export const changePassword = async (currentPassword, newPassword, user) => {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data.status === false)
-    throw new Error(data.message || "Failed to change password");
+    throw new Error(data.message || _t("Failed to change password"));
   return data;
 };
 
@@ -306,7 +307,7 @@ export const fetchInstituteDetails = async (user) => {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data.status === false)
-    throw new Error(data.message || "Failed to fetch institute details");
+    throw new Error(data.message || _t("Failed to fetch institute details"));
   return data.data ?? null;
 };
 
@@ -331,13 +332,13 @@ export const updateInstituteDetails = (user, payload, logoAsset) => {
         if (xhr.status >= 200 && xhr.status < 300 && json.status !== false)
           resolve(json);
         else
-          reject(new Error(json.message || `HTTP ${xhr.status}`));
+          reject(new Error(json.message || _t("HTTP {status}", { status: xhr.status })));
       } catch {
-        reject(new Error("Invalid server response"));
+        reject(new Error(_t("Invalid server response")));
       }
     };
-    xhr.onerror   = () => reject(new Error("Network error"));
-    xhr.ontimeout = () => reject(new Error("Request timed out"));
+    xhr.onerror   = () => reject(new Error(_t("Network error")));
+    xhr.ontimeout = () => reject(new Error(_t("Request timed out")));
 
     const fd = new FormData();
     const fields = [

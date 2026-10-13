@@ -18,14 +18,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
 import { getAnalysis } from "../../services/TestSeriesServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { key: "all",         label: "All" },
-  { key: "wrong",       label: "Wrong" },
-  { key: "unattempted", label: "Skipped" },
-  { key: "correct",     label: "Correct" },
+  { key: "all",         get label() { return _t("All"); } },
+  { key: "wrong",       get label() { return _t("Wrong"); } },
+  { key: "unattempted", get label() { return _t("Skipped"); } },
+  { key: "correct",     get label() { return _t("Correct"); } },
 ];
 
 const DIFFICULTY_COLORS = {
@@ -86,25 +87,25 @@ function SummaryBar({ summary }) {
   return (
     <View style={s.summaryBar}>
       <View style={s.summaryItem}>
-        <Text style={[s.summaryVal, { color: "#16a34a" }]}>{correct}</Text>
-        <Text style={s.summaryLbl}>Correct</Text>
+        <Text style={[s.summaryVal, { color: "#16a34a" }]}>{_tx(correct)}</Text>
+        <Text style={s.summaryLbl}>{_t("Correct")}</Text>
       </View>
       <View style={s.summaryDivider} />
       <View style={s.summaryItem}>
-        <Text style={[s.summaryVal, { color: "#dc2626" }]}>{wrong}</Text>
-        <Text style={s.summaryLbl}>Wrong</Text>
+        <Text style={[s.summaryVal, { color: "#dc2626" }]}>{_tx(wrong)}</Text>
+        <Text style={s.summaryLbl}>{_t("Wrong")}</Text>
       </View>
       <View style={s.summaryDivider} />
       <View style={s.summaryItem}>
-        <Text style={[s.summaryVal, { color: "#94a3b8" }]}>{unattempted}</Text>
-        <Text style={s.summaryLbl}>Skipped</Text>
+        <Text style={[s.summaryVal, { color: "#94a3b8" }]}>{_tx(unattempted)}</Text>
+        <Text style={s.summaryLbl}>{_t("Skipped")}</Text>
       </View>
       <View style={s.summaryDivider} />
       <View style={s.summaryItem}>
         <Text style={[s.summaryVal, { color: "#2563eb" }]}>
-          {obtained}/{total}
+          {_tx(obtained)}/{_tx(total)}
         </Text>
-        <Text style={s.summaryLbl}>Score</Text>
+        <Text style={s.summaryLbl}>{_t("Score")}</Text>
       </View>
     </View>
   );
@@ -124,11 +125,11 @@ function TabBar({ active, tabs, onSelect, counts }) {
             activeOpacity={0.7}
           >
             <Text style={[s.tabTxt, isActive && s.tabTxtActive]}>
-              {tab.label}
+              {_tx(tab.label)}
             </Text>
             <View style={[s.tabBadge, isActive && s.tabBadgeActive]}>
               <Text style={[s.tabBadgeTxt, isActive && s.tabBadgeTxtActive]}>
-                {count}
+                {_tx(count)}
               </Text>
             </View>
           </TouchableOpacity>
@@ -148,20 +149,20 @@ function OptionItem({ option, optLetter, isYourAnswer, isCorrectAnswer, isMultiC
   if (isCorrectAnswer && status === "correct") {
     bg = "#dcfce7"; border = "#86efac"; textColor = "#15803d";
     icon = <Feather name={isMultiCorrect ? "check-square" : "check-circle"} size={14} color="#16a34a" />;
-    tag = <Text style={s.correctAnsTag}>Correct</Text>;
+    tag = <Text style={s.correctAnsTag}>{_t("Correct")}</Text>;
   } else if (isCorrectAnswer && status === "wrong") {
     bg = "#dcfce7"; border = "#86efac"; textColor = "#15803d";
     icon = <Feather name={isMultiCorrect ? "check-square" : "check-circle"} size={14} color="#16a34a" />;
-    tag = <Text style={s.correctAnsTag}>Correct answer</Text>;
+    tag = <Text style={s.correctAnsTag}>{_t("Correct answer")}</Text>;
   } else if (isCorrectAnswer && status === "unattempted") {
     bg = "#eff6ff"; border = "#bfdbfe"; textColor = "#1d4ed8";
     icon = <Feather name={isMultiCorrect ? "check-square" : "info"} size={14} color="#3b82f6" />;
-    tag = <Text style={s.answerTag}>Answer</Text>;
+    tag = <Text style={s.answerTag}>{_t("Answer")}</Text>;
   } else if (isYourAnswer && !isCorrectAnswer && status === "wrong") {
     // Student selected this but it's wrong
     bg = "#fee2e2"; border = "#fca5a5"; textColor = "#dc2626";
     icon = <Feather name={isMultiCorrect ? "x-square" : "x-circle"} size={14} color="#dc2626" />;
-    tag = <Text style={s.yourAnsTag}>Your choice</Text>;
+    tag = <Text style={s.yourAnsTag}>{_t("Your choice")}</Text>;
   } else if (isYourAnswer && isCorrectAnswer) {
     // Already styled as correct above — this branch won't be reached but kept for clarity
   } else {
@@ -176,10 +177,10 @@ function OptionItem({ option, optLetter, isYourAnswer, isCorrectAnswer, isMultiC
       <View style={s.optionLeft}>
         {icon}
         {!!optLetter && (
-          <Text style={[s.optionLetter, { color: textColor }]}>{optLetter}.</Text>
+          <Text style={[s.optionLetter, { color: textColor }]}>{_tx(optLetter)}.</Text>
         )}
         <Text style={[s.optionTxt, { color: textColor }]}>
-          {option.option_text ?? option.text ?? ""}
+          {_tx(option.option_text) ?? _tx(option.text) ?? ""}
         </Text>
       </View>
       {tag}
@@ -232,9 +233,7 @@ function QuestionCard({ q, index }) {
       {/* Header row */}
       <View style={s.qHeader}>
         <View style={s.qNumBadge}>
-          <Text style={[s.qNumTxt, { color: cardColors.left }]}>
-            Q.{qNum}
-          </Text>
+          <Text style={[s.qNumTxt, { color: cardColors.left }]}>{_t("Q.{qNum}", { qNum })}</Text>
         </View>
 
         {/* Type badge */}
@@ -259,7 +258,7 @@ function QuestionCard({ q, index }) {
         {!!sectionLabel && (
           <View style={s.sectionBadge}>
             <Text style={s.sectionBadgeTxt} numberOfLines={1}>
-              {sectionLabel}
+              {_tx(sectionLabel)}
             </Text>
           </View>
         )}
@@ -268,30 +267,30 @@ function QuestionCard({ q, index }) {
         {status === "correct" && (
           <View style={s.statusBadgeCorrect}>
             <Feather name="check-circle" size={10} color="#16a34a" />
-            <Text style={[s.statusBadgeTxt, { color: "#16a34a" }]}>Correct</Text>
+            <Text style={[s.statusBadgeTxt, { color: "#16a34a" }]}>{_t("Correct")}</Text>
           </View>
         )}
         {status === "wrong" && (
           <View style={s.statusBadgeWrong}>
             <Feather name="x-circle" size={10} color="#dc2626" />
-            <Text style={[s.statusBadgeTxt, { color: "#dc2626" }]}>Wrong</Text>
+            <Text style={[s.statusBadgeTxt, { color: "#dc2626" }]}>{_t("Wrong")}</Text>
           </View>
         )}
         {status === "unattempted" && (
           <View style={s.statusBadgeSkipped}>
             <Feather name="minus-circle" size={10} color="#64748b" />
-            <Text style={[s.statusBadgeTxt, { color: "#64748b" }]}>Skipped</Text>
+            <Text style={[s.statusBadgeTxt, { color: "#64748b" }]}>{_t("Skipped")}</Text>
           </View>
         )}
 
         {/* Marks awarded */}
         <View style={[s.marksBadge, { backgroundColor: `${marksColor}18` }]}>
-          <Text style={[s.marksTxt, { color: marksColor }]}>{marksText}</Text>
+          <Text style={[s.marksTxt, { color: marksColor }]}>{_tx(marksText)}</Text>
         </View>
       </View>
 
       {/* Question text */}
-      <Text style={s.qText}>{q.question_text ?? q.text ?? ""}</Text>
+      <Text style={s.qText}>{_tx(q.question_text) ?? _tx(q.text) ?? ""}</Text>
 
       {/* Question image */}
       {(q.image_url || q.image_path) && (
@@ -338,23 +337,23 @@ function QuestionCard({ q, index }) {
                 { backgroundColor: status === "correct" ? "#dcfce7" : "#fee2e2" },
               ]}
             >
-              <Text style={s.freeAnsLabel}>Your Answer:</Text>
+              <Text style={s.freeAnsLabel}>{_t("Your Answer:")}</Text>
               <Text
                 style={[
                   s.freeAnsVal,
                   { color: status === "correct" ? "#16a34a" : "#dc2626" },
                 ]}
               >
-                {selectedText ||
+                {_tx(selectedText) ||
                   (q.numerical_answer != null ? String(q.numerical_answer) : "—")}
               </Text>
             </View>
           )}
           {/* Always show correct answer */}
           <View style={[s.freeAnsRow, { backgroundColor: "#dcfce7" }]}>
-            <Text style={s.freeAnsLabel}>Correct Answer:</Text>
+            <Text style={s.freeAnsLabel}>{_t("Correct Answer:")}</Text>
             <Text style={[s.freeAnsVal, { color: "#16a34a" }]}>
-              {correctText || "—"}
+              {_tx(correctText) || "—"}
             </Text>
           </View>
         </View>
@@ -363,8 +362,8 @@ function QuestionCard({ q, index }) {
       {/* Explanation (if provided) */}
       {!!q.explanation && (
         <View style={s.explanationBlock}>
-          <Text style={s.explanationLabel}>Explanation</Text>
-          <Text style={s.explanationTxt}>{q.explanation}</Text>
+          <Text style={s.explanationLabel}>{_t("Explanation")}</Text>
+          <Text style={s.explanationTxt}>{_tx(q.explanation)}</Text>
         </View>
       )}
     </View>
@@ -387,7 +386,7 @@ export default function TestAnalysisScreen({ route, navigation }) {
   const [activeTab, setActiveTab] = useState(initialTab ?? "all");
 
   const load = useCallback(async () => {
-    if (!attemptId) return;
+    if (!attemptId) { setLoading(false); return; }
     try {
       setLoading(true);
       const res = await getAnalysis(effectiveUser, attemptId);
@@ -409,7 +408,7 @@ export default function TestAnalysisScreen({ route, navigation }) {
         total:    Math.round(total * 100) / 100,
       });
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load analysis");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load analysis"));
     } finally {
       setLoading(false);
     }
@@ -450,7 +449,7 @@ export default function TestAnalysisScreen({ route, navigation }) {
           <Feather name="arrow-left" size={20} color="#0f172a" />
         </TouchableOpacity>
         <Text style={s.navTitle} numberOfLines={1}>
-          {testTitle ? `${testTitle} — Analysis` : "Test Analysis"}
+          {testTitle ? _t("{testTitle} — Analysis", { testTitle }) : _t("Test Analysis")}
         </Text>
         <View style={{ width: 36 }} />
       </View>
@@ -458,7 +457,7 @@ export default function TestAnalysisScreen({ route, navigation }) {
       {loading ? (
         <View style={s.loadWrap}>
           <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={s.loadTxt}>Loading analysis…</Text>
+          <Text style={s.loadTxt}>{_t("Loading analysis…")}</Text>
         </View>
       ) : (
         <FlatList
@@ -470,7 +469,7 @@ export default function TestAnalysisScreen({ route, navigation }) {
           ListHeaderComponent={
             <>
               {/* Fixed summary bar */}
-              <SummaryBar summary={summary} />
+              <SummaryBar summary={_tx(summary)} />
               {/* Tab bar */}
               <TabBar
                 active={activeTab}
@@ -483,7 +482,7 @@ export default function TestAnalysisScreen({ route, navigation }) {
           ListEmptyComponent={
             <View style={s.emptyWrap}>
               <MaterialIcons name="quiz" size={44} color="#cbd5e1" />
-              <Text style={s.emptyTxt}>No questions in this category</Text>
+              <Text style={s.emptyTxt}>{_t("No questions in this category")}</Text>
             </View>
           }
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}

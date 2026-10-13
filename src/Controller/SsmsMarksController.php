@@ -525,6 +525,10 @@ class SsmsMarksController extends AppController
                     $row['grade']     = !$row['is_passed'] ? 'F'
                         : ($pct >= 90 ? 'A+' : ($pct >= 80 ? 'A' : ($pct >= 70 ? 'B+'
                         : ($pct >= 60 ? 'B'  : ($pct >= 50 ? 'C' : 'D')))));
+                    if (($cfg = \App\Service\Grading::applyConfigured((string)$clientCode, (float)$pct, $failedSubject)) !== null) {
+                        $row['is_passed'] = $cfg['is_pass'];
+                        $row['grade']     = $cfg['label'];
+                    }
                 }
                 unset($row);
 
@@ -672,6 +676,10 @@ class SsmsMarksController extends AppController
         $grade    = !$isPassed ? 'F'
             : ($percentage >= 90 ? 'A+' : ($percentage >= 80 ? 'A' : ($percentage >= 70 ? 'B+'
             : ($percentage >= 60 ? 'B'  : ($percentage >= 50 ? 'C' : 'D')))));
+        if (($cfg = \App\Service\Grading::applyConfigured((string)$clientCode, (float)$percentage, $failedSubject)) !== null) {
+            $isPassed = $cfg['is_pass'];
+            $grade    = $cfg['label'];
+        }
 
         $this->set(compact(
             'schoolRow', 'student', 'exam', 'marks',

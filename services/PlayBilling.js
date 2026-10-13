@@ -10,6 +10,7 @@
  */
 import { Platform } from "react-native";
 import Constants from "expo-constants";
+import * as Application from "expo-application";
 import Purchases from "react-native-purchases";
 import { REVENUECAT_ANDROID_KEY } from "../Environment/EnvironmentConfig";
 
@@ -25,6 +26,10 @@ let configuredFor = null;
 export function playBillingUnavailableReason() {
   if (Platform.OS !== "android") return "Subscriptions can be purchased from the Android app.";
   if (IS_EXPO_GO)               return "In-app purchases don't work in Expo Go. Use the development build.";
+  // The development app (com.sawera.ssms.dev) is not the app registered in
+  // Google Play / RevenueCat, so purchases can't work there – skip RevenueCat.
+  if (String(Application.applicationId ?? "").endsWith(".dev"))
+    return "Purchases only work in the app installed from Google Play (internal testing). This is the development app.";
   if (!REVENUECAT_ANDROID_KEY)  return "In-app purchases are not configured yet (REVENUECAT_ANDROID_KEY).";
   return null;
 }

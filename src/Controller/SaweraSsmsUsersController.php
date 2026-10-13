@@ -7,6 +7,10 @@ use Cake\I18n\Date;
 use Cake\Routing\Router;
 use Psr\Http\Message\UploadedFileInterface;
 use Cake\Log\Log;
+use App\Service\AccountSecurity;
+use App\Service\Audit;
+use App\Service\Passwords;
+use App\Service\TwoFactor;
 
 /**
  * SaweraSsmsUsers Controller
@@ -22,7 +26,7 @@ class SaweraSsmsUsersController extends AppController
 	public function beforeFilter(\Cake\Event\EventInterface $event): void
 	{
 		parent::beforeFilter($event);
-		$this->Authentication->addUnauthenticatedActions(['login', 'sendResetPin', 'verifyResetPin']);
+		$this->Authentication->addUnauthenticatedActions(['login', 'sendResetPin', 'verifyResetPin', 'loginVerify', 'loginSetup', 'setPassword']);
 	}
 
     public function initialize(): void
@@ -178,7 +182,7 @@ class SaweraSsmsUsersController extends AppController
             $hashFormat = '$2y$10$';
             $salt = 'iusesomecrazystrings22';
             $hashSalt = $hashFormat . $salt;
-            $password = crypt($this->request->getData('ssms_user_password'), $hashSalt);
+            $password = Passwords::hash((string)$this->request->getData('ssms_user_password'));
             $users_table = $this->fetchTable('SaweraSsmsUsers');
            $file   = $this->request->getData('ssms_user_image');
             $filename = "";
@@ -261,7 +265,7 @@ class SaweraSsmsUsersController extends AppController
             $hashFormat = '$2y$10$';
             $salt = 'iusesomecrazystrings22';
             $hashSalt = $hashFormat . $salt;
-            $password = crypt($this->request->getData('ssms_user_password'), $hashSalt);
+            $password = Passwords::hash((string)$this->request->getData('ssms_user_password'));
             $saweraSsmsUser->ssms_user_name = $username;
             $saweraSsmsUser->ssms_user_password = $password;
             $saweraSsmsUser->ssms_user_firstname = $userFirstName;
@@ -421,9 +425,46 @@ class SaweraSsmsUsersController extends AppController
 	{
 		$this->request->allowMethod(['get', 'post']);
 		$result = $this->Authentication->getResult();
+		$isPost = $this->request->is('post');
+		$ip     = AccountSecurity::clientIp($this->request);
+		$uname  = trim((string)$this->request->getData('ssms_user_name'));
+
+		// ── Too many wrong attempts → paused for 15 minutes ──────────────────
+		if ($isPost && $uname !== '') {
+			$mins = AccountSecurity::lockedFor($uname, $ip);
+			if ($mins > 0) {
+				if ($result && $result->isValid()) {
+					$this->Authentication->logout();
+				}
+				$this->Flash->error(AccountSecurity::lockMessage($mins));
+				return;
+			}
+		}
+
 		// regardless of POST or GET, redirect if user is logged in
 		if ($result && $result->isValid()) {
 			 $user = $this->Authentication->getIdentity();
+
+			 // ── Fresh password sign-in: upgrade the hash, then two-step login if needed ──
+			 $plain = (string)$this->request->getData('ssms_user_password');
+			 $freshLogin = $isPost && strcasecmp((string)$user->ssms_user_name, $uname) === 0
+				 && Passwords::verify($plain, (string)$user->ssms_user_password);   // not a stale tab posting while already signed in
+			 if ($freshLogin && strtolower(trim($user->ssms_user_status ?? '')) === 'active') {
+				 AccountSecurity::recordSuccess($uname, $ip);
+				 if (Passwords::needsRehash((string)$user->ssms_user_password)) {
+					 ConnectionManager::get('default')->execute('UPDATE sawera_ssms_users SET ssms_user_password = ? WHERE ssms_user_name = ?',
+						 [Passwords::hash($plain), $user->ssms_user_name]);
+				 }
+				 $gate = TwoFactor::gate([
+					 'ssms_user_name' => $user->ssms_user_name, 'ssms_client_code' => $user->ssms_client_code, 'ssms_user_role' => $user->ssms_user_role,
+				 ], (string)$this->request->getCookie('mma_trust'), true);
+				 if ($gate !== null && !isset($gate['blocked'])) {
+					 $this->Authentication->logout();
+					 $this->request->getSession()->write('mfa_pending', ['user' => $user->ssms_user_name, 'challenge' => $gate['challenge'],
+						 'purpose' => $gate['purpose'], 'email' => $gate['email'] ?? '']);
+					 return $this->redirect(['action' => $gate['purpose'] === 'setup' ? 'loginSetup' : 'loginVerify']);
+				 }
+			 }
             \Cake\Log\Log::error("LOGIN DEBUG: status=" . ($user->ssms_user_status ?? 'NULL') . " role=" . ($user->ssms_user_role ?? 'NULL') . " client=" . ($user->ssms_client_code ?? 'NULL'));
 			 // Case-insensitive status check — handles 'active', 'Active', 'ACTIVE'
 			 if (strtolower(trim($user->ssms_user_status ?? '')) === 'active')
@@ -437,6 +478,7 @@ class SaweraSsmsUsersController extends AppController
 				 $session->write('ssms_user_email', $user->ssms_user_email);
 				 $session->write('branch_id', $user->branch_id);
 				 $session->write('staff_id', $user->staff_id);
+				 $this->_trackWebSession($user, $freshLogin);
 				 $connection = ConnectionManager::get('default');
 				 $results = $connection->execute(
                      "SELECT * FROM ssms_clients where ssms_client_code = ?",
@@ -500,7 +542,175 @@ class SaweraSsmsUsersController extends AppController
 
 		// display error if user submitted and authentication failed
 		if ($this->request->is('post') && !$result->isValid()) {
-			$this->Flash->error(__('Invalid username or password'));
+			$locked = $uname !== '' && AccountSecurity::recordFailure($uname, $ip);
+			try {
+				$row = ConnectionManager::get('default')->execute('SELECT ssms_client_code, ssms_user_role FROM sawera_ssms_users WHERE ssms_user_name = ? LIMIT 1', [$uname])->fetch('assoc');
+				if ($row) {
+					Audit::log((string)$row['ssms_client_code'], $locked ? 'login.locked' : 'login.failed', ['category' => 'security',
+						'actor' => $uname, 'role' => (string)$row['ssms_user_role'], 'ip' => $ip, 'app_version' => 'web',
+						'summary' => $locked ? 'Too many wrong passwords (web) · sign-in paused' : 'Wrong password (web)']);
+				}
+			} catch (\Throwable $e) {
+			}
+			$this->Flash->error($locked ? AccountSecurity::lockMessage(AccountSecurity::LOCK_MINUTES) : __('Invalid username or password'));
+		}
+	}
+
+	/** Web sign-ins are listed (and can be ended) like app sign-ins. */
+	private function _trackWebSession($user, bool $fresh): void
+	{
+		$session = $this->request->getSession();
+		if ($session->check('sec_sid') && !$fresh) {
+			return;
+		}
+		$sid = AccountSecurity::createSession((string)$user->ssms_client_code, (string)$user->ssms_user_name, [
+			'device' => 'Web browser', 'platform' => 'web', 'app_version' => 'web', 'ip' => AccountSecurity::clientIp($this->request),
+		], (bool)$session->read('mfa_web_ok'));
+		if ($sid !== null) {
+			$session->write('sec_sid', $sid);
+		}
+		$session->write('sec_iat', time());
+		$session->delete('mfa_web_ok');
+		Audit::log((string)$user->ssms_client_code, 'login', ['category' => 'security', 'actor' => (string)$user->ssms_user_name,
+			'role' => (string)$user->ssms_user_role, 'ip' => AccountSecurity::clientIp($this->request), 'app_version' => 'web', 'summary' => 'Signed in (web)']);
+	}
+
+	/** Step 2 of web sign-in: authenticator / e-mail / backup code. */
+	public function loginVerify()
+	{
+		$session = $this->request->getSession();
+		$p = $session->read('mfa_pending');
+		if (!$p || ($p['purpose'] ?? '') !== 'verify') {
+			return $this->redirect(['action' => 'login']);
+		}
+		$this->set('pending', $p);
+		if (!$this->request->is('post')) {
+			return;
+		}
+		$ip = AccountSecurity::clientIp($this->request);
+		try {
+			[$user, $client] = TwoFactor::readChallenge((string)$p['challenge'], 'verify');
+			if ($this->request->getData('send_email')) {
+				$to = TwoFactor::sendEmailCode($user);
+				$this->Flash->success("We sent a code to {$to}.");
+				return;
+			}
+			$method = in_array($this->request->getData('method'), ['totp', 'email', 'backup'], true) ? $this->request->getData('method') : 'totp';
+			TwoFactor::verify($user, $method, (string)$this->request->getData('code'), $ip);
+			if ($method === 'backup') {
+				Audit::log($client, 'mfa.backup_used', ['category' => 'security', 'actor' => $user, 'ip' => $ip, 'summary' => 'Signed in with a backup code (web)']);
+			}
+			return $this->_finishMfaLogin($user, $client, (bool)$this->request->getData('trust_device'));
+		} catch (\InvalidArgumentException | \DomainException $e) {
+			if (str_contains($e->getMessage(), 'timed out')) {
+				$session->delete('mfa_pending');
+				$this->Flash->error($e->getMessage());
+				return $this->redirect(['action' => 'login']);
+			}
+			$this->Flash->error($e->getMessage());
+		}
+	}
+
+	/** Required two-step set-up during web sign-in (key typed into the authenticator app). */
+	public function loginSetup()
+	{
+		$session = $this->request->getSession();
+		$p = $session->read('mfa_pending');
+		if (!$p || ($p['purpose'] ?? '') !== 'setup') {
+			return $this->redirect(['action' => 'login']);
+		}
+		try {
+			[$user, $client] = TwoFactor::readChallenge((string)$p['challenge'], 'setup');
+		} catch (\DomainException $e) {
+			$session->delete('mfa_pending');
+			$this->Flash->error($e->getMessage());
+			return $this->redirect(['action' => 'login']);
+		}
+		if ($session->read('mfa_backup_codes')) {
+			// codes shown once; "Continue" finishes the sign-in
+			$this->set('backupCodes', $session->read('mfa_backup_codes'));
+			if ($this->request->is('post')) {
+				$session->delete('mfa_backup_codes');
+				return $this->_finishMfaLogin($user, $client, false);
+			}
+			return;
+		}
+		if (!$this->request->is('post')) {
+			try {
+				$setup = $session->read('mfa_setup') ?: TwoFactor::setupStart($client, $user);
+			} catch (\DomainException $e) {
+				// already turned on (e.g. in the app) → ask for a code instead
+				$session->write('mfa_pending', ['user' => $user, 'challenge' => TwoFactor::challenge($user, $client, 'verify'), 'purpose' => 'verify', 'email' => '']);
+				return $this->redirect(['action' => 'loginVerify']);
+			} catch (\Throwable $e) {
+				$session->delete('mfa_pending');
+				$this->Flash->error('Two-step set-up is not available right now. Please try again later.');
+				return $this->redirect(['action' => 'login']);
+			}
+			$session->write('mfa_setup', $setup);
+			$this->set('setup', $setup);
+			return;
+		}
+		try {
+			$codes = TwoFactor::setupConfirm($user, (string)$this->request->getData('code'));
+			$session->delete('mfa_setup');
+			$session->write('mfa_backup_codes', $codes);
+			Audit::log($client, 'mfa.enabled', ['category' => 'security', 'actor' => $user, 'ip' => AccountSecurity::clientIp($this->request),
+				'summary' => 'Two-step login turned on (web)']);
+			$this->set('backupCodes', $codes);
+		} catch (\InvalidArgumentException | \DomainException $e) {
+			$this->Flash->error($e->getMessage());
+			$this->set('setup', $session->read('mfa_setup'));
+		}
+	}
+
+	private function _finishMfaLogin(string $user, string $client, bool $trust)
+	{
+		$session = $this->request->getSession();
+		$entity  = $this->SaweraSsmsUsers->find()->where(['ssms_user_name' => $user])->first();
+		if (!$entity) {
+			return $this->redirect(['action' => 'login']);
+		}
+		$session->delete('mfa_pending');
+		$session->write('mfa_web_ok', true);
+		$this->Authentication->setIdentity($entity);
+		if ($trust) {
+			$tok = TwoFactor::trustDevice($client, $user, 'Web browser');
+			$this->response = $this->response->withCookie(\Cake\Http\Cookie\Cookie::create('mma_trust', $tok, [
+				'expires' => new \DateTime('+' . TwoFactor::TRUST_DAYS . ' days'), 'httponly' => true, 'secure' => $this->request->is('https'),
+				'samesite' => 'Lax', 'path' => '/',
+			]));
+		}
+
+		return $this->redirect(['action' => 'login']);
+	}
+
+	/** /set-password/{token} – one-time link from the welcome e-mail / WhatsApp message. */
+	public function setPassword($token = null)
+	{
+		$token = (string)$token;
+		$who   = null;
+		try {
+			$who = AccountSecurity::checkPasswordToken($token);
+		} catch (\Throwable $e) {
+		}
+		$this->set(['valid' => $who !== null, 'username' => $who[1] ?? '', 'done' => false]);
+		if (!$who || !$this->request->is('post')) {
+			return;
+		}
+		$pw  = (string)$this->request->getData('new_password');
+		$pw2 = (string)$this->request->getData('confirm_password');
+		if ($pw !== $pw2) {
+			$this->Flash->error('The two passwords are not the same.');
+			return;
+		}
+		try {
+			[$client, $user] = AccountSecurity::usePasswordToken($token, $pw);
+			Audit::log($client, 'password.set', ['category' => 'security', 'actor' => $user, 'ip' => AccountSecurity::clientIp($this->request),
+				'summary' => 'Password set from the welcome link']);
+			$this->set(['done' => true, 'valid' => false]);
+		} catch (\InvalidArgumentException | \DomainException $e) {
+			$this->Flash->error($e->getMessage());
 		}
 	}
 
@@ -509,6 +719,9 @@ class SaweraSsmsUsersController extends AppController
 
 
 		 $session = $this->request->getSession();
+		 if ($session->read('sec_sid')) {
+			 AccountSecurity::revokeSid((string)$session->read('sec_sid'), 'signed out (web)');
+		 }
          $this->Flash->success('You are now logged out.');
          $session->delete('ssms_client_code');
          $session->delete('ssms_user_firstname');
@@ -577,10 +790,9 @@ class SaweraSsmsUsersController extends AppController
             $hashFormat = '$2y$10$';
             $salt = 'iusesomecrazystrings22';
             $hashSalt = $hashFormat . $salt;
-            $password = crypt($this->request->getData('ssms_user_password'), $hashSalt);
-            $newPassword = crypt($this->request->getData('new_password'), $hashSalt);
-            $saweraSsmsUser = $this->SaweraSsmsUsers->find()->where(['ssms_client_code' => $session->read('ssms_client_code'), 'ssms_user_name' => $username, 'ssms_user_password' => $password]);
-            $userCount = $saweraSsmsUser->count();
+            $newPassword = Passwords::hash((string)$this->request->getData('new_password'));
+            $found = $this->SaweraSsmsUsers->find()->where(['ssms_client_code' => $session->read('ssms_client_code'), 'ssms_user_name' => $username])->first();
+            $userCount = ($found && Passwords::verify((string)$this->request->getData('ssms_user_password'), (string)$found->ssms_user_password)) ? 1 : 0;
             if($userCount >= 1)
                 {
 
@@ -589,6 +801,10 @@ class SaweraSsmsUsersController extends AppController
                         "UPDATE sawera_ssms_users SET ssms_user_password = ? where ssms_client_code = ? AND ssms_user_name = ?",
                         [$newPassword, $session->read('ssms_client_code'), $username]
                     );
+                    // signs out the person's other devices; keeps this browser if they changed their own password
+                    $own = strcasecmp((string)$username, (string)$session->read('ssms_user_name')) === 0;
+                    AccountSecurity::revokeAll((string)$session->read('ssms_client_code'), (string)$username,
+                        $own && $session->read('sec_sid') ? (string)$session->read('sec_sid') : null, 'password changed (web)');
                     $this->Flash->success(__('The user password has been changed.'));
                         return $this->redirect(['action' => 'index']);
             }
@@ -617,11 +833,8 @@ class SaweraSsmsUsersController extends AppController
             $userLname = $this->request->getData('ssms_user_lastname');
 
             // Verify current password before saving
-            $hashSalt  = '$2y$10$iusesomecrazystrings22';
-            $password  = crypt($this->request->getData('ssms_user_password'), $hashSalt);
-            $userCount = $this->SaweraSsmsUsers->find()
-                ->where(['ssms_client_code' => $clientCode, 'ssms_user_name' => $username, 'ssms_user_password' => $password])
-                ->count();
+            $me        = $this->SaweraSsmsUsers->find()->where(['ssms_client_code' => $clientCode, 'ssms_user_name' => $username])->first();
+            $userCount = ($me && Passwords::verify((string)$this->request->getData('ssms_user_password'), (string)$me->ssms_user_password)) ? 1 : 0;
 
             if ($userCount >= 1) {
                 $photoFile = $this->request->getData('ssms_user_image');
@@ -807,7 +1020,14 @@ class SaweraSsmsUsersController extends AppController
             return;
         }
 
-        if ($pin !== $storedPin) {
+        if (!hash_equals($storedPin, $pin)) {
+            // 5 wrong PINs → start over (stops guessing)
+            $tries = (int)$session->read('fp_tries') + 1;
+            $session->write('fp_tries', $tries);
+            if ($tries >= 5) {
+                $session->delete('fp_pin');
+                $session->delete('fp_tries');
+            }
             $this->response = $this->response->withStatus(400);
             $this->set(['success' => false, 'message' => 'Invalid PIN. Please check your email and try again.']);
             $this->viewBuilder()->setOption('serialize', ['success', 'message']);
@@ -828,14 +1048,21 @@ class SaweraSsmsUsersController extends AppController
             return;
         }
 
-        $hashSalt   = '$2y$10$' . 'iusesomecrazystrings22';
-        $newHash    = crypt($newPassword, $hashSalt);
+        $newHash    = Passwords::hash((string)$newPassword);
 
         $connection = ConnectionManager::get('default');
         $connection->execute(
             "UPDATE sawera_ssms_users SET ssms_user_password = ? WHERE ssms_user_name = ? AND ssms_user_email = ?",
             [$newHash, $storedUser, $storedEmail]
         );
+
+        try {
+            $c = $connection->execute('SELECT ssms_client_code FROM sawera_ssms_users WHERE ssms_user_name = ? LIMIT 1', [$storedUser])->fetch('assoc');
+            if ($c) {
+                AccountSecurity::revokeAll((string)$c['ssms_client_code'], (string)$storedUser, null, 'password reset (web)');
+            }
+        } catch (\Throwable $e) {
+        }
 
         // Clear PIN from session
         $session->delete('fp_pin');

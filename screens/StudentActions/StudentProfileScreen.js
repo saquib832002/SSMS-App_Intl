@@ -10,6 +10,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { AuthContext } from "../../context/AuthContext";
 import { HOST_NAME } from "../../Environment/EnvironmentConfig";
 import { fetchStudent, updateStudent } from "../../services/StudentServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const C = {
@@ -29,56 +30,56 @@ const C = {
 };
 
 const TABS = [
-  { label: 'Personal', icon: 'user',      color: C.primary },
-  { label: 'Academic', icon: 'book-open', color: C.violet  },
-  { label: 'Parents',  icon: 'users',     color: C.emerald },
-  { label: 'Address',  icon: 'map-pin',   color: C.cyan    },
+  { get label() { return _t("Personal"); }, icon: 'user',      color: C.primary },
+  { get label() { return _t("Academic"); }, icon: 'book-open', color: C.violet  },
+  { get label() { return _t("Parents"); },  icon: 'users',     color: C.emerald },
+  { get label() { return _t("Address"); },  icon: 'map-pin',   color: C.cyan    },
 ];
 
 // ── Course medium options ─────────────────────────────────────────────────────
 const MEDIUM_OPTIONS = [
-  { label: "Select Medium", value: "" },
-  { label: "English",   value: "English"   },
-  { label: "Hindi",     value: "Hindi"     },
-  { label: "Urdu",      value: "Urdu"      },
-  { label: "Arabic",    value: "Arabic"    },
-  { label: "Assamese",  value: "Assamese"  },
-  { label: "Bengali",   value: "Bengali"   },
-  { label: "Dogri",     value: "Dogri"     },
-  { label: "Gujarati",  value: "Gujarati"  },
-  { label: "Kannada",   value: "Kannada"   },
-  { label: "Kashmiri",  value: "Kashmiri"  },
-  { label: "Maithili",  value: "Maithili"  },
-  { label: "Malayalam", value: "Malayalam" },
-  { label: "Marathi",   value: "Marathi"   },
-  { label: "Nepali",    value: "Nepali"    },
-  { label: "Odia",      value: "Odia"      },
-  { label: "Pali",      value: "Pali"      },
-  { label: "Prakrit",   value: "Prakrit"   },
-  { label: "Punjabi",   value: "Punjabi"   },
-  { label: "Sindhi",    value: "Sindhi"    },
-  { label: "Tamil",     value: "Tamil"     },
-  { label: "Telugu",    value: "Telugu"    },
-  { label: "Others",    value: "Others"    },
+  { get label() { return _t("Select Medium"); }, value: "" },
+  { get label() { return _t("English"); },   value: "English"   },
+  { get label() { return _t("Hindi"); },     value: "Hindi"     },
+  { get label() { return _t("Urdu"); },      value: "Urdu"      },
+  { get label() { return _t("Arabic"); },    value: "Arabic"    },
+  { get label() { return _t("Assamese"); },  value: "Assamese"  },
+  { get label() { return _t("Bengali"); },   value: "Bengali"   },
+  { get label() { return _t("Dogri"); },     value: "Dogri"     },
+  { get label() { return _t("Gujarati"); },  value: "Gujarati"  },
+  { get label() { return _t("Kannada"); },   value: "Kannada"   },
+  { get label() { return _t("Kashmiri"); },  value: "Kashmiri"  },
+  { get label() { return _t("Maithili"); },  value: "Maithili"  },
+  { get label() { return _t("Malayalam"); }, value: "Malayalam" },
+  { get label() { return _t("Marathi"); },   value: "Marathi"   },
+  { get label() { return _t("Nepali"); },    value: "Nepali"    },
+  { get label() { return _t("Odia"); },      value: "Odia"      },
+  { get label() { return _t("Pali"); },      value: "Pali"      },
+  { get label() { return _t("Prakrit"); },   value: "Prakrit"   },
+  { get label() { return _t("Punjabi"); },   value: "Punjabi"   },
+  { get label() { return _t("Sindhi"); },    value: "Sindhi"    },
+  { get label() { return _t("Tamil"); },     value: "Tamil"     },
+  { get label() { return _t("Telugu"); },    value: "Telugu"    },
+  { get label() { return _t("Others"); },    value: "Others"    },
 ];
 
 const ENROLL_STATUS_OPTIONS = [
-  { label: 'Select Status', value: ''          },
-  { label: 'Pending',       value: 'pending'   },
-  { label: 'Enrolled',      value: 'enrolled'  },
-  { label: 'Cancelled',     value: 'cancelled' },
+  { get label() { return _t("Select Status"); }, value: ''          },
+  { get label() { return _t("Pending"); },       value: 'pending'   },
+  { get label() { return _t("Enrolled"); },      value: 'enrolled'  },
+  { get label() { return _t("Cancelled"); },     value: 'cancelled' },
 ];
 
 const BLOOD_GROUP_OPTIONS = [
-  { label: 'Select Blood Group', value: '' },
-  { label: 'A+',  value: 'A+'  },
-  { label: 'A-',  value: 'A-'  },
-  { label: 'B+',  value: 'B+'  },
-  { label: 'B-',  value: 'B-'  },
-  { label: 'AB+', value: 'AB+' },
-  { label: 'AB-', value: 'AB-' },
-  { label: 'O+',  value: 'O+'  },
-  { label: 'O-',  value: 'O-'  },
+  { get label() { return _t("Select Blood Group"); }, value: '' },
+  { get label() { return _t("A+"); },  value: 'A+'  },
+  { get label() { return _t("A-"); },  value: 'A-'  },
+  { get label() { return _t("B+"); },  value: 'B+'  },
+  { get label() { return _t("B-"); },  value: 'B-'  },
+  { get label() { return _t("AB+"); }, value: 'AB+' },
+  { get label() { return _t("AB-"); }, value: 'AB-' },
+  { get label() { return _t("O+"); },  value: 'O+'  },
+  { get label() { return _t("O-"); },  value: 'O-'  },
 ];
 
 // ── Calendar helpers ──────────────────────────────────────────────────────────
@@ -106,14 +107,14 @@ const parseDateSafe = (str) => {
 const fmtYMD = (d) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const fmtDisplay = (d) =>
-  `${String(d.getDate()).padStart(2,'0')} ${MONTH_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+  `${String(d.getDate()).padStart(2,'0')} ${_tx(MONTH_SHORT[d.getMonth()])} ${d.getFullYear()}`;
 const fmtDobStr = (str) => { const d = parseDateSafe(str); return d ? fmtDisplay(d) : (str ?? ''); };
 
 // ── STATUS badge helper ───────────────────────────────────────────────────────
 const STATUS_META = {
-  active:   { bg: '#dcfce7', text: '#15803d', label: 'Active'   },
-  pending:  { bg: '#fef9c3', text: '#b45309', label: 'Pending'  },
-  inactive: { bg: '#fee2e2', text: '#b91c1c', label: 'Inactive' },
+  active:   { bg: '#dcfce7', text: '#15803d', get label() { return _t("Active"); }   },
+  pending:  { bg: '#fef9c3', text: '#b45309', get label() { return _t("Pending"); }  },
+  inactive: { bg: '#fee2e2', text: '#b91c1c', get label() { return _t("Inactive"); } },
 };
 function StatusBadge({ status }) {
   const s = status?.toLowerCase() ?? 'pending';
@@ -121,7 +122,7 @@ function StatusBadge({ status }) {
   return (
     <View style={[hd.badge, { backgroundColor: m.bg }]}>
       <View style={[hd.badgeDot, { backgroundColor: m.text }]} />
-      <Text style={[hd.badgeTxt, { color: m.text }]}>{m.label}</Text>
+      <Text style={[hd.badgeTxt, { color: m.text }]}>{_tx(m.label)}</Text>
     </View>
   );
 }
@@ -135,8 +136,8 @@ function InfoRow({ label, value, icon, color }) {
         <Feather name={icon} size={13} color={clr} />
       </View>
       <View style={ir.body}>
-        <Text style={ir.label}>{label}</Text>
-        <Text style={ir.value} numberOfLines={2}>{value || '—'}</Text>
+        <Text style={ir.label}>{_tx(label)}</Text>
+        <Text style={ir.value} numberOfLines={2}>{_tx(value) || '—'}</Text>
       </View>
     </View>
   );
@@ -146,7 +147,7 @@ function InfoRow({ label, value, icon, color }) {
 function EditField({ label, ref_, keyboard, icon, multiline }) {
   return (
     <View style={ef.wrap}>
-      <Text style={ef.label}>{label}</Text>
+      <Text style={ef.label}>{_tx(label)}</Text>
       <View style={ef.row}>
         {icon && <MaterialIcons name={icon} size={17} color={C.muted} style={ef.icon} />}
         <TextInput
@@ -155,7 +156,7 @@ function EditField({ label, ref_, keyboard, icon, multiline }) {
           onChangeText={v => { ref_.current = v; }}
           keyboardType={keyboard ?? 'default'}
           placeholderTextColor={C.muted}
-          placeholder={label}
+          placeholder={_tx(label)}
           autoCorrect={false}
           multiline={!!multiline}
         />
@@ -170,11 +171,11 @@ function EditDateField({ label, ref_ }) {
   const [open, setOpen]       = useState(false);
   return (
     <View style={ef.wrap}>
-      <Text style={ef.label}>{label}</Text>
+      <Text style={ef.label}>{_tx(label)}</Text>
       <TouchableOpacity style={ef.dateBtn} onPress={() => setOpen(true)} activeOpacity={0.75}>
         <MaterialIcons name="event" size={18} color={display ? C.primary : C.muted} />
         <Text style={[ef.dateBtnText, display && { color: C.text, fontWeight: '700' }]}>
-          {display || 'Tap to pick date'}
+          {_tx(display) || _t("Tap to pick date")}
         </Text>
       </TouchableOpacity>
       <CalendarModal
@@ -193,18 +194,18 @@ function EditDropdown({ label, value, onChange, icon, options }) {
   const selected = options.find(o => o.value === value);
   return (
     <View style={ef.wrap}>
-      <Text style={ef.label}>{label}</Text>
+      <Text style={ef.label}>{_tx(label)}</Text>
       <TouchableOpacity style={ef.row} onPress={() => setOpen(true)} activeOpacity={0.75}>
         {icon && <MaterialIcons name={icon} size={17} color={C.muted} style={ef.icon} />}
         <Text style={[ef.input, { color: value ? C.text : C.muted }]} numberOfLines={1}>
-          {selected?.label || `Select ${label}`}
+          {_tx(selected?.label) || _t("Select {label}", { label })}
         </Text>
         <Feather name="chevron-down" size={15} color={C.muted} style={{ marginRight: 12 }} />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={dd.overlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={dd.sheet}>
-            <Text style={dd.title}>{label}</Text>
+            <Text style={dd.title}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={(o, i) => String(o.value) + i}
@@ -214,7 +215,7 @@ function EditDropdown({ label, value, onChange, icon, options }) {
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[dd.optionTxt, o.value === value && dd.optionTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {o.value === value && <Feather name="check" size={14} color={C.primary} />}
                 </TouchableOpacity>
@@ -245,7 +246,7 @@ function SectionHeader({ label, icon, color }) {
       <View style={[sh.iconBox, { backgroundColor: clr }]}>
         <Feather name={icon} size={12} color="#fff" />
       </View>
-      <Text style={[sh.label, { color: clr }]}>{label}</Text>
+      <Text style={[sh.label, { color: clr }]}>{_tx(label)}</Text>
       <View style={[sh.line, { backgroundColor: clr + '30' }]} />
     </View>
   );
@@ -420,7 +421,7 @@ export default function StudentProfileScreen({ route, navigation }) {
         });
         setFormKey(k => k + 1);
       } catch (e) {
-        Alert.alert('Error', e.message ?? 'Could not load student details.');
+        Alert.alert(_t("Error"), _tx(e.message) ?? _t("Could not load student details."));
       } finally {
         setLoading(false);
       }
@@ -429,7 +430,7 @@ export default function StudentProfileScreen({ route, navigation }) {
 
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!regId) { Alert.alert('Error', 'Student ID not available.'); return; }
+    if (!regId) { Alert.alert(_t("Error"), _t("Student ID not available.")); return; }
     try {
       setSaving(true);
       await updateStudent(regId, {
@@ -472,10 +473,10 @@ export default function StudentProfileScreen({ route, navigation }) {
         pAddressHomephone:      rPPhone.current,
       }, user);
       pushDisp({ className: disp.className, enrollStatus: enrollStatusVal, bloodGroup: bloodGroupVal, photo: disp.photo });
-      Alert.alert('Saved ✓', 'Student profile updated successfully.');
+      Alert.alert(_t("Saved ✓"), _t("Student profile updated successfully."));
       setIsEditing(false);
     } catch (e) {
-      Alert.alert('Error', e.message ?? 'Update failed.');
+      Alert.alert(_t("Error"), _tx(e.message) ?? _t("Update failed."));
     } finally {
       setSaving(false);
     }
@@ -536,7 +537,7 @@ export default function StudentProfileScreen({ route, navigation }) {
     return (
       <View style={st.loaderWrap}>
         <ActivityIndicator size="large" color={C.primary} />
-        <Text style={st.loaderText}>Loading student profile…</Text>
+        <Text style={st.loaderText}>{_t("Loading student profile…")}</Text>
       </View>
     );
   }
@@ -554,18 +555,18 @@ export default function StudentProfileScreen({ route, navigation }) {
           />
         </View>
         <View style={hd.info}>
-          <Text style={hd.name} numberOfLines={1}>{fullName || 'Student Name'}</Text>
+          <Text style={hd.name} numberOfLines={1}>{_tx(fullName) || _t("Student Name")}</Text>
           <View style={hd.metaRow}>
             {!!disp.registrationNo && (
               <View style={hd.metaChip}>
                 <Feather name="hash" size={9} color="#93c5fd" />
-                <Text style={hd.metaTxt}>{disp.registrationNo}</Text>
+                <Text style={hd.metaTxt}>{_tx(disp.registrationNo)}</Text>
               </View>
             )}
             {!!disp.className && (
               <View style={hd.metaChip}>
                 <Feather name="layers" size={9} color="#93c5fd" />
-                <Text style={hd.metaTxt}>{disp.className}{disp.section ? ` · ${disp.section}` : ''}</Text>
+                <Text style={hd.metaTxt}>{_tx(disp.className)}{disp.section ? ` · ${_tx(disp.section)}` : ''}</Text>
               </View>
             )}
           </View>
@@ -585,11 +586,24 @@ export default function StudentProfileScreen({ route, navigation }) {
               activeOpacity={0.75}
             >
               <Feather name={t.icon} size={13} color={active ? '#fff' : C.muted} />
-              <Text style={[tb.tabTxt, active && tb.tabTxtActive]}>{t.label}</Text>
+              <Text style={[tb.tabTxt, active && tb.tabTxtActive]}>{_tx(t.label)}</Text>
             </TouchableOpacity>
           );
         })}
       </View>
+
+      {/* ── COMPLETE RECORD (guardians, health, documents, extra fields) ── */}
+      {!!(disp.registrationNo || regId) && (
+        <TouchableOpacity
+          style={rc.btn}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('StudentRecord', { registrationId: String(disp.registrationNo || regId) })}
+        >
+          <Feather name="folder" size={15} color="#5b21b6" />
+          <Text style={rc.txt}>{_t("Guardians · Health · Documents")}</Text>
+          <Feather name="chevron-right" size={16} color="#5b21b6" />
+        </TouchableOpacity>
+      )}
 
       {/* ── TAB CONTENT ─────────────────────────────────────────────────── */}
       <ScrollView
@@ -604,60 +618,60 @@ export default function StudentProfileScreen({ route, navigation }) {
           {activeTab === 0 && (
             <View style={st.tabPane}>
 
-              <SectionHeader label="Identity" icon="user" color={C.primary} />
+              <SectionHeader label={_t("Identity")} icon="user" color={C.primary} />
               {isEditing ? (
                 <>
-                  <EditField label="First Name"    ref_={rFirstName}  icon="person-outline" />
-                  <EditField label="Middle Name"   ref_={rMiddleName} icon="person-outline" />
-                  <EditField label="Last Name"     ref_={rLastName}   icon="person-outline" />
-                  <EditField label="Gender"        ref_={rGender}     icon="wc" />
-                  <EditDateField label="Date of Birth" ref_={rDob} />
+                  <EditField label={_t("First Name")}    ref_={rFirstName}  icon="person-outline" />
+                  <EditField label={_t("Middle Name")}   ref_={rMiddleName} icon="person-outline" />
+                  <EditField label={_t("Last Name")}     ref_={rLastName}   icon="person-outline" />
+                  <EditField label={_t("Gender")}        ref_={rGender}     icon="wc" />
+                  <EditDateField label={_t("Date of Birth")} ref_={rDob} />
                 </>
               ) : (
                 <>
-                  <InfoRow label="First Name"    value={disp.firstName}       icon="user"     color={C.primary} />
-                  <InfoRow label="Middle Name"   value={disp.middleName}      icon="user"     color={C.primary} />
-                  <InfoRow label="Last Name"     value={disp.lastName}        icon="user"     color={C.primary} />
-                  <InfoRow label="Gender"        value={disp.gender}          icon="info"     color={C.primary} />
-                  <InfoRow label="Date of Birth" value={fmtDobStr(disp.dob)} icon="calendar" color={C.primary} />
+                  <InfoRow label={_t("First Name")}    value={disp.firstName}       icon="user"     color={C.primary} />
+                  <InfoRow label={_t("Middle Name")}   value={disp.middleName}      icon="user"     color={C.primary} />
+                  <InfoRow label={_t("Last Name")}     value={disp.lastName}        icon="user"     color={C.primary} />
+                  <InfoRow label={_t("Gender")}        value={disp.gender}          icon="info"     color={C.primary} />
+                  <InfoRow label={_t("Date of Birth")} value={fmtDobStr(disp.dob)} icon="calendar" color={C.primary} />
                 </>
               )}
 
-              <SectionHeader label="Contact" icon="phone" color={C.primary} />
+              <SectionHeader label={_t("Contact")} icon="phone" color={C.primary} />
               {isEditing ? (
                 <>
-                  <EditField label="Email"  ref_={rEmail}  keyboard="email-address" icon="mail-outline" />
-                  <EditField label="Mobile" ref_={rMobile} keyboard="phone-pad"     icon="phone-iphone" />
+                  <EditField label={_t("Email")}  ref_={rEmail}  keyboard="email-address" icon="mail-outline" />
+                  <EditField label={_t("Mobile")} ref_={rMobile} keyboard="phone-pad"     icon="phone-iphone" />
                 </>
               ) : (
                 <>
-                  <InfoRow label="Email"  value={disp.email}  icon="mail"  color={C.primary} />
-                  <InfoRow label="Mobile" value={disp.mobile} icon="phone" color={C.primary} />
+                  <InfoRow label={_t("Email")}  value={disp.email}  icon="mail"  color={C.primary} />
+                  <InfoRow label={_t("Mobile")} value={disp.mobile} icon="phone" color={C.primary} />
                 </>
               )}
 
-              <SectionHeader label="Birth & Nationality" icon="globe" color={C.primary} />
+              <SectionHeader label={_t("Birth & Nationality")} icon="globe" color={C.primary} />
               {isEditing ? (
                 <>
-                  <EditField label="Place of Birth" ref_={rPlaceOfBirth} icon="place"  />
-                  <EditField label="Nationality"    ref_={rNationality}  icon="public" />
+                  <EditField label={_t("Place of Birth")} ref_={rPlaceOfBirth} icon="place"  />
+                  <EditField label={_t("Nationality")}    ref_={rNationality}  icon="public" />
                 </>
               ) : (
                 <>
-                  <InfoRow label="Place of Birth" value={disp.placeOfBirth} icon="map-pin" color={C.primary} />
-                  <InfoRow label="Nationality"    value={disp.nationality}  icon="globe"   color={C.primary} />
+                  <InfoRow label={_t("Place of Birth")} value={disp.placeOfBirth} icon="map-pin" color={C.primary} />
+                  <InfoRow label={_t("Nationality")}    value={disp.nationality}  icon="globe"   color={C.primary} />
                 </>
               )}
 
-              <SectionHeader label="Optional Details" icon="tag" color={C.primary} />
+              <SectionHeader label={_t("Optional Details")} icon="tag" color={C.primary} />
               {isEditing ? (
                 <>
-                  <EditField label="Admission Number" ref_={rAdmissionNumber} icon="confirmation-number" />
-                  <EditDateField label="Admission Date" ref_={rAdmissionDate} />
-                  <EditField label="Caste"            ref_={rCaste}           icon="people" />
-                  <EditField label="Religion"         ref_={rReligion}        icon="brightness-5" />
+                  <EditField label={_t("Admission Number")} ref_={rAdmissionNumber} icon="confirmation-number" />
+                  <EditDateField label={_t("Admission Date")} ref_={rAdmissionDate} />
+                  <EditField label={_t("Caste")}            ref_={rCaste}           icon="people" />
+                  <EditField label={_t("Religion")}         ref_={rReligion}        icon="brightness-5" />
                   <EditDropdown
-                    label="Blood Group"
+                    label={_t("Blood Group")}
                     value={bloodGroupVal}
                     onChange={v => setBloodGroupVal(v)}
                     icon="bloodtype"
@@ -666,11 +680,11 @@ export default function StudentProfileScreen({ route, navigation }) {
                 </>
               ) : (
                 <>
-                  <InfoRow label="Admission Number" value={disp.admissionNumber}          icon="hash"     color={C.primary} />
-                  <InfoRow label="Admission Date"   value={fmtDobStr(disp.admissionDate)} icon="calendar" color={C.primary} />
-                  <InfoRow label="Caste"            value={disp.caste}                    icon="users"    color={C.primary} />
-                  <InfoRow label="Religion"         value={disp.religion}        icon="heart"   color={C.primary} />
-                  <InfoRow label="Blood Group"      value={disp.bloodGroup}      icon="droplet" color={C.primary} />
+                  <InfoRow label={_t("Admission Number")} value={disp.admissionNumber}          icon="hash"     color={C.primary} />
+                  <InfoRow label={_t("Admission Date")}   value={fmtDobStr(disp.admissionDate)} icon="calendar" color={C.primary} />
+                  <InfoRow label={_t("Caste")}            value={disp.caste}                    icon="users"    color={C.primary} />
+                  <InfoRow label={_t("Religion")}         value={disp.religion}        icon="heart"   color={C.primary} />
+                  <InfoRow label={_t("Blood Group")}      value={disp.bloodGroup}      icon="droplet" color={C.primary} />
                 </>
               )}
             </View>
@@ -680,13 +694,13 @@ export default function StudentProfileScreen({ route, navigation }) {
           {activeTab === 1 && (
             <View style={st.tabPane}>
 
-              <SectionHeader label="Class Placement" icon="layers" color={C.violet} />
+              <SectionHeader label={_t("Class Placement")} icon="layers" color={C.violet} />
               {isEditing ? (
                 <>
-                  <EditField label="Section"          ref_={rSection}        icon="grid-on" />
-                  <EditField label="Registration No." ref_={rRegistrationNo} icon="badge"   />
+                  <EditField label={_t("Section")}          ref_={rSection}        icon="grid-on" />
+                  <EditField label={_t("Registration No.")} ref_={rRegistrationNo} icon="badge"   />
                   <EditDropdown
-                    label="Enroll Status"
+                    label={_t("Enroll Status")}
                     value={enrollStatusVal}
                     onChange={v => setEnrollStatusVal(v)}
                     icon="check-circle"
@@ -695,31 +709,31 @@ export default function StudentProfileScreen({ route, navigation }) {
                 </>
               ) : (
                 <>
-                  <InfoRow label="Class"            value={disp.className}      icon="layers"       color={C.violet} />
-                  <InfoRow label="Section"          value={disp.section}        icon="grid"         color={C.violet} />
-                  <InfoRow label="Registration No." value={disp.registrationNo} icon="hash"         color={C.violet} />
-                  <InfoRow label="Enroll Status"    value={disp.enrollStatus}   icon="check-circle" color={C.violet} />
+                  <InfoRow label={_t("Class")}            value={disp.className}      icon="layers"       color={C.violet} />
+                  <InfoRow label={_t("Section")}          value={disp.section}        icon="grid"         color={C.violet} />
+                  <InfoRow label={_t("Registration No.")} value={disp.registrationNo} icon="hash"         color={C.violet} />
+                  <InfoRow label={_t("Enroll Status")}    value={disp.enrollStatus}   icon="check-circle" color={C.violet} />
                 </>
               )}
 
-              <SectionHeader label="Learning Profile" icon="book-open" color={C.violet} />
+              <SectionHeader label={_t("Learning Profile")} icon="book-open" color={C.violet} />
               {isEditing ? (
                 <>
                   <EditDropdown
-                    label="Course Medium"
+                    label={_t("Course Medium")}
                     value={courseMediumVal}
                     onChange={v => { setCourseMediumVal(v); rCourseMedium.current = v; }}
                     icon="translate"
                     options={MEDIUM_OPTIONS}
                   />
-                  <EditField label="Admission Type"         ref_={rAdmissionType}  icon="label"        />
-                  <EditField label="Physically Challenged?" ref_={rPhysicalStatus} icon="accessibility" />
+                  <EditField label={_t("Admission Type")}         ref_={rAdmissionType}  icon="label"        />
+                  <EditField label={_t("Physically Challenged?")} ref_={rPhysicalStatus} icon="accessibility" />
                 </>
               ) : (
                 <>
-                  <InfoRow label="Course Medium"         value={disp.courseMedium}  icon="message-circle" color={C.violet} />
-                  <InfoRow label="Admission Type"        value={disp.admissionType} icon="tag"            color={C.violet} />
-                  <InfoRow label="Physically Challenged" value={disp.physicalStatus} icon="activity"      color={C.violet} />
+                  <InfoRow label={_t("Course Medium")}         value={disp.courseMedium}  icon="message-circle" color={C.violet} />
+                  <InfoRow label={_t("Admission Type")}        value={disp.admissionType} icon="tag"            color={C.violet} />
+                  <InfoRow label={_t("Physically Challenged")} value={disp.physicalStatus} icon="activity"      color={C.violet} />
                 </>
               )}
             </View>
@@ -729,33 +743,33 @@ export default function StudentProfileScreen({ route, navigation }) {
           {activeTab === 2 && (
             <View style={st.tabPane}>
 
-              <SectionHeader label="Father's Details" icon="user" color={C.emerald} />
+              <SectionHeader label={_t("Father's Details")} icon="user" color={C.emerald} />
               {isEditing ? (
                 <>
-                  <EditField label="Father's Name" ref_={rFatherName}       icon="person"     />
-                  <EditField label="Occupation"    ref_={rFatherOccupation} icon="work"       />
-                  <EditField label="Age"           ref_={rFatherAge}        keyboard="number-pad" icon="cake" />
+                  <EditField label={_t("Father's Name")} ref_={rFatherName}       icon="person"     />
+                  <EditField label={_t("Occupation")}    ref_={rFatherOccupation} icon="work"       />
+                  <EditField label={_t("Age")}           ref_={rFatherAge}        keyboard="number-pad" icon="cake" />
                 </>
               ) : (
                 <>
-                  <InfoRow label="Father's Name" value={disp.fatherName}       icon="user"      color={C.emerald} />
-                  <InfoRow label="Occupation"    value={disp.fatherOccupation} icon="briefcase" color={C.emerald} />
-                  <InfoRow label="Age"           value={disp.fatherAge}        icon="calendar"  color={C.emerald} />
+                  <InfoRow label={_t("Father's Name")} value={disp.fatherName}       icon="user"      color={C.emerald} />
+                  <InfoRow label={_t("Occupation")}    value={disp.fatherOccupation} icon="briefcase" color={C.emerald} />
+                  <InfoRow label={_t("Age")}           value={disp.fatherAge}        icon="calendar"  color={C.emerald} />
                 </>
               )}
 
-              <SectionHeader label="Mother's Details" icon="user" color={C.emerald} />
+              <SectionHeader label={_t("Mother's Details")} icon="user" color={C.emerald} />
               {isEditing ? (
                 <>
-                  <EditField label="Mother's Name" ref_={rMotherName}       icon="person"     />
-                  <EditField label="Occupation"    ref_={rMotherOccupation} icon="work"       />
-                  <EditField label="Age"           ref_={rMotherAge}        keyboard="number-pad" icon="cake" />
+                  <EditField label={_t("Mother's Name")} ref_={rMotherName}       icon="person"     />
+                  <EditField label={_t("Occupation")}    ref_={rMotherOccupation} icon="work"       />
+                  <EditField label={_t("Age")}           ref_={rMotherAge}        keyboard="number-pad" icon="cake" />
                 </>
               ) : (
                 <>
-                  <InfoRow label="Mother's Name" value={disp.motherName}        icon="user"       color={C.emerald} />
-                  <InfoRow label="Occupation"    value={disp.motherOccupation}  icon="briefcase"  color={C.emerald} />
-                  <InfoRow label="Age"           value={disp.motherAge}         icon="calendar"   color={C.emerald} />
+                  <InfoRow label={_t("Mother's Name")} value={disp.motherName}        icon="user"       color={C.emerald} />
+                  <InfoRow label={_t("Occupation")}    value={disp.motherOccupation}  icon="briefcase"  color={C.emerald} />
+                  <InfoRow label={_t("Age")}           value={disp.motherAge}         icon="calendar"   color={C.emerald} />
                 </>
               )}
             </View>
@@ -765,45 +779,45 @@ export default function StudentProfileScreen({ route, navigation }) {
           {activeTab === 3 && (
             <View style={st.tabPane}>
 
-              <SectionHeader label="Current Address" icon="home" color={C.cyan} />
+              <SectionHeader label={_t("Current Address")} icon="home" color={C.cyan} />
               {isEditing ? (
                 <>
-                  <EditField label="Line 1" ref_={rCLine1} icon="place" />
-                  <EditField label="Line 2" ref_={rCLine2} icon="place" />
-                  <EditField label="City"   ref_={rCCity}  icon="location-city" />
-                  <EditField label="State"  ref_={rCState} icon="map" />
-                  <EditField label="ZIP"    ref_={rCZip}   keyboard="number-pad" icon="local-post-office" />
-                  <EditField label="Phone"  ref_={rCPhone} keyboard="phone-pad"  icon="phone" />
+                  <EditField label={_t("Line 1")} ref_={rCLine1} icon="place" />
+                  <EditField label={_t("Line 2")} ref_={rCLine2} icon="place" />
+                  <EditField label={_t("City")}   ref_={rCCity}  icon="location-city" />
+                  <EditField label={_t("State")}  ref_={rCState} icon="map" />
+                  <EditField label={_t("ZIP")}    ref_={rCZip}   keyboard="number-pad" icon="local-post-office" />
+                  <EditField label={_t("Phone")}  ref_={rCPhone} keyboard="phone-pad"  icon="phone" />
                 </>
               ) : (
                 <>
-                  <InfoRow label="Line 1" value={disp.cLine1} icon="map-pin" color={C.cyan} />
-                  {!!disp.cLine2 && <InfoRow label="Line 2" value={disp.cLine2} icon="map-pin" color={C.cyan} />}
-                  <InfoRow label="City"   value={disp.cCity}  icon="map"   color={C.cyan} />
-                  <InfoRow label="State"  value={disp.cState} icon="map"   color={C.cyan} />
-                  <InfoRow label="ZIP"    value={disp.cZip}   icon="hash"  color={C.cyan} />
-                  <InfoRow label="Phone"  value={disp.cPhone} icon="phone" color={C.cyan} />
+                  <InfoRow label={_t("Line 1")} value={disp.cLine1} icon="map-pin" color={C.cyan} />
+                  {!!disp.cLine2 && <InfoRow label={_t("Line 2")} value={disp.cLine2} icon="map-pin" color={C.cyan} />}
+                  <InfoRow label={_t("City")}   value={disp.cCity}  icon="map"   color={C.cyan} />
+                  <InfoRow label={_t("State")}  value={disp.cState} icon="map"   color={C.cyan} />
+                  <InfoRow label={_t("ZIP")}    value={disp.cZip}   icon="hash"  color={C.cyan} />
+                  <InfoRow label={_t("Phone")}  value={disp.cPhone} icon="phone" color={C.cyan} />
                 </>
               )}
 
-              <SectionHeader label="Permanent Address" icon="map-pin" color={C.cyan} />
+              <SectionHeader label={_t("Permanent Address")} icon="map-pin" color={C.cyan} />
               {isEditing ? (
                 <>
-                  <EditField label="Line 1" ref_={rPLine1} icon="place" />
-                  <EditField label="Line 2" ref_={rPLine2} icon="place" />
-                  <EditField label="City"   ref_={rPCity}  icon="location-city" />
-                  <EditField label="State"  ref_={rPState} icon="map" />
-                  <EditField label="ZIP"    ref_={rPZip}   keyboard="number-pad" icon="local-post-office" />
-                  <EditField label="Phone"  ref_={rPPhone} keyboard="phone-pad"  icon="phone" />
+                  <EditField label={_t("Line 1")} ref_={rPLine1} icon="place" />
+                  <EditField label={_t("Line 2")} ref_={rPLine2} icon="place" />
+                  <EditField label={_t("City")}   ref_={rPCity}  icon="location-city" />
+                  <EditField label={_t("State")}  ref_={rPState} icon="map" />
+                  <EditField label={_t("ZIP")}    ref_={rPZip}   keyboard="number-pad" icon="local-post-office" />
+                  <EditField label={_t("Phone")}  ref_={rPPhone} keyboard="phone-pad"  icon="phone" />
                 </>
               ) : (
                 <>
-                  <InfoRow label="Line 1" value={disp.pLine1} icon="map-pin" color={C.cyan} />
-                  {!!disp.pLine2 && <InfoRow label="Line 2" value={disp.pLine2} icon="map-pin" color={C.cyan} />}
-                  <InfoRow label="City"   value={disp.pCity}  icon="map"   color={C.cyan} />
-                  <InfoRow label="State"  value={disp.pState} icon="map"   color={C.cyan} />
-                  <InfoRow label="ZIP"    value={disp.pZip}   icon="hash"  color={C.cyan} />
-                  <InfoRow label="Phone"  value={disp.pPhone} icon="phone" color={C.cyan} />
+                  <InfoRow label={_t("Line 1")} value={disp.pLine1} icon="map-pin" color={C.cyan} />
+                  {!!disp.pLine2 && <InfoRow label={_t("Line 2")} value={disp.pLine2} icon="map-pin" color={C.cyan} />}
+                  <InfoRow label={_t("City")}   value={disp.pCity}  icon="map"   color={C.cyan} />
+                  <InfoRow label={_t("State")}  value={disp.pState} icon="map"   color={C.cyan} />
+                  <InfoRow label={_t("ZIP")}    value={disp.pZip}   icon="hash"  color={C.cyan} />
+                  <InfoRow label={_t("Phone")}  value={disp.pPhone} icon="phone" color={C.cyan} />
                 </>
               )}
             </View>
@@ -821,7 +835,7 @@ export default function StudentProfileScreen({ route, navigation }) {
             <>
               <TouchableOpacity style={ab.cancelBtn} onPress={handleCancel} disabled={saving}>
                 <Feather name="x" size={16} color={C.muted} />
-                <Text style={ab.cancelTxt}>Cancel</Text>
+                <Text style={ab.cancelTxt}>{_t("Cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[ab.saveBtn, saving && { opacity: 0.6 }]}
@@ -830,14 +844,14 @@ export default function StudentProfileScreen({ route, navigation }) {
               >
                 {saving
                   ? <ActivityIndicator color="#fff" size="small" />
-                  : <><Feather name="check" size={16} color="#fff" /><Text style={ab.saveTxt}>Save Changes</Text></>
+                  : <><Feather name="check" size={16} color="#fff" /><Text style={ab.saveTxt}>{_t("Save Changes")}</Text></>
                 }
               </TouchableOpacity>
             </>
           ) : (
             <TouchableOpacity style={[ab.editBtn, { backgroundColor: tabColor }]} onPress={() => setIsEditing(true)}>
               <Feather name="edit-2" size={16} color="#fff" />
-              <Text style={ab.editTxt}>Edit Profile</Text>
+              <Text style={ab.editTxt}>{_t("Edit Profile")}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -889,56 +903,56 @@ function CalendarModal({ visible, initial, onConfirm, onCancel }) {
               <TouchableOpacity onPress={prevMonth} style={cp.navBtn}><Feather name="chevron-left"  size={20} color={C.primary} /></TouchableOpacity>
               <View style={cp.navCenter}>
                 <TouchableOpacity onPress={() => setMode('month')} style={cp.navLabel}>
-                  <Text style={cp.navMonthTxt}>{MONTH_NAMES[viewM]}</Text>
+                  <Text style={cp.navMonthTxt}>{_tx(MONTH_NAMES[viewM])}</Text>
                   <Feather name="chevron-down" size={13} color={C.violet} />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setMode('year')} style={cp.navLabel}>
-                  <Text style={cp.navYearTxt}>{viewY}</Text>
+                  <Text style={cp.navYearTxt}>{_tx(viewY)}</Text>
                   <Feather name="chevron-down" size={13} color={C.violet} />
                 </TouchableOpacity>
               </View>
               <TouchableOpacity onPress={nextMonth} style={cp.navBtn}><Feather name="chevron-right" size={20} color={C.primary} /></TouchableOpacity>
             </View>
-            <View style={cp.weekRow}>{DAY_LABELS.map(l => <Text key={l} style={cp.weekLabel}>{l}</Text>)}</View>
+            <View style={cp.weekRow}>{DAY_LABELS.map(l => <Text key={l} style={cp.weekLabel}>{_tx(l)}</Text>)}</View>
             <View style={cp.grid}>
               {cells.map((d, idx) => (
                 <TouchableOpacity key={idx} style={[cp.cell, isSel(d)&&cp.cellSel, isToday(d)&&!isSel(d)&&cp.cellToday]}
                   onPress={() => { if (d && !isFuture(d)) setSelDate(new Date(viewY, viewM, d)); }}
                   disabled={!d || isFuture(d)} activeOpacity={0.7}>
                   <Text style={[cp.cellTxt, isSel(d)&&cp.cellTxtSel, isToday(d)&&!isSel(d)&&cp.cellTxtToday, isFuture(d)&&cp.cellTxtFuture, !d&&{opacity:0}]}>
-                    {d ?? '·'}
+                    {_tx(d) ?? '·'}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
             <View style={cp.footer}>
-              <TouchableOpacity style={cp.btnCancel} onPress={onCancel}><Text style={cp.btnCancelTxt}>Cancel</Text></TouchableOpacity>
-              <TouchableOpacity style={cp.btnConfirm} onPress={() => onConfirm(selDate)}><Text style={cp.btnConfirmTxt}>Confirm  {fmtDisplay(selDate)}</Text></TouchableOpacity>
+              <TouchableOpacity style={cp.btnCancel} onPress={onCancel}><Text style={cp.btnCancelTxt}>{_t("Cancel")}</Text></TouchableOpacity>
+              <TouchableOpacity style={cp.btnConfirm} onPress={() => onConfirm(selDate)}><Text style={cp.btnConfirmTxt}>{_t("Confirm  {selDate}", { selDate: fmtDisplay(selDate) })}</Text></TouchableOpacity>
             </View>
           </>)}
           {mode === 'month' && (<>
-            <Text style={cp.sheetTitle}>Select Month</Text>
+            <Text style={cp.sheetTitle}>{_t("Select Month")}</Text>
             <View style={cp.monthGrid}>
               {MONTH_NAMES.map((name, idx) => (
                 <TouchableOpacity key={name} style={[cp.monthCell, idx===viewM&&cp.monthCellActive]} onPress={()=>{setViewM(idx);setMode('cal');}}>
-                  <Text style={[cp.monthCellTxt, idx===viewM&&cp.monthCellTxtActive]}>{MONTH_SHORT[idx]}</Text>
+                  <Text style={[cp.monthCellTxt, idx===viewM&&cp.monthCellTxtActive]}>{_tx(MONTH_SHORT[idx])}</Text>
                 </TouchableOpacity>
               ))}
             </View>
-            <TouchableOpacity style={cp.backBtn} onPress={()=>setMode('cal')}><Text style={cp.backBtnTxt}>← Back</Text></TouchableOpacity>
+            <TouchableOpacity style={cp.backBtn} onPress={()=>setMode('cal')}><Text style={cp.backBtnTxt}>{_t("← Back")}</Text></TouchableOpacity>
           </>)}
           {mode === 'year' && (<>
-            <Text style={cp.sheetTitle}>Select Year</Text>
+            <Text style={cp.sheetTitle}>{_t("Select Year")}</Text>
             <FlatList data={YEARS} keyExtractor={y=>String(y)} style={{maxHeight:280}}
               initialScrollIndex={Math.max(0,YEARS.indexOf(viewY))}
               getItemLayout={(_,i)=>({length:44,offset:44*i,index:i})}
               renderItem={({item:y})=>(
                 <TouchableOpacity style={[cp.yearRow,y===viewY&&cp.yearRowActive]} onPress={()=>{setViewY(y);setMode('cal');}}>
-                  <Text style={[cp.yearRowTxt,y===viewY&&cp.yearRowTxtActive]}>{y}</Text>
+                  <Text style={[cp.yearRowTxt,y===viewY&&cp.yearRowTxtActive]}>{_tx(y)}</Text>
                   {y===viewY&&<Feather name="check" size={16} color="#fff"/>}
                 </TouchableOpacity>
               )}/>
-            <TouchableOpacity style={cp.backBtn} onPress={()=>setMode('cal')}><Text style={cp.backBtnTxt}>← Back</Text></TouchableOpacity>
+            <TouchableOpacity style={cp.backBtn} onPress={()=>setMode('cal')}><Text style={cp.backBtnTxt}>{_t("← Back")}</Text></TouchableOpacity>
           </>)}
         </View>
       </View>
@@ -947,6 +961,11 @@ function CalendarModal({ visible, initial, onConfirm, onCancel }) {
 }
 
 // ── STYLES ────────────────────────────────────────────────────────────────────
+const rc = StyleSheet.create({
+  btn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 14, marginTop: 10, paddingHorizontal: 14, paddingVertical: 11, borderRadius: 12, backgroundColor: '#ede9fe', borderWidth: 1, borderColor: '#ddd6fe' },
+  txt: { flex: 1, fontSize: 13, fontWeight: '800', color: '#5b21b6' },
+});
+
 const st = StyleSheet.create({
   root:         { flex: 1, backgroundColor: C.bg },
   loaderWrap:   { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, backgroundColor: C.bg },

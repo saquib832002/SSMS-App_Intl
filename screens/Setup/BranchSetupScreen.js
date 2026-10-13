@@ -19,6 +19,7 @@ import {
   updateBranch,
   deleteBranch,
 } from "../../services/SetupServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 export default function BranchSetupScreen() {
   const { user } = useContext(AuthContext);
@@ -38,9 +39,10 @@ export default function BranchSetupScreen() {
     try {
       setLoading(true);
       const data = await fetchBranches(user);
+      if (data?.status === false) throw new Error(data.message || _t("Failed to load branches"));
       setBranches(Array.isArray(data?.data) ? data.data : []);
     } catch (error) {
-      Alert.alert("Error", error.message || "Failed to load branches");
+      Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to load branches"));
     } finally {
       setLoading(false);
     }
@@ -72,7 +74,7 @@ export default function BranchSetupScreen() {
 
   const handleSave = async () => {
     if (!form.branchName.trim()) {
-      Alert.alert("Validation", "Branch name is required");
+      Alert.alert(_t("Validation"), _t("Branch name is required"));
       return;
     }
 
@@ -85,22 +87,24 @@ export default function BranchSetupScreen() {
       };
 
       if (editingBranch) {
-        await updateBranch(user, editingBranch.branch_id, payload);
+        const res = await updateBranch(user, editingBranch.branch_id, payload);
+        if (res?.status === false) throw new Error(res.message || _t("Failed to save branch"));
       } else {
-        await createBranch(user, payload);
+        const res = await createBranch(user, payload);
+        if (res?.status === false) throw new Error(res.message || _t("Failed to save branch"));
       }
 
       setModalVisible(false);
       loadBranches();
 
       Alert.alert(
-        "Success",
+        _t("Success"),
         editingBranch
-          ? "Branch updated successfully"
-          : "Branch added successfully"
+          ? _t("Branch updated successfully")
+          : _t("Branch added successfully")
       );
     } catch (error) {
-      Alert.alert("Error", error.message || "Failed to save branch");
+      Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to save branch"));
     } finally {
       setSaving(false);
     }
@@ -108,20 +112,21 @@ export default function BranchSetupScreen() {
 
   const handleDelete = (branchId) => {
     Alert.alert(
-      "Delete Branch",
-      "Are you sure you want to delete this branch?",
+      _t("Delete Branch"),
+      _t("Are you sure you want to delete this branch?"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Delete",
+          text: _t("Delete"),
           style: "destructive",
           onPress: async () => {
             try {
-              await deleteBranch(user, branchId);
+              const res = await deleteBranch(user, branchId);
+              if (res?.status === false) throw new Error(res.message || _t("Failed to delete branch"));
               loadBranches();
-              Alert.alert("Success", "Branch deleted successfully");
+              Alert.alert(_t("Success"), _t("Branch deleted successfully"));
             } catch (error) {
-              Alert.alert("Error", error.message || "Failed to delete branch");
+              Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to delete branch"));
             }
           },
         },
@@ -132,9 +137,9 @@ export default function BranchSetupScreen() {
   const renderItem = ({ item }) => (
     <View style={styles.card}>
       <View style={{ flex: 1 }}>
-        <Text style={styles.branchName}>{item.branch_name}</Text>
+        <Text style={styles.branchName}>{_tx(item.branch_name)}</Text>
         <Text style={styles.branchAddress}>
-          {item.branch_address || "No address added"}
+          {_tx(item.branch_address) || _t("No address added")}
         </Text>
       </View>
 
@@ -159,18 +164,18 @@ export default function BranchSetupScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Branch</Text>
+        <Text style={styles.title}>{_t("Branch")}</Text>
 
         <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
           <MaterialIcons name="add" size={22} color="#fff" />
-          <Text style={styles.addButtonText}>Add Branch</Text>
+          <Text style={styles.addButtonText}>{_t("Add Branch")}</Text>
         </TouchableOpacity>
       </View>
 
       {loading ? (
         <View style={styles.loaderWrap}>
           <ActivityIndicator size="large" color="#1e40af" />
-          <Text style={styles.loaderText}>Loading branches...</Text>
+          <Text style={styles.loaderText}>{_t("Loading branches...")}</Text>
         </View>
       ) : (
         <FlatList
@@ -179,7 +184,7 @@ export default function BranchSetupScreen() {
           renderItem={renderItem}
           contentContainerStyle={{ paddingBottom: 30 }}
           ListEmptyComponent={
-            <Text style={styles.emptyText}>No branches found</Text>
+            <Text style={styles.emptyText}>{_t("No branches found")}</Text>
           }
         />
       )}
@@ -188,13 +193,13 @@ export default function BranchSetupScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>
-              {editingBranch ? "Edit Branch" : "Add Branch"}
+              {editingBranch ? _t("Edit Branch") : _t("Add Branch")}
             </Text>
 
-            <Text style={styles.fieldLabel}>Branch Name <Text style={{ color: "#ef4444" }}>*</Text></Text>
+            <Text style={styles.fieldLabel}>{_t("Branch Name")}{" "}<Text style={{ color: "#ef4444" }}>*</Text></Text>
             <TextInput
               style={styles.input}
-              placeholder="Enter branch name"
+              placeholder={_t("Enter branch name")}
               placeholderTextColor="#94a3b8"
               value={form.branchName}
               onChangeText={(value) =>
@@ -202,10 +207,10 @@ export default function BranchSetupScreen() {
               }
             />
 
-            <Text style={styles.fieldLabel}>Address</Text>
+            <Text style={styles.fieldLabel}>{_t("Address")}</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
-              placeholder="Enter branch address"
+              placeholder={_t("Enter branch address")}
               placeholderTextColor="#94a3b8"
               multiline
               numberOfLines={4}
@@ -220,7 +225,7 @@ export default function BranchSetupScreen() {
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setModalVisible(false)}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>{_t("Cancel")}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -232,7 +237,7 @@ export default function BranchSetupScreen() {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={styles.saveButtonText}>
-                    {editingBranch ? "Update" : "Save"}
+                    {editingBranch ? _t("Update") : _t("Save")}
                   </Text>
                 )}
               </TouchableOpacity>

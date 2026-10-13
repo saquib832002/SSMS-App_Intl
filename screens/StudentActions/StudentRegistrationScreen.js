@@ -30,6 +30,10 @@ import {
   ScrollView, StyleSheet, Text, TextInput,
   TouchableOpacity, View,
 } from 'react-native';
+import { deviceDialCode, defaultDialFor } from '../../constants/Countries';
+import { mediumList } from '../../constants/CourseMediums';
+// Default phone prefix = country the device is in (time zone / locale), India if unknown.
+const DEFAULT_DIAL = deviceDialCode('+91');
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -39,6 +43,7 @@ import { Feather } from "@expo/vector-icons";
 import {
   fetchClasses, fetchSessions, fetchBranches, registerStudent,
 } from '../../services/StudentServiceApi';
+import { _t, _tx } from "../../services/i18n";
 
 // ─── Module-level constants ───────────────────────────────────────────────────
 const { width, height } = Dimensions.get('window');
@@ -63,11 +68,11 @@ const C = {
 };
 
 const STEPS = [
-  { key: 'student',  label: 'Student',  icon: 'person',          color: C.sectionA },
-  { key: 'academic', label: 'Academic', icon: 'school',          color: C.sectionB },
-  { key: 'parent',   label: 'Parent',   icon: 'family-restroom', color: C.sectionC },
-  { key: 'address',  label: 'Address',  icon: 'location-on',     color: '#0e7490' },
-  { key: 'photo',    label: 'Photo',    icon: 'photo-camera',    color: C.sectionD },
+  { key: 'student',  get label() { return _t("Student"); },  icon: 'person',          color: C.sectionA },
+  { key: 'academic', get label() { return _t("Academic"); }, icon: 'school',          color: C.sectionB },
+  { key: 'parent',   get label() { return _t("Parent"); },   icon: 'family-restroom', color: C.sectionC },
+  { key: 'address',  get label() { return _t("Address"); },  icon: 'location-on',     color: '#0e7490' },
+  { key: 'photo',    get label() { return _t("Photo"); },    icon: 'photo-camera',    color: C.sectionD },
 ];
 
 const C_ADDRESS = '#0e7490';
@@ -104,14 +109,14 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
         activeOpacity={0.7}
       >
         <Text style={[_ddSt.triggerTxt, !selected?.value && _ddSt.placeholder]} numberOfLines={1}>
-          {loading ? "Loading…" : (selected?.label ?? label)}
+          {loading ? _t("Loading…") : (_tx(selected?.label) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={16} color="#475569" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={_ddSt.overlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={_ddSt.sheet}>
-            <Text style={_ddSt.sheetTitle}>{label}</Text>
+            <Text style={_ddSt.sheetTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={(o, i) => String(o.value) + i}
@@ -121,7 +126,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[_ddSt.optionTxt, String(o.value) === String(value) && _ddSt.optionTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) && <Feather name="check" size={14} color="#2563eb" />}
                 </TouchableOpacity>
@@ -150,6 +155,8 @@ const _ddSt = StyleSheet.create({
 
 export default function StudentRegistrationScreen({ navigation }) {
   const { user } = useContext(AuthContext);
+  // Phone prefix: school's country → device country → +91
+  const defaultDial = useMemo(() => defaultDialFor(user), [user?.schoolCountry, user?.billingModel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Dropdown data ─────────────────────────────────────────────────────────
   const [classes,      setClasses]      = useState([]);
@@ -228,7 +235,7 @@ export default function StudentRegistrationScreen({ navigation }) {
   const refMiddleName       = useRef('');
   const refLastName         = useRef('');
   const refEmail            = useRef('');
-  const refCountryCode      = useRef('+91');
+  const refCountryCode      = useRef(defaultDial);
   const refMobile           = useRef('');
   const refPlaceOfBirth     = useRef('');
   const refNationality      = useRef('');
@@ -267,14 +274,18 @@ export default function StudentRegistrationScreen({ navigation }) {
     (async () => {
       try {
         setLoadingLists(true);
-        const [cls, ses, br] = await Promise.all([
+        // allSettled: one denied list must not leave every dropdown empty
+        const settled = await Promise.allSettled([
           fetchClasses(user), fetchSessions(user), fetchBranches(user),
         ]);
-        setClasses(cls  || []);
-        setSessions(ses || []);
-        setBranches(br  || []);
+        const [cls, ses, br] = settled.map(r => (r.status === 'fulfilled' && Array.isArray(r.value) ? r.value : []));
+        setClasses(cls);
+        setSessions(ses);
+        setBranches(br);
+        const failed = settled.find(r => r.status === 'rejected');
+        if (failed) Alert.alert(_t("Error"), _tx(failed.reason?.message) || _t("Failed to load dropdown data"));
       } catch (e) {
-        Alert.alert('Error', e.message || 'Failed to load dropdown data');
+        Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load dropdown data"));
       } finally {
         setLoadingLists(false);
       }
@@ -297,7 +308,7 @@ export default function StudentRegistrationScreen({ navigation }) {
   // ── DOB confirm ───────────────────────────────────────────────────────────
   const confirmDob = useCallback(() => {
     const iso     = `${dobYear}-${String(dobMonth).padStart(2,'0')}-${String(dobDay).padStart(2,'0')}`;
-    const display = `${String(dobDay).padStart(2,'0')} ${MONTHS[dobMonth-1]} ${dobYear}`;
+    const display = `${String(dobDay).padStart(2,'0')} ${_tx(MONTHS[dobMonth-1])} ${dobYear}`;
     dobIsoRef.current = iso;
     setDobText(display);
     setDobModal(false);
@@ -307,7 +318,7 @@ export default function StudentRegistrationScreen({ navigation }) {
   // ── Admission Date confirm ────────────────────────────────────────────────
   const confirmAdm = useCallback(() => {
     const iso     = `${admYear}-${String(admMonth).padStart(2,'0')}-${String(admDay).padStart(2,'0')}`;
-    const display = `${String(admDay).padStart(2,'0')} ${MONTHS[admMonth-1]} ${admYear}`;
+    const display = `${String(admDay).padStart(2,'0')} ${_tx(MONTHS[admMonth-1])} ${admYear}`;
     admIsoRef.current = iso;
     setAdmText(display);
     setAdmModal(false);
@@ -325,19 +336,19 @@ export default function StudentRegistrationScreen({ navigation }) {
   const pickImage = useCallback(async () => {
     try {
       const p = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (p.status !== 'granted') { Alert.alert('Permission Required', 'Allow photo library access.'); return; }
+      if (p.status !== 'granted') { Alert.alert(_t("Permission Required"), _t("Allow photo library access.")); return; }
       const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1,1], quality: 1 });
       if (!r.canceled) await processImage(r.assets[0]);
-    } catch (e) { Alert.alert('Error', e?.message || 'Could not open photo library.'); }
+    } catch (e) { Alert.alert(_t("Error"), _tx(e?.message) || _t("Could not open photo library.")); }
   }, [processImage]);
 
   const takePhoto = useCallback(async () => {
     try {
       const p = await ImagePicker.requestCameraPermissionsAsync();
-      if (p.status !== 'granted') { Alert.alert('Permission Required', 'Allow camera access.'); return; }
+      if (p.status !== 'granted') { Alert.alert(_t("Permission Required"), _t("Allow camera access.")); return; }
       const r = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1,1], quality: 1 });
       if (!r.canceled) await processImage(r.assets[0]);
-    } catch (e) { Alert.alert('Error', e?.message || 'Could not open camera.'); }
+    } catch (e) { Alert.alert(_t("Error"), _tx(e?.message) || _t("Could not open camera.")); }
   }, [processImage]);
 
   // ── Stable select handlers ────────────────────────────────────────────────
@@ -373,7 +384,7 @@ export default function StudentRegistrationScreen({ navigation }) {
   const resetAll = useCallback(() => {
     setFormKey(k => k + 1);   // remounts all TextInputs
     refFirstName.current = ''; refMiddleName.current = ''; refLastName.current = '';
-    refEmail.current = ''; refCountryCode.current = '+91'; refMobile.current = ''; refPlaceOfBirth.current = '';
+    refEmail.current = ''; refCountryCode.current = defaultDial; refMobile.current = ''; refPlaceOfBirth.current = '';
     refNationality.current = ''; refCourseMedium.current = '';
     refAdmissionNumber.current = ''; refCaste.current = ''; refReligion.current = '';
     refFatherName.current = ''; refFatherEducation.current = '';
@@ -413,7 +424,7 @@ export default function StudentRegistrationScreen({ navigation }) {
       else if (!selMedium)                     setStep(1);
       else if (step2Keys.some(k => errs[k]) || !refFatherName.current?.trim() || !refMotherName.current?.trim()) setStep(2);
       else                                     setStep(3);
-      Alert.alert('Validation Error', 'Please fill all required fields.');
+      Alert.alert(_t("Validation Error"), _t("Please fill all required fields."));
       return;
     }
     const formData = {
@@ -422,7 +433,7 @@ export default function StudentRegistrationScreen({ navigation }) {
       middleName:             refMiddleName.current,
       lastName:               refLastName.current,
       emailAddress:           refEmail.current,
-      mobileNumber:           (refCountryCode.current.trim() || '+91') + refMobile.current.trim(),
+      mobileNumber:           (refCountryCode.current.trim() || defaultDial) + refMobile.current.trim(),
       gender:                 selGender,
       dob:                    dobIsoRef.current,
       admissionDate:          admIsoRef.current || null,
@@ -473,7 +484,7 @@ export default function StudentRegistrationScreen({ navigation }) {
       });
       resetAll();
     } catch (e) {
-      Alert.alert('Error', e.message || 'Registration failed.');
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Registration failed."));
     } finally {
       setSubmitting(false);
       setUploadPct(0);
@@ -502,8 +513,8 @@ export default function StudentRegistrationScreen({ navigation }) {
       <SafeAreaView style={st.safeArea}>
         <View style={st.loaderWrap}>
           <ActivityIndicator size="large" color={C.primary} />
-          <Text style={st.loaderTitle}>Preparing Form</Text>
-          <Text style={st.loaderSub}>Loading classes, sessions and branches…</Text>
+          <Text style={st.loaderTitle}>{_t("Preparing Form")}</Text>
+          <Text style={st.loaderSub}>{_t("Loading classes, sessions and branches…")}</Text>
         </View>
       </SafeAreaView>
     );
@@ -518,10 +529,10 @@ export default function StudentRegistrationScreen({ navigation }) {
           <MaterialIcons name="arrow-back-ios" size={20} color={C.primary} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={st.pageTitle}>Student Registration</Text>
+          <Text style={st.pageTitle}>{_t("Student Registration")}</Text>
         </View>
         <View style={st.stepPill}>
-          <Text style={st.stepPillText}>{step + 1} / {STEPS.length}</Text>
+          <Text style={st.stepPillText}>{step + 1} / {_tx(STEPS.length)}</Text>
         </View>
       </View>
 
@@ -557,9 +568,9 @@ export default function StudentRegistrationScreen({ navigation }) {
                 // blood group
                 selBloodGroup={selBloodGroup} onBloodGroupChange={onBloodGroupChange}
                 // dob
-                dobText={dobText} onDobPress={() => setDobModal(true)}
+                dobText={_tx(dobText)} onDobPress={() => setDobModal(true)}
                 // admission date
-                admText={admText} onAdmPress={() => setAdmModal(true)}
+                admText={_tx(admText)} onAdmPress={() => setAdmModal(true)}
                 // errors
                 errors={fieldErrors} clearError={clearError}
               />
@@ -567,7 +578,7 @@ export default function StudentRegistrationScreen({ navigation }) {
 
             {step === 1 && (
               <StepAcademic
-                selMedium={selMedium}       onMediumChange={onMediumChange}
+                selMedium={selMedium}       onMediumChange={onMediumChange} mediumOptions={mediumList(user)}
                 selAdmission={selAdmission} onAdmissionChange={onAdmissionChange}
                 selPhysical={selPhysical}   onPhysicalChange={onPhysicalChange}
                 errors={fieldErrors} clearError={clearError}
@@ -601,9 +612,9 @@ export default function StudentRegistrationScreen({ navigation }) {
                 photo={photo}
                 onPickImage={pickImage} onTakePhoto={takePhoto}
                 onRemovePhoto={() => setPhoto(null)}
-                selTitle={selTitle} refFirstName={refFirstName}
+                selTitle={_tx(selTitle)} refFirstName={refFirstName}
                 refMiddleName={refMiddleName} refLastName={refLastName}
-                refMobile={refMobile} dobText={dobText} admText={admText}
+                refMobile={refMobile} dobText={_tx(dobText)} admText={_tx(admText)}
                 selGender={selGender} summaryClass={summaryClass}
                 summaryBranch={summaryBranch} summarySession={summarySession}
                 selAdmission={selAdmission}
@@ -617,7 +628,7 @@ export default function StudentRegistrationScreen({ navigation }) {
             {step > 0 ? (
               <TouchableOpacity style={st.navBtnBack} onPress={() => setStep(s => s - 1)}>
                 <MaterialIcons name="arrow-back" size={18} color={C.primary} />
-                <Text style={st.navBtnBackText}>Back</Text>
+                <Text style={st.navBtnBackText}>{_t("Back")}</Text>
               </TouchableOpacity>
             ) : <View style={{ flex: 1 }} />}
 
@@ -644,13 +655,13 @@ export default function StudentRegistrationScreen({ navigation }) {
                   }
                   if (Object.keys(e).length > 0) {
                     setFieldErrors(e);
-                    Alert.alert('Required Fields', 'Please fill all required fields before continuing.');
+                    Alert.alert(_t("Required Fields"), _t("Please fill all required fields before continuing."));
                     return;
                   }
                   setFieldErrors({});
                   setStep(s => s + 1);
                 }}>
-                <Text style={st.navBtnNextText}>Next  →  {STEPS[step + 1].label}</Text>
+                <Text style={st.navBtnNextText}>{_t("Next  →  {label}", { label: STEPS[step + 1].label })}</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
@@ -660,13 +671,13 @@ export default function StudentRegistrationScreen({ navigation }) {
                   <View style={st.submitRow}>
                     <ActivityIndicator color="#fff" size="small" />
                     <Text style={st.navBtnNextText}>
-                      {uploadPct > 0 ? `Uploading ${uploadPct}%…` : 'Submitting…'}
+                      {uploadPct > 0 ? _t("Uploading {uploadPct}%…", { uploadPct }) : _t("Submitting…")}
                     </Text>
                   </View>
                 ) : (
                   <View style={st.submitRow}>
                     <MaterialIcons name="how-to-reg" size={20} color="#fff" />
-                    <Text style={st.navBtnNextText}>Submit Registration</Text>
+                    <Text style={st.navBtnNextText}>{_t("Submit Registration")}</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -689,7 +700,7 @@ export default function StudentRegistrationScreen({ navigation }) {
 
       {/* Admission Date Modal */}
       <DobModal
-        title="Admission Date"
+        title={_t("Admission Date")}
         visible={admModal}
         onClose={() => setAdmModal(false)}
         onConfirm={confirmAdm}
@@ -730,29 +741,29 @@ const StepStudent = React.memo(function StepStudent({
 }) {
   return (
     <SectionCard color={C.sectionA} icon="person"
-      title="Student Information" subtitle="Personal & contact details">
+      title={_t("Student Information")} subtitle={_t("Personal & contact details")}>
 
       <RowPair>
-        <ModalSelect label="Title" icon="title" value={selTitle}
-          onChange={onTitleChange} options={OPT_TITLE} placeholder="Select Title" />
-        <ModalSelect label="Gender *" icon="wc" value={selGender}
-          onChange={onGenderChange} options={OPT_GENDER} placeholder="Select Gender"
+        <ModalSelect label={_t("Title")} icon="title" value={selTitle}
+          onChange={onTitleChange} options={OPT_TITLE} placeholder={_t("Select Title")} />
+        <ModalSelect label={_t("Gender *")} icon="wc" value={selGender}
+          onChange={onGenderChange} options={OPT_GENDER} placeholder={_t("Select Gender")}
           error={errors.gender} onClearError={() => clearError('gender')} />
       </RowPair>
 
       <RowPair>
-        <FieldRef label="First Name *" icon="person-outline"
-          fieldRef={refFirstName} placeholder="First name" error={errors.firstName}
+        <FieldRef label={_t("First Name *")} icon="person-outline"
+          fieldRef={refFirstName} placeholder={_t("First name")} error={errors.firstName}
           onClearError={() => clearError('firstName')} />
-        <FieldRef label="Middle Name" icon="person-outline"
-          fieldRef={refMiddleName} placeholder="Middle name" />
+        <FieldRef label={_t("Middle Name")} icon="person-outline"
+          fieldRef={refMiddleName} placeholder={_t("Middle name")} />
       </RowPair>
 
-      <FieldRef label="Last Name" icon="person-outline"
-        fieldRef={refLastName} placeholder="Last name" />
+      <FieldRef label={_t("Last Name")} icon="person-outline"
+        fieldRef={refLastName} placeholder={_t("Last name")} />
 
       <RowPair>
-        <FieldRef label="Email Address" icon="mail-outline"
+        <FieldRef label={_t("Email Address")} icon="mail-outline"
           fieldRef={refEmail} placeholder="email@example.com"
           keyboardType="email-address" autoCapitalize="none" />
         <PhoneInputRow
@@ -763,80 +774,80 @@ const StepStudent = React.memo(function StepStudent({
         />
       </RowPair>
 
-      <Text style={[ff.label, errors.dob && { color: C.error }]}>Date of Birth *</Text>
+      <Text style={[ff.label, errors.dob && { color: C.error }]}>{_t("Date of Birth *")}</Text>
       <TouchableOpacity style={[st.dateBtn, errors.dob && { borderColor: C.error }]} onPress={onDobPress}>
         <MaterialIcons name="event" size={18} color={errors.dob ? C.error : dobText ? C.primary : C.muted} />
         <Text style={[st.dateBtnText, dobText && { color: C.text, fontWeight: '700' }]}>
-          {dobText || 'Tap to select date of birth'}
+          {_tx(dobText) || _t("Tap to select date of birth")}
         </Text>
         <MaterialIcons name="chevron-right" size={18} color={C.muted} />
       </TouchableOpacity>
-      {!!errors.dob && <Text style={ff.errorText}>{errors.dob}</Text>}
+      {!!errors.dob && <Text style={ff.errorText}>{_tx(errors.dob)}</Text>}
 
-      <Text style={ff.label}>Admission Date</Text>
+      <Text style={ff.label}>{_t("Admission Date")}</Text>
       <TouchableOpacity style={st.dateBtn} onPress={onAdmPress}>
         <MaterialIcons name="event-available" size={18} color={admText ? C.primary : C.muted} />
         <Text style={[st.dateBtnText, admText && { color: C.text, fontWeight: '700' }]}>
-          {admText || 'Tap to select admission date (optional)'}
+          {_tx(admText) || _t("Tap to select admission date (optional)")}
         </Text>
         <MaterialIcons name="chevron-right" size={18} color={C.muted} />
       </TouchableOpacity>
 
       <RowPair>
-        <FieldRef label="Place of Birth" icon="place"
-          fieldRef={refPlaceOfBirth} placeholder="City / Town" />
-        <FieldRef label="Nationality" icon="public"
-          fieldRef={refNationality} placeholder="e.g. Indian" />
+        <FieldRef label={_t("Place of Birth")} icon="place"
+          fieldRef={refPlaceOfBirth} placeholder={_t("City / Town")} />
+        <FieldRef label={_t("Nationality")} icon="public"
+          fieldRef={refNationality} placeholder={_t("e.g. Indian")} />
       </RowPair>
 
-      <SectionDivider label="Academic Placement" />
+      <SectionDivider label={_t("Academic Placement")} />
 
-      <ModalSelect label="Branch *" icon="account-balance" value={selBranchId}
-        onChange={onBranchChange} options={branchItems} placeholder="Select Branch"
+      <ModalSelect label={_t("Branch *")} icon="account-balance" value={selBranchId}
+        onChange={onBranchChange} options={branchItems} placeholder={_t("Select Branch")}
         error={errors.branchId} onClearError={() => clearError('branchId')} />
-      <ModalSelect label="Class *" icon="class" value={selClassId}
-        onChange={onClassChange} options={classItems} placeholder="Select Class"
+      <ModalSelect label={_t("Class *")} icon="class" value={selClassId}
+        onChange={onClassChange} options={classItems} placeholder={_t("Select Class")}
         error={errors.classId} onClearError={() => clearError('classId')} />
-      <ModalSelect label="Session *" icon="date-range" value={selSessionId}
-        onChange={onSessionChange} options={sessionItems} placeholder="Select Session"
+      <ModalSelect label={_t("Session *")} icon="date-range" value={selSessionId}
+        onChange={onSessionChange} options={sessionItems} placeholder={_t("Select Session")}
         error={errors.sessionId} onClearError={() => clearError('sessionId')} />
 
-      <SectionDivider label="Optional Details" />
-      <FieldRef label="Admission Number" icon="confirmation-number"
-        fieldRef={refAdmissionNumber} placeholder="e.g. ADM-2025-001" />
+      <SectionDivider label={_t("Optional Details")} />
+      <FieldRef label={_t("Admission Number")} icon="confirmation-number"
+        fieldRef={refAdmissionNumber} placeholder={_t("e.g. ADM-2025-001")} />
       <RowPair>
-        <FieldRef label="Caste" icon="people" fieldRef={refCaste} placeholder="e.g. General" />
-        <FieldRef label="Religion" icon="church" fieldRef={refReligion} placeholder="e.g. Hindu" />
+        <FieldRef label={_t("Caste")} icon="people" fieldRef={refCaste} placeholder={_t("e.g. General")} />
+        <FieldRef label={_t("Religion")} icon="church" fieldRef={refReligion} placeholder={_t("e.g. Hindu")} />
       </RowPair>
-      <ModalSelect label="Blood Group" icon="bloodtype"
+      <ModalSelect label={_t("Blood Group")} icon="bloodtype"
         value={selBloodGroup} onChange={onBloodGroupChange}
-        options={OPT_BLOOD_GROUP} placeholder="Select Blood Group" />
+        options={OPT_BLOOD_GROUP} placeholder={_t("Select Blood Group")} />
     </SectionCard>
   );
 });
 
 const StepAcademic = React.memo(function StepAcademic({
-  selMedium, onMediumChange, selAdmission, onAdmissionChange, selPhysical, onPhysicalChange,
+  selMedium, onMediumChange, mediumOptions, selAdmission, onAdmissionChange, selPhysical, onPhysicalChange,
   errors, clearError,
 }) {
   return (
     <SectionCard color={C.sectionB} icon="school"
-      title="Academic & Health Details"
-      subtitle="Learning preferences and admission profile">
-      <ModalSelect label="Course Medium *" icon="translate"
+      title={_t("Academic & Health Details")}
+      subtitle={_t("Learning preferences and admission profile")}>
+      <ModalSelect label={_t("Course Medium *")} icon="translate"
         value={selMedium} onChange={onMediumChange}
-        options={OPT_MEDIUM} placeholder="Select Medium"
+        options={mediumOptions || OPT_MEDIUM} placeholder={_t("Select Medium")}
         error={errors?.courseMedium} onClearError={() => clearError('courseMedium')} />
-      <ModalSelect label="Admission Type / Category" icon="layers"
+      <ModalSelect label={_t("Admission Type / Category")} icon="layers"
         value={selAdmission} onChange={onAdmissionChange}
-        options={OPT_ADMISSION} placeholder="Select Admission Type"
+        options={OPT_ADMISSION} placeholder={_t("Select Admission Type")}
         error={errors?.admissionType} />
-      <ModalSelect label="Physically Challenged?" icon="accessible"
+      <ModalSelect label={_t("Physically Challenged?")} icon="accessible"
         value={selPhysical} onChange={onPhysicalChange}
-        options={OPT_PHYSICAL} placeholder="Select..."
+        options={OPT_PHYSICAL} placeholder={_t("Select...")}
         error={errors?.physicalStatus} />
       <InfoBox color={C.sectionB} icon="info-outline"
-        text="Physical challenge status is used only for government reporting." />
+        text={_t("Physical challenge status is used only for government reporting.")} />
     </SectionCard>
   );
 });
@@ -848,26 +859,26 @@ const StepParent = React.memo(function StepParent({
 }) {
   return (
     <SectionCard color={C.sectionC} icon="family-restroom"
-      title="Parent Information" subtitle="Primary guardian and family details">
-      <SectionDivider label="Father's Details" color="#c45c1a" />
+      title={_t("Parent Information")} subtitle={_t("Primary guardian and family details")}>
+      <SectionDivider label={_t("Father's Details")} color="#c45c1a" />
       <RowPair>
-        <FieldRef label="Father's Name *" icon="person" fieldRef={refFatherName} placeholder="Full name"
+        <FieldRef label={_t("Father's Name *")} icon="person" fieldRef={refFatherName} placeholder={_t("Full name")}
           error={errors?.fatherName} onClearError={() => clearError('fatherName')} />
-        <FieldRef label="Father's Occupation" icon="work" fieldRef={refFatherOccupation} placeholder="Occupation" />
+        <FieldRef label={_t("Father's Occupation")} icon="work" fieldRef={refFatherOccupation} placeholder={_t("Occupation")} />
       </RowPair>
       <RowPair>
-        <FieldRef label="Father's Education" icon="school" fieldRef={refFatherEducation} placeholder="Qualification" />
-        <FieldRef label="Father's Age" icon="cake" fieldRef={refFatherAge} placeholder="Age" keyboardType="number-pad" />
+        <FieldRef label={_t("Father's Education")} icon="school" fieldRef={refFatherEducation} placeholder={_t("Qualification")} />
+        <FieldRef label={_t("Father's Age")} icon="cake" fieldRef={refFatherAge} placeholder={_t("Age")} keyboardType="number-pad" />
       </RowPair>
-      <SectionDivider label="Mother's Details" color="#c45c1a" />
+      <SectionDivider label={_t("Mother's Details")} color="#c45c1a" />
       <RowPair>
-        <FieldRef label="Mother's Name *" icon="person" fieldRef={refMotherName} placeholder="Full name"
+        <FieldRef label={_t("Mother's Name *")} icon="person" fieldRef={refMotherName} placeholder={_t("Full name")}
           error={errors?.motherName} onClearError={() => clearError('motherName')} />
-        <FieldRef label="Mother's Occupation" icon="work" fieldRef={refMotherOccupation} placeholder="Occupation" />
+        <FieldRef label={_t("Mother's Occupation")} icon="work" fieldRef={refMotherOccupation} placeholder={_t("Occupation")} />
       </RowPair>
       <RowPair>
-        <FieldRef label="Mother's Education" icon="school" fieldRef={refMotherEducation} placeholder="Qualification" />
-        <FieldRef label="Mother's Age" icon="cake" fieldRef={refMotherAge} placeholder="Age" keyboardType="number-pad" />
+        <FieldRef label={_t("Mother's Education")} icon="school" fieldRef={refMotherEducation} placeholder={_t("Qualification")} />
+        <FieldRef label={_t("Mother's Age")} icon="cake" fieldRef={refMotherAge} placeholder={_t("Age")} keyboardType="number-pad" />
       </RowPair>
     </SectionCard>
   );
@@ -896,19 +907,19 @@ const StepAddress = React.memo(function StepAddress({
 
   return (
     <SectionCard color={C_ADDRESS} icon="location-on"
-      title="Address Details" subtitle="Current and permanent address (optional)">
+      title={_t("Address Details")} subtitle={_t("Current and permanent address (optional)")}>
 
-      <SectionDivider label="Current Address" color={C_ADDRESS} />
-      <FieldRef label="Address Line 1 *" icon="home" fieldRef={refCLine1} placeholder="House / Flat / Building"
+      <SectionDivider label={_t("Current Address")} color={C_ADDRESS} />
+      <FieldRef label={_t("Address Line 1 *")} icon="home" fieldRef={refCLine1} placeholder={_t("House / Flat / Building")}
         error={errors?.cAddressLine1} onClearError={() => clearError('cAddressLine1')} />
-      <FieldRef label="Address Line 2" icon="apartment"  fieldRef={refCLine2}  placeholder="Street / Colony / Area" />
+      <FieldRef label={_t("Address Line 2")} icon="apartment"  fieldRef={refCLine2}  placeholder={_t("Street / Colony / Area")} />
       <RowPair>
-        <FieldRef label="City"     icon="location-city"  fieldRef={refCCity}  placeholder="City" />
-        <FieldRef label="State"    icon="map"            fieldRef={refCState} placeholder="State" />
+        <FieldRef label={_t("City")}     icon="location-city"  fieldRef={refCCity}  placeholder={_t("City")} />
+        <FieldRef label={_t("State")}    icon="map"            fieldRef={refCState} placeholder={_t("State")} />
       </RowPair>
       <RowPair>
-        <FieldRef label="ZIP Code"   icon="markunread-mailbox" fieldRef={refCZip}   placeholder="PIN / ZIP" keyboardType="number-pad" />
-        <FieldRef label="Home Phone" icon="phone"              fieldRef={refCPhone} placeholder="Landline number"  keyboardType="phone-pad" />
+        <FieldRef label={_t("ZIP Code")}   icon="markunread-mailbox" fieldRef={refCZip}   placeholder={_t("PIN / ZIP")} keyboardType="number-pad" />
+        <FieldRef label={_t("Home Phone")} icon="phone"              fieldRef={refCPhone} placeholder={_t("Landline number")}  keyboardType="phone-pad" />
       </RowPair>
 
       {/* Same as current toggle */}
@@ -919,26 +930,24 @@ const StepAddress = React.memo(function StepAddress({
         <View style={[addr.checkbox, sameAsCurrent && { backgroundColor: C_ADDRESS, borderColor: C_ADDRESS }]}>
           {sameAsCurrent && <MaterialIcons name="check" size={14} color="#fff" />}
         </View>
-        <Text style={[addr.sameToggleText, sameAsCurrent && { color: C_ADDRESS, fontWeight: '700' }]}>
-          Permanent address same as current address
-        </Text>
+        <Text style={[addr.sameToggleText, sameAsCurrent && { color: C_ADDRESS, fontWeight: '700' }]}>{_t("Permanent address same as current address")}</Text>
       </TouchableOpacity>
 
-      <SectionDivider label="Permanent Address" color={C_ADDRESS} />
-      <FieldRef label="Address Line 1" icon="home"       fieldRef={refPLine1}  placeholder="House / Flat / Building"
+      <SectionDivider label={_t("Permanent Address")} color={C_ADDRESS} />
+      <FieldRef label={_t("Address Line 1")} icon="home"       fieldRef={refPLine1}  placeholder={_t("House / Flat / Building")}
         defaultValue={sameAsCurrent ? refCLine1.current : undefined} />
-      <FieldRef label="Address Line 2" icon="apartment"  fieldRef={refPLine2}  placeholder="Street / Colony / Area"
+      <FieldRef label={_t("Address Line 2")} icon="apartment"  fieldRef={refPLine2}  placeholder={_t("Street / Colony / Area")}
         defaultValue={sameAsCurrent ? refCLine2.current : undefined} />
       <RowPair>
-        <FieldRef label="City"     icon="location-city"  fieldRef={refPCity}  placeholder="City"
+        <FieldRef label={_t("City")}     icon="location-city"  fieldRef={refPCity}  placeholder={_t("City")}
           defaultValue={sameAsCurrent ? refCCity.current : undefined} />
-        <FieldRef label="State"    icon="map"            fieldRef={refPState} placeholder="State"
+        <FieldRef label={_t("State")}    icon="map"            fieldRef={refPState} placeholder={_t("State")}
           defaultValue={sameAsCurrent ? refCState.current : undefined} />
       </RowPair>
       <RowPair>
-        <FieldRef label="ZIP Code"   icon="markunread-mailbox" fieldRef={refPZip}   placeholder="PIN / ZIP" keyboardType="number-pad"
+        <FieldRef label={_t("ZIP Code")}   icon="markunread-mailbox" fieldRef={refPZip}   placeholder={_t("PIN / ZIP")} keyboardType="number-pad"
           defaultValue={sameAsCurrent ? refCZip.current : undefined} />
-        <FieldRef label="Home Phone" icon="phone"              fieldRef={refPPhone} placeholder="Landline number"  keyboardType="phone-pad"
+        <FieldRef label={_t("Home Phone")} icon="phone"              fieldRef={refPPhone} placeholder={_t("Landline number")}  keyboardType="phone-pad"
           defaultValue={sameAsCurrent ? refCPhone.current : undefined} />
       </RowPair>
     </SectionCard>
@@ -954,7 +963,7 @@ const StepPhoto = React.memo(function StepPhoto({
     .filter(Boolean).join(' ') || '—';
   return (
     <SectionCard color={C.sectionD} icon="photo-camera"
-      title="Student Photo" subtitle="Square identity-ready photo (JPG, max 5 MB)">
+      title={_t("Student Photo")} subtitle={_t("Square identity-ready photo (JPG, max 5 MB)")}>
 
       <View style={st.photoPreviewWrap}>
         {photo?.uri ? (
@@ -962,7 +971,7 @@ const StepPhoto = React.memo(function StepPhoto({
             <Image source={{ uri: photo.uri }} style={st.photoPreview} />
             <View style={st.photoApprovedBadge}>
               <MaterialIcons name="check-circle" size={20} color={C.success} />
-              <Text style={st.photoApprovedText}>Photo Selected</Text>
+              <Text style={st.photoApprovedText}>{_t("Photo Selected")}</Text>
             </View>
           </View>
         ) : (
@@ -970,8 +979,8 @@ const StepPhoto = React.memo(function StepPhoto({
             <View style={st.photoPlaceholderIcon}>
               <MaterialIcons name="person" size={64} color={C.border} />
             </View>
-            <Text style={st.photoPlaceholderTitle}>No photo selected</Text>
-            <Text style={st.photoPlaceholderSub}>Upload or take a square passport-size photo</Text>
+            <Text style={st.photoPlaceholderTitle}>{_t("No photo selected")}</Text>
+            <Text style={st.photoPlaceholderSub}>{_t("Upload or take a square passport-size photo")}</Text>
           </View>
         )}
       </View>
@@ -980,36 +989,36 @@ const StepPhoto = React.memo(function StepPhoto({
         <TouchableOpacity style={[st.photoBtn, { borderColor: C.sectionD }]}
           onPress={onPickImage} activeOpacity={0.8}>
           <MaterialIcons name="photo-library" size={20} color={C.sectionD} />
-          <Text style={[st.photoBtnText, { color: C.sectionD }]}>Gallery</Text>
+          <Text style={[st.photoBtnText, { color: C.sectionD }]}>{_t("Gallery")}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[st.photoBtn, { borderColor: C.primary, backgroundColor: C.primary }]}
           onPress={onTakePhoto} activeOpacity={0.8}>
           <MaterialIcons name="camera-alt" size={20} color="#fff" />
-          <Text style={[st.photoBtnText, { color: '#fff' }]}>Camera</Text>
+          <Text style={[st.photoBtnText, { color: '#fff' }]}>{_t("Camera")}</Text>
         </TouchableOpacity>
       </View>
 
       {photo && (
         <TouchableOpacity style={st.photoRemoveBtn} onPress={onRemovePhoto}>
           <MaterialIcons name="delete-outline" size={16} color={C.error} />
-          <Text style={st.photoRemoveText}>Remove photo</Text>
+          <Text style={st.photoRemoveText}>{_t("Remove photo")}</Text>
         </TouchableOpacity>
       )}
 
       <InfoBox color={C.sectionD} icon="info-outline"
-        text="Photo filename on disk will match the student's name exactly." />
+        text={_t("Photo filename on disk will match the student's name exactly.")} />
 
-      <SectionDivider label="Registration Summary" color={C.sectionD} />
+      <SectionDivider label={_t("Registration Summary")} color={C.sectionD} />
       <View style={st.summaryGrid}>
-        <SummaryRow label="Full Name"  value={fullName} />
-        <SummaryRow label="Mobile"     value={refMobile.current     || '—'} />
-        <SummaryRow label="DOB"        value={dobText               || '—'} />
-        <SummaryRow label="Adm. Date"  value={admText               || '—'} />
-        <SummaryRow label="Gender"     value={selGender             || '—'} />
-        <SummaryRow label="Class"      value={summaryClass} />
-        <SummaryRow label="Branch"     value={summaryBranch} />
-        <SummaryRow label="Session"    value={summarySession} />
-        <SummaryRow label="Admission"  value={selAdmission          || '—'} />
+        <SummaryRow label={_t("Full Name")}  value={fullName} />
+        <SummaryRow label={_t("Mobile")}     value={refMobile.current     || '—'} />
+        <SummaryRow label={_t("DOB")}        value={dobText               || '—'} />
+        <SummaryRow label={_t("Adm. Date")}  value={admText               || '—'} />
+        <SummaryRow label={_t("Gender")}     value={selGender             || '—'} />
+        <SummaryRow label={_t("Class")}      value={summaryClass} />
+        <SummaryRow label={_t("Branch")}     value={summaryBranch} />
+        <SummaryRow label={_t("Session")}    value={summarySession} />
+        <SummaryRow label={_t("Admission")}  value={selAdmission          || '—'} />
       </View>
     </SectionCard>
   );
@@ -1042,7 +1051,7 @@ function ModalSelect({ label, icon, value, onChange, options, placeholder, error
       onPress={() => handleSelect(item.value)}
       activeOpacity={0.7}>
       <Text style={[ms.optionText, item.value === value && ms.optionTextActive]}>
-        {item.label}
+        {_tx(item.label)}
       </Text>
       {item.value === value && (
         <MaterialIcons name="check" size={18} color={C.primary} />
@@ -1052,7 +1061,7 @@ function ModalSelect({ label, icon, value, onChange, options, placeholder, error
 
   return (
     <View style={ff.wrap}>
-      <Text style={[ff.label, error && { color: C.error }]}>{label}</Text>
+      <Text style={[ff.label, error && { color: C.error }]}>{_tx(label)}</Text>
 
       <TouchableOpacity
         style={[ff.selectRow, error && ff.rowError]}
@@ -1062,20 +1071,20 @@ function ModalSelect({ label, icon, value, onChange, options, placeholder, error
           color={error ? C.error : C.muted} style={ff.icon} />}
         <Text style={[ff.selectText, !displayLabel && ff.selectPlaceholder]}
           numberOfLines={1}>
-          {displayLabel || placeholder}
+          {_tx(displayLabel) || _tx(placeholder)}
         </Text>
         <MaterialIcons name="keyboard-arrow-down" size={20} color={C.muted}
           style={{ marginRight: 10 }} />
       </TouchableOpacity>
 
-      {!!error && <Text style={ff.errorText}>{error}</Text>}
+      {!!error && <Text style={ff.errorText}>{_tx(error)}</Text>}
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <View style={ms.overlay}>
           <TouchableOpacity style={ms.backdrop} onPress={() => setOpen(false)} activeOpacity={1} />
           <View style={ms.sheet}>
             <View style={ms.sheetHeader}>
-              <Text style={ms.sheetTitle}>{label}</Text>
+              <Text style={ms.sheetTitle}>{_tx(label)}</Text>
               <TouchableOpacity style={ms.sheetClose} onPress={() => setOpen(false)}>
                 <MaterialIcons name="close" size={20} color={C.muted} />
               </TouchableOpacity>
@@ -1101,208 +1110,208 @@ function ModalSelect({ label, icon, value, onChange, options, placeholder, error
 // All 195 UN-recognised countries + major territories, sorted A-Z by country name.
 // India is pinned first for quick access since it's the most common use case.
 const COMMON_CODES = [
-  { label: '🇮🇳 India (+91)',                         value: '+91'   },
-  { label: '🇦🇫 Afghanistan (+93)',                   value: '+93'   },
-  { label: '🇦🇱 Albania (+355)',                      value: '+355'  },
-  { label: '🇩🇿 Algeria (+213)',                      value: '+213'  },
-  { label: '🇦🇩 Andorra (+376)',                      value: '+376'  },
-  { label: '🇦🇴 Angola (+244)',                       value: '+244'  },
-  { label: '🇦🇬 Antigua & Barbuda (+1268)',           value: '+1268' },
-  { label: '🇦🇷 Argentina (+54)',                     value: '+54'   },
-  { label: '🇦🇲 Armenia (+374)',                      value: '+374'  },
-  { label: '🇦🇺 Australia (+61)',                     value: '+61'   },
-  { label: '🇦🇹 Austria (+43)',                       value: '+43'   },
-  { label: '🇦🇿 Azerbaijan (+994)',                   value: '+994'  },
-  { label: '🇧🇸 Bahamas (+1242)',                     value: '+1242' },
-  { label: '🇧🇭 Bahrain (+973)',                      value: '+973'  },
-  { label: '🇧🇩 Bangladesh (+880)',                   value: '+880'  },
-  { label: '🇧🇧 Barbados (+1246)',                    value: '+1246' },
-  { label: '🇧🇾 Belarus (+375)',                      value: '+375'  },
-  { label: '🇧🇪 Belgium (+32)',                       value: '+32'   },
-  { label: '🇧🇿 Belize (+501)',                       value: '+501'  },
-  { label: '🇧🇯 Benin (+229)',                        value: '+229'  },
-  { label: '🇧🇹 Bhutan (+975)',                       value: '+975'  },
-  { label: '🇧🇴 Bolivia (+591)',                      value: '+591'  },
-  { label: '🇧🇦 Bosnia & Herzegovina (+387)',         value: '+387'  },
-  { label: '🇧🇼 Botswana (+267)',                     value: '+267'  },
-  { label: '🇧🇷 Brazil (+55)',                        value: '+55'   },
-  { label: '🇧🇳 Brunei (+673)',                       value: '+673'  },
-  { label: '🇧🇬 Bulgaria (+359)',                     value: '+359'  },
-  { label: '🇧🇫 Burkina Faso (+226)',                 value: '+226'  },
-  { label: '🇧🇮 Burundi (+257)',                      value: '+257'  },
-  { label: '🇨🇻 Cabo Verde (+238)',                   value: '+238'  },
-  { label: '🇰🇭 Cambodia (+855)',                     value: '+855'  },
-  { label: '🇨🇲 Cameroon (+237)',                     value: '+237'  },
-  { label: '🇨🇦 Canada (+1)',                         value: '+1'    },
-  { label: '🇨🇫 Central African Republic (+236)',     value: '+236'  },
-  { label: '🇹🇩 Chad (+235)',                         value: '+235'  },
-  { label: '🇨🇱 Chile (+56)',                         value: '+56'   },
-  { label: '🇨🇳 China (+86)',                         value: '+86'   },
-  { label: '🇨🇴 Colombia (+57)',                      value: '+57'   },
-  { label: '🇰🇲 Comoros (+269)',                      value: '+269'  },
-  { label: '🇨🇩 Congo (DRC) (+243)',                  value: '+243'  },
-  { label: '🇨🇬 Congo (Republic) (+242)',             value: '+242'  },
-  { label: '🇨🇷 Costa Rica (+506)',                   value: '+506'  },
-  { label: '🇨🇮 Côte d\'Ivoire (+225)',               value: '+225'  },
-  { label: '🇭🇷 Croatia (+385)',                      value: '+385'  },
-  { label: '🇨🇺 Cuba (+53)',                          value: '+53'   },
-  { label: '🇨🇾 Cyprus (+357)',                       value: '+357'  },
-  { label: '🇨🇿 Czech Republic (+420)',               value: '+420'  },
-  { label: '🇩🇰 Denmark (+45)',                       value: '+45'   },
-  { label: '🇩🇯 Djibouti (+253)',                     value: '+253'  },
-  { label: '🇩🇲 Dominica (+1767)',                    value: '+1767' },
-  { label: '🇩🇴 Dominican Republic (+1809)',          value: '+1809' },
-  { label: '🇪🇨 Ecuador (+593)',                      value: '+593'  },
-  { label: '🇪🇬 Egypt (+20)',                         value: '+20'   },
-  { label: '🇸🇻 El Salvador (+503)',                  value: '+503'  },
-  { label: '🇬🇶 Equatorial Guinea (+240)',            value: '+240'  },
-  { label: '🇪🇷 Eritrea (+291)',                      value: '+291'  },
-  { label: '🇪🇪 Estonia (+372)',                      value: '+372'  },
-  { label: '🇸🇿 Eswatini (+268)',                     value: '+268'  },
-  { label: '🇪🇹 Ethiopia (+251)',                     value: '+251'  },
-  { label: '🇫🇯 Fiji (+679)',                         value: '+679'  },
-  { label: '🇫🇮 Finland (+358)',                      value: '+358'  },
-  { label: '🇫🇷 France (+33)',                        value: '+33'   },
-  { label: '🇬🇦 Gabon (+241)',                        value: '+241'  },
-  { label: '🇬🇲 Gambia (+220)',                       value: '+220'  },
-  { label: '🇬🇪 Georgia (+995)',                      value: '+995'  },
-  { label: '🇩🇪 Germany (+49)',                       value: '+49'   },
-  { label: '🇬🇭 Ghana (+233)',                        value: '+233'  },
-  { label: '🇬🇷 Greece (+30)',                        value: '+30'   },
-  { label: '🇬🇩 Grenada (+1473)',                     value: '+1473' },
-  { label: '🇬🇹 Guatemala (+502)',                    value: '+502'  },
-  { label: '🇬🇳 Guinea (+224)',                       value: '+224'  },
-  { label: '🇬🇼 Guinea-Bissau (+245)',                value: '+245'  },
-  { label: '🇬🇾 Guyana (+592)',                       value: '+592'  },
-  { label: '🇭🇹 Haiti (+509)',                        value: '+509'  },
-  { label: '🇭🇳 Honduras (+504)',                     value: '+504'  },
-  { label: '🇭🇺 Hungary (+36)',                       value: '+36'   },
-  { label: '🇮🇸 Iceland (+354)',                      value: '+354'  },
-  { label: '🇮🇩 Indonesia (+62)',                     value: '+62'   },
-  { label: '🇮🇷 Iran (+98)',                          value: '+98'   },
-  { label: '🇮🇶 Iraq (+964)',                         value: '+964'  },
-  { label: '🇮🇪 Ireland (+353)',                      value: '+353'  },
-  { label: '🇮🇱 Israel (+972)',                       value: '+972'  },
-  { label: '🇮🇹 Italy (+39)',                         value: '+39'   },
-  { label: '🇯🇲 Jamaica (+1876)',                     value: '+1876' },
-  { label: '🇯🇵 Japan (+81)',                         value: '+81'   },
-  { label: '🇯🇴 Jordan (+962)',                       value: '+962'  },
-  { label: '🇰🇿 Kazakhstan (+7)',                     value: '+7'    },
-  { label: '🇰🇪 Kenya (+254)',                        value: '+254'  },
-  { label: '🇰🇮 Kiribati (+686)',                     value: '+686'  },
-  { label: '🇽🇰 Kosovo (+383)',                       value: '+383'  },
-  { label: '🇰🇼 Kuwait (+965)',                       value: '+965'  },
-  { label: '🇰🇬 Kyrgyzstan (+996)',                   value: '+996'  },
-  { label: '🇱🇦 Laos (+856)',                         value: '+856'  },
-  { label: '🇱🇻 Latvia (+371)',                       value: '+371'  },
-  { label: '🇱🇧 Lebanon (+961)',                      value: '+961'  },
-  { label: '🇱🇸 Lesotho (+266)',                      value: '+266'  },
-  { label: '🇱🇷 Liberia (+231)',                      value: '+231'  },
-  { label: '🇱🇾 Libya (+218)',                        value: '+218'  },
-  { label: '🇱🇮 Liechtenstein (+423)',                value: '+423'  },
-  { label: '🇱🇹 Lithuania (+370)',                    value: '+370'  },
-  { label: '🇱🇺 Luxembourg (+352)',                   value: '+352'  },
-  { label: '🇲🇬 Madagascar (+261)',                   value: '+261'  },
-  { label: '🇲🇼 Malawi (+265)',                       value: '+265'  },
-  { label: '🇲🇾 Malaysia (+60)',                      value: '+60'   },
-  { label: '🇲🇻 Maldives (+960)',                     value: '+960'  },
-  { label: '🇲🇱 Mali (+223)',                         value: '+223'  },
-  { label: '🇲🇹 Malta (+356)',                        value: '+356'  },
-  { label: '🇲🇭 Marshall Islands (+692)',             value: '+692'  },
-  { label: '🇲🇷 Mauritania (+222)',                   value: '+222'  },
-  { label: '🇲🇺 Mauritius (+230)',                    value: '+230'  },
-  { label: '🇲🇽 Mexico (+52)',                        value: '+52'   },
-  { label: '🇫🇲 Micronesia (+691)',                   value: '+691'  },
-  { label: '🇲🇩 Moldova (+373)',                      value: '+373'  },
-  { label: '🇲🇨 Monaco (+377)',                       value: '+377'  },
-  { label: '🇲🇳 Mongolia (+976)',                     value: '+976'  },
-  { label: '🇲🇪 Montenegro (+382)',                   value: '+382'  },
-  { label: '🇲🇦 Morocco (+212)',                      value: '+212'  },
-  { label: '🇲🇿 Mozambique (+258)',                   value: '+258'  },
-  { label: '🇲🇲 Myanmar (+95)',                       value: '+95'   },
-  { label: '🇳🇦 Namibia (+264)',                      value: '+264'  },
-  { label: '🇳🇷 Nauru (+674)',                        value: '+674'  },
-  { label: '🇳🇵 Nepal (+977)',                        value: '+977'  },
-  { label: '🇳🇱 Netherlands (+31)',                   value: '+31'   },
-  { label: '🇳🇿 New Zealand (+64)',                   value: '+64'   },
-  { label: '🇳🇮 Nicaragua (+505)',                    value: '+505'  },
-  { label: '🇳🇪 Niger (+227)',                        value: '+227'  },
-  { label: '🇳🇬 Nigeria (+234)',                      value: '+234'  },
-  { label: '🇲🇰 North Macedonia (+389)',              value: '+389'  },
-  { label: '🇳🇴 Norway (+47)',                        value: '+47'   },
-  { label: '🇴🇲 Oman (+968)',                         value: '+968'  },
-  { label: '🇵🇰 Pakistan (+92)',                      value: '+92'   },
-  { label: '🇵🇼 Palau (+680)',                        value: '+680'  },
-  { label: '🇵🇸 Palestine (+970)',                    value: '+970'  },
-  { label: '🇵🇦 Panama (+507)',                       value: '+507'  },
-  { label: '🇵🇬 Papua New Guinea (+675)',             value: '+675'  },
-  { label: '🇵🇾 Paraguay (+595)',                     value: '+595'  },
-  { label: '🇵🇪 Peru (+51)',                          value: '+51'   },
-  { label: '🇵🇭 Philippines (+63)',                   value: '+63'   },
-  { label: '🇵🇱 Poland (+48)',                        value: '+48'   },
-  { label: '🇵🇹 Portugal (+351)',                     value: '+351'  },
-  { label: '🇶🇦 Qatar (+974)',                        value: '+974'  },
-  { label: '🇷🇴 Romania (+40)',                       value: '+40'   },
-  { label: '🇷🇺 Russia (+7)',                         value: '+7'    },
-  { label: '🇷🇼 Rwanda (+250)',                       value: '+250'  },
-  { label: '🇰🇳 Saint Kitts & Nevis (+1869)',        value: '+1869' },
-  { label: '🇱🇨 Saint Lucia (+1758)',                value: '+1758' },
-  { label: '🇻🇨 Saint Vincent & Grenadines (+1784)', value: '+1784' },
-  { label: '🇼🇸 Samoa (+685)',                        value: '+685'  },
-  { label: '🇸🇲 San Marino (+378)',                   value: '+378'  },
-  { label: '🇸🇹 São Tomé & Príncipe (+239)',          value: '+239'  },
-  { label: '🇸🇦 Saudi Arabia (+966)',                 value: '+966'  },
-  { label: '🇸🇳 Senegal (+221)',                      value: '+221'  },
-  { label: '🇷🇸 Serbia (+381)',                       value: '+381'  },
-  { label: '🇸🇨 Seychelles (+248)',                   value: '+248'  },
-  { label: '🇸🇱 Sierra Leone (+232)',                 value: '+232'  },
-  { label: '🇸🇬 Singapore (+65)',                     value: '+65'   },
-  { label: '🇸🇰 Slovakia (+421)',                     value: '+421'  },
-  { label: '🇸🇮 Slovenia (+386)',                     value: '+386'  },
-  { label: '🇸🇧 Solomon Islands (+677)',              value: '+677'  },
-  { label: '🇸🇴 Somalia (+252)',                      value: '+252'  },
-  { label: '🇿🇦 South Africa (+27)',                  value: '+27'   },
-  { label: '🇸🇸 South Sudan (+211)',                  value: '+211'  },
-  { label: '🇪🇸 Spain (+34)',                         value: '+34'   },
-  { label: '🇱🇰 Sri Lanka (+94)',                     value: '+94'   },
-  { label: '🇸🇩 Sudan (+249)',                        value: '+249'  },
-  { label: '🇸🇷 Suriname (+597)',                     value: '+597'  },
-  { label: '🇸🇪 Sweden (+46)',                        value: '+46'   },
-  { label: '🇨🇭 Switzerland (+41)',                   value: '+41'   },
-  { label: '🇸🇾 Syria (+963)',                        value: '+963'  },
-  { label: '🇹🇼 Taiwan (+886)',                       value: '+886'  },
-  { label: '🇹🇯 Tajikistan (+992)',                   value: '+992'  },
-  { label: '🇹🇿 Tanzania (+255)',                     value: '+255'  },
-  { label: '🇹🇭 Thailand (+66)',                      value: '+66'   },
-  { label: '🇹🇱 Timor-Leste (+670)',                  value: '+670'  },
-  { label: '🇹🇬 Togo (+228)',                         value: '+228'  },
-  { label: '🇹🇴 Tonga (+676)',                        value: '+676'  },
-  { label: '🇹🇹 Trinidad & Tobago (+1868)',           value: '+1868' },
-  { label: '🇹🇳 Tunisia (+216)',                      value: '+216'  },
-  { label: '🇹🇷 Turkey (+90)',                        value: '+90'   },
-  { label: '🇹🇲 Turkmenistan (+993)',                 value: '+993'  },
-  { label: '🇹🇻 Tuvalu (+688)',                       value: '+688'  },
-  { label: '🇺🇬 Uganda (+256)',                       value: '+256'  },
-  { label: '🇺🇦 Ukraine (+380)',                      value: '+380'  },
-  { label: '🇦🇪 UAE (+971)',                          value: '+971'  },
-  { label: '🇬🇧 United Kingdom (+44)',                value: '+44'   },
-  { label: '🇺🇸 USA (+1)',                            value: '+1'    },
-  { label: '🇺🇾 Uruguay (+598)',                      value: '+598'  },
-  { label: '🇺🇿 Uzbekistan (+998)',                   value: '+998'  },
-  { label: '🇻🇺 Vanuatu (+678)',                      value: '+678'  },
-  { label: '🇻🇦 Vatican City (+39)',                  value: '+39'   },
-  { label: '🇻🇪 Venezuela (+58)',                     value: '+58'   },
-  { label: '🇻🇳 Vietnam (+84)',                       value: '+84'   },
-  { label: '🇾🇪 Yemen (+967)',                        value: '+967'  },
-  { label: '🇿🇲 Zambia (+260)',                       value: '+260'  },
-  { label: '🇿🇼 Zimbabwe (+263)',                     value: '+263'  },
+  { get label() { return _t("🇮🇳 India (+91)"); },                         value: '+91'   },
+  { get label() { return _t("🇦🇫 Afghanistan (+93)"); },                   value: '+93'   },
+  { get label() { return _t("🇦🇱 Albania (+355)"); },                      value: '+355'  },
+  { get label() { return _t("🇩🇿 Algeria (+213)"); },                      value: '+213'  },
+  { get label() { return _t("🇦🇩 Andorra (+376)"); },                      value: '+376'  },
+  { get label() { return _t("🇦🇴 Angola (+244)"); },                       value: '+244'  },
+  { get label() { return _t("🇦🇬 Antigua & Barbuda (+1268)"); },           value: '+1268' },
+  { get label() { return _t("🇦🇷 Argentina (+54)"); },                     value: '+54'   },
+  { get label() { return _t("🇦🇲 Armenia (+374)"); },                      value: '+374'  },
+  { get label() { return _t("🇦🇺 Australia (+61)"); },                     value: '+61'   },
+  { get label() { return _t("🇦🇹 Austria (+43)"); },                       value: '+43'   },
+  { get label() { return _t("🇦🇿 Azerbaijan (+994)"); },                   value: '+994'  },
+  { get label() { return _t("🇧🇸 Bahamas (+1242)"); },                     value: '+1242' },
+  { get label() { return _t("🇧🇭 Bahrain (+973)"); },                      value: '+973'  },
+  { get label() { return _t("🇧🇩 Bangladesh (+880)"); },                   value: '+880'  },
+  { get label() { return _t("🇧🇧 Barbados (+1246)"); },                    value: '+1246' },
+  { get label() { return _t("🇧🇾 Belarus (+375)"); },                      value: '+375'  },
+  { get label() { return _t("🇧🇪 Belgium (+32)"); },                       value: '+32'   },
+  { get label() { return _t("🇧🇿 Belize (+501)"); },                       value: '+501'  },
+  { get label() { return _t("🇧🇯 Benin (+229)"); },                        value: '+229'  },
+  { get label() { return _t("🇧🇹 Bhutan (+975)"); },                       value: '+975'  },
+  { get label() { return _t("🇧🇴 Bolivia (+591)"); },                      value: '+591'  },
+  { get label() { return _t("🇧🇦 Bosnia & Herzegovina (+387)"); },         value: '+387'  },
+  { get label() { return _t("🇧🇼 Botswana (+267)"); },                     value: '+267'  },
+  { get label() { return _t("🇧🇷 Brazil (+55)"); },                        value: '+55'   },
+  { get label() { return _t("🇧🇳 Brunei (+673)"); },                       value: '+673'  },
+  { get label() { return _t("🇧🇬 Bulgaria (+359)"); },                     value: '+359'  },
+  { get label() { return _t("🇧🇫 Burkina Faso (+226)"); },                 value: '+226'  },
+  { get label() { return _t("🇧🇮 Burundi (+257)"); },                      value: '+257'  },
+  { get label() { return _t("🇨🇻 Cabo Verde (+238)"); },                   value: '+238'  },
+  { get label() { return _t("🇰🇭 Cambodia (+855)"); },                     value: '+855'  },
+  { get label() { return _t("🇨🇲 Cameroon (+237)"); },                     value: '+237'  },
+  { get label() { return _t("🇨🇦 Canada (+1)"); },                         value: '+1'    },
+  { get label() { return _t("🇨🇫 Central African Republic (+236)"); },     value: '+236'  },
+  { get label() { return _t("🇹🇩 Chad (+235)"); },                         value: '+235'  },
+  { get label() { return _t("🇨🇱 Chile (+56)"); },                         value: '+56'   },
+  { get label() { return _t("🇨🇳 China (+86)"); },                         value: '+86'   },
+  { get label() { return _t("🇨🇴 Colombia (+57)"); },                      value: '+57'   },
+  { get label() { return _t("🇰🇲 Comoros (+269)"); },                      value: '+269'  },
+  { get label() { return _t("🇨🇩 Congo (DRC) (+243)"); },                  value: '+243'  },
+  { get label() { return _t("🇨🇬 Congo (Republic) (+242)"); },             value: '+242'  },
+  { get label() { return _t("🇨🇷 Costa Rica (+506)"); },                   value: '+506'  },
+  { get label() { return _t("🇨🇮 Côte d'Ivoire (+225)"); },               value: '+225'  },
+  { get label() { return _t("🇭🇷 Croatia (+385)"); },                      value: '+385'  },
+  { get label() { return _t("🇨🇺 Cuba (+53)"); },                          value: '+53'   },
+  { get label() { return _t("🇨🇾 Cyprus (+357)"); },                       value: '+357'  },
+  { get label() { return _t("🇨🇿 Czech Republic (+420)"); },               value: '+420'  },
+  { get label() { return _t("🇩🇰 Denmark (+45)"); },                       value: '+45'   },
+  { get label() { return _t("🇩🇯 Djibouti (+253)"); },                     value: '+253'  },
+  { get label() { return _t("🇩🇲 Dominica (+1767)"); },                    value: '+1767' },
+  { get label() { return _t("🇩🇴 Dominican Republic (+1809)"); },          value: '+1809' },
+  { get label() { return _t("🇪🇨 Ecuador (+593)"); },                      value: '+593'  },
+  { get label() { return _t("🇪🇬 Egypt (+20)"); },                         value: '+20'   },
+  { get label() { return _t("🇸🇻 El Salvador (+503)"); },                  value: '+503'  },
+  { get label() { return _t("🇬🇶 Equatorial Guinea (+240)"); },            value: '+240'  },
+  { get label() { return _t("🇪🇷 Eritrea (+291)"); },                      value: '+291'  },
+  { get label() { return _t("🇪🇪 Estonia (+372)"); },                      value: '+372'  },
+  { get label() { return _t("🇸🇿 Eswatini (+268)"); },                     value: '+268'  },
+  { get label() { return _t("🇪🇹 Ethiopia (+251)"); },                     value: '+251'  },
+  { get label() { return _t("🇫🇯 Fiji (+679)"); },                         value: '+679'  },
+  { get label() { return _t("🇫🇮 Finland (+358)"); },                      value: '+358'  },
+  { get label() { return _t("🇫🇷 France (+33)"); },                        value: '+33'   },
+  { get label() { return _t("🇬🇦 Gabon (+241)"); },                        value: '+241'  },
+  { get label() { return _t("🇬🇲 Gambia (+220)"); },                       value: '+220'  },
+  { get label() { return _t("🇬🇪 Georgia (+995)"); },                      value: '+995'  },
+  { get label() { return _t("🇩🇪 Germany (+49)"); },                       value: '+49'   },
+  { get label() { return _t("🇬🇭 Ghana (+233)"); },                        value: '+233'  },
+  { get label() { return _t("🇬🇷 Greece (+30)"); },                        value: '+30'   },
+  { get label() { return _t("🇬🇩 Grenada (+1473)"); },                     value: '+1473' },
+  { get label() { return _t("🇬🇹 Guatemala (+502)"); },                    value: '+502'  },
+  { get label() { return _t("🇬🇳 Guinea (+224)"); },                       value: '+224'  },
+  { get label() { return _t("🇬🇼 Guinea-Bissau (+245)"); },                value: '+245'  },
+  { get label() { return _t("🇬🇾 Guyana (+592)"); },                       value: '+592'  },
+  { get label() { return _t("🇭🇹 Haiti (+509)"); },                        value: '+509'  },
+  { get label() { return _t("🇭🇳 Honduras (+504)"); },                     value: '+504'  },
+  { get label() { return _t("🇭🇺 Hungary (+36)"); },                       value: '+36'   },
+  { get label() { return _t("🇮🇸 Iceland (+354)"); },                      value: '+354'  },
+  { get label() { return _t("🇮🇩 Indonesia (+62)"); },                     value: '+62'   },
+  { get label() { return _t("🇮🇷 Iran (+98)"); },                          value: '+98'   },
+  { get label() { return _t("🇮🇶 Iraq (+964)"); },                         value: '+964'  },
+  { get label() { return _t("🇮🇪 Ireland (+353)"); },                      value: '+353'  },
+  { get label() { return _t("🇮🇱 Israel (+972)"); },                       value: '+972'  },
+  { get label() { return _t("🇮🇹 Italy (+39)"); },                         value: '+39'   },
+  { get label() { return _t("🇯🇲 Jamaica (+1876)"); },                     value: '+1876' },
+  { get label() { return _t("🇯🇵 Japan (+81)"); },                         value: '+81'   },
+  { get label() { return _t("🇯🇴 Jordan (+962)"); },                       value: '+962'  },
+  { get label() { return _t("🇰🇿 Kazakhstan (+7)"); },                     value: '+7'    },
+  { get label() { return _t("🇰🇪 Kenya (+254)"); },                        value: '+254'  },
+  { get label() { return _t("🇰🇮 Kiribati (+686)"); },                     value: '+686'  },
+  { get label() { return _t("🇽🇰 Kosovo (+383)"); },                       value: '+383'  },
+  { get label() { return _t("🇰🇼 Kuwait (+965)"); },                       value: '+965'  },
+  { get label() { return _t("🇰🇬 Kyrgyzstan (+996)"); },                   value: '+996'  },
+  { get label() { return _t("🇱🇦 Laos (+856)"); },                         value: '+856'  },
+  { get label() { return _t("🇱🇻 Latvia (+371)"); },                       value: '+371'  },
+  { get label() { return _t("🇱🇧 Lebanon (+961)"); },                      value: '+961'  },
+  { get label() { return _t("🇱🇸 Lesotho (+266)"); },                      value: '+266'  },
+  { get label() { return _t("🇱🇷 Liberia (+231)"); },                      value: '+231'  },
+  { get label() { return _t("🇱🇾 Libya (+218)"); },                        value: '+218'  },
+  { get label() { return _t("🇱🇮 Liechtenstein (+423)"); },                value: '+423'  },
+  { get label() { return _t("🇱🇹 Lithuania (+370)"); },                    value: '+370'  },
+  { get label() { return _t("🇱🇺 Luxembourg (+352)"); },                   value: '+352'  },
+  { get label() { return _t("🇲🇬 Madagascar (+261)"); },                   value: '+261'  },
+  { get label() { return _t("🇲🇼 Malawi (+265)"); },                       value: '+265'  },
+  { get label() { return _t("🇲🇾 Malaysia (+60)"); },                      value: '+60'   },
+  { get label() { return _t("🇲🇻 Maldives (+960)"); },                     value: '+960'  },
+  { get label() { return _t("🇲🇱 Mali (+223)"); },                         value: '+223'  },
+  { get label() { return _t("🇲🇹 Malta (+356)"); },                        value: '+356'  },
+  { get label() { return _t("🇲🇭 Marshall Islands (+692)"); },             value: '+692'  },
+  { get label() { return _t("🇲🇷 Mauritania (+222)"); },                   value: '+222'  },
+  { get label() { return _t("🇲🇺 Mauritius (+230)"); },                    value: '+230'  },
+  { get label() { return _t("🇲🇽 Mexico (+52)"); },                        value: '+52'   },
+  { get label() { return _t("🇫🇲 Micronesia (+691)"); },                   value: '+691'  },
+  { get label() { return _t("🇲🇩 Moldova (+373)"); },                      value: '+373'  },
+  { get label() { return _t("🇲🇨 Monaco (+377)"); },                       value: '+377'  },
+  { get label() { return _t("🇲🇳 Mongolia (+976)"); },                     value: '+976'  },
+  { get label() { return _t("🇲🇪 Montenegro (+382)"); },                   value: '+382'  },
+  { get label() { return _t("🇲🇦 Morocco (+212)"); },                      value: '+212'  },
+  { get label() { return _t("🇲🇿 Mozambique (+258)"); },                   value: '+258'  },
+  { get label() { return _t("🇲🇲 Myanmar (+95)"); },                       value: '+95'   },
+  { get label() { return _t("🇳🇦 Namibia (+264)"); },                      value: '+264'  },
+  { get label() { return _t("🇳🇷 Nauru (+674)"); },                        value: '+674'  },
+  { get label() { return _t("🇳🇵 Nepal (+977)"); },                        value: '+977'  },
+  { get label() { return _t("🇳🇱 Netherlands (+31)"); },                   value: '+31'   },
+  { get label() { return _t("🇳🇿 New Zealand (+64)"); },                   value: '+64'   },
+  { get label() { return _t("🇳🇮 Nicaragua (+505)"); },                    value: '+505'  },
+  { get label() { return _t("🇳🇪 Niger (+227)"); },                        value: '+227'  },
+  { get label() { return _t("🇳🇬 Nigeria (+234)"); },                      value: '+234'  },
+  { get label() { return _t("🇲🇰 North Macedonia (+389)"); },              value: '+389'  },
+  { get label() { return _t("🇳🇴 Norway (+47)"); },                        value: '+47'   },
+  { get label() { return _t("🇴🇲 Oman (+968)"); },                         value: '+968'  },
+  { get label() { return _t("🇵🇰 Pakistan (+92)"); },                      value: '+92'   },
+  { get label() { return _t("🇵🇼 Palau (+680)"); },                        value: '+680'  },
+  { get label() { return _t("🇵🇸 Palestine (+970)"); },                    value: '+970'  },
+  { get label() { return _t("🇵🇦 Panama (+507)"); },                       value: '+507'  },
+  { get label() { return _t("🇵🇬 Papua New Guinea (+675)"); },             value: '+675'  },
+  { get label() { return _t("🇵🇾 Paraguay (+595)"); },                     value: '+595'  },
+  { get label() { return _t("🇵🇪 Peru (+51)"); },                          value: '+51'   },
+  { get label() { return _t("🇵🇭 Philippines (+63)"); },                   value: '+63'   },
+  { get label() { return _t("🇵🇱 Poland (+48)"); },                        value: '+48'   },
+  { get label() { return _t("🇵🇹 Portugal (+351)"); },                     value: '+351'  },
+  { get label() { return _t("🇶🇦 Qatar (+974)"); },                        value: '+974'  },
+  { get label() { return _t("🇷🇴 Romania (+40)"); },                       value: '+40'   },
+  { get label() { return _t("🇷🇺 Russia (+7)"); },                         value: '+7'    },
+  { get label() { return _t("🇷🇼 Rwanda (+250)"); },                       value: '+250'  },
+  { get label() { return _t("🇰🇳 Saint Kitts & Nevis (+1869)"); },        value: '+1869' },
+  { get label() { return _t("🇱🇨 Saint Lucia (+1758)"); },                value: '+1758' },
+  { get label() { return _t("🇻🇨 Saint Vincent & Grenadines (+1784)"); }, value: '+1784' },
+  { get label() { return _t("🇼🇸 Samoa (+685)"); },                        value: '+685'  },
+  { get label() { return _t("🇸🇲 San Marino (+378)"); },                   value: '+378'  },
+  { get label() { return _t("🇸🇹 São Tomé & Príncipe (+239)"); },          value: '+239'  },
+  { get label() { return _t("🇸🇦 Saudi Arabia (+966)"); },                 value: '+966'  },
+  { get label() { return _t("🇸🇳 Senegal (+221)"); },                      value: '+221'  },
+  { get label() { return _t("🇷🇸 Serbia (+381)"); },                       value: '+381'  },
+  { get label() { return _t("🇸🇨 Seychelles (+248)"); },                   value: '+248'  },
+  { get label() { return _t("🇸🇱 Sierra Leone (+232)"); },                 value: '+232'  },
+  { get label() { return _t("🇸🇬 Singapore (+65)"); },                     value: '+65'   },
+  { get label() { return _t("🇸🇰 Slovakia (+421)"); },                     value: '+421'  },
+  { get label() { return _t("🇸🇮 Slovenia (+386)"); },                     value: '+386'  },
+  { get label() { return _t("🇸🇧 Solomon Islands (+677)"); },              value: '+677'  },
+  { get label() { return _t("🇸🇴 Somalia (+252)"); },                      value: '+252'  },
+  { get label() { return _t("🇿🇦 South Africa (+27)"); },                  value: '+27'   },
+  { get label() { return _t("🇸🇸 South Sudan (+211)"); },                  value: '+211'  },
+  { get label() { return _t("🇪🇸 Spain (+34)"); },                         value: '+34'   },
+  { get label() { return _t("🇱🇰 Sri Lanka (+94)"); },                     value: '+94'   },
+  { get label() { return _t("🇸🇩 Sudan (+249)"); },                        value: '+249'  },
+  { get label() { return _t("🇸🇷 Suriname (+597)"); },                     value: '+597'  },
+  { get label() { return _t("🇸🇪 Sweden (+46)"); },                        value: '+46'   },
+  { get label() { return _t("🇨🇭 Switzerland (+41)"); },                   value: '+41'   },
+  { get label() { return _t("🇸🇾 Syria (+963)"); },                        value: '+963'  },
+  { get label() { return _t("🇹🇼 Taiwan (+886)"); },                       value: '+886'  },
+  { get label() { return _t("🇹🇯 Tajikistan (+992)"); },                   value: '+992'  },
+  { get label() { return _t("🇹🇿 Tanzania (+255)"); },                     value: '+255'  },
+  { get label() { return _t("🇹🇭 Thailand (+66)"); },                      value: '+66'   },
+  { get label() { return _t("🇹🇱 Timor-Leste (+670)"); },                  value: '+670'  },
+  { get label() { return _t("🇹🇬 Togo (+228)"); },                         value: '+228'  },
+  { get label() { return _t("🇹🇴 Tonga (+676)"); },                        value: '+676'  },
+  { get label() { return _t("🇹🇹 Trinidad & Tobago (+1868)"); },           value: '+1868' },
+  { get label() { return _t("🇹🇳 Tunisia (+216)"); },                      value: '+216'  },
+  { get label() { return _t("🇹🇷 Turkey (+90)"); },                        value: '+90'   },
+  { get label() { return _t("🇹🇲 Turkmenistan (+993)"); },                 value: '+993'  },
+  { get label() { return _t("🇹🇻 Tuvalu (+688)"); },                       value: '+688'  },
+  { get label() { return _t("🇺🇬 Uganda (+256)"); },                       value: '+256'  },
+  { get label() { return _t("🇺🇦 Ukraine (+380)"); },                      value: '+380'  },
+  { get label() { return _t("🇦🇪 UAE (+971)"); },                          value: '+971'  },
+  { get label() { return _t("🇬🇧 United Kingdom (+44)"); },                value: '+44'   },
+  { get label() { return _t("🇺🇸 USA (+1)"); },                            value: '+1'    },
+  { get label() { return _t("🇺🇾 Uruguay (+598)"); },                      value: '+598'  },
+  { get label() { return _t("🇺🇿 Uzbekistan (+998)"); },                   value: '+998'  },
+  { get label() { return _t("🇻🇺 Vanuatu (+678)"); },                      value: '+678'  },
+  { get label() { return _t("🇻🇦 Vatican City (+39)"); },                  value: '+39'   },
+  { get label() { return _t("🇻🇪 Venezuela (+58)"); },                     value: '+58'   },
+  { get label() { return _t("🇻🇳 Vietnam (+84)"); },                       value: '+84'   },
+  { get label() { return _t("🇾🇪 Yemen (+967)"); },                        value: '+967'  },
+  { get label() { return _t("🇿🇲 Zambia (+260)"); },                       value: '+260'  },
+  { get label() { return _t("🇿🇼 Zimbabwe (+263)"); },                     value: '+263'  },
 ];
 
 const PhoneInputRow = React.memo(function PhoneInputRow({
   refCountryCode, refMobile, error, onClearError,
 }) {
   const [ccOpen,  setCcOpen]  = React.useState(false);
-  const [ccLabel, setCcLabel] = React.useState(refCountryCode.current || '+91');
+  const [ccLabel, setCcLabel] = React.useState(refCountryCode.current || DEFAULT_DIAL);
 
   const selectCode = useCallback((val) => {
     refCountryCode.current = val;
@@ -1317,7 +1326,7 @@ const PhoneInputRow = React.memo(function PhoneInputRow({
 
   return (
     <View style={ph2.wrap}>
-      <Text style={[ff.label, error && { color: C.error }]}>Mobile Number *</Text>
+      <Text style={[ff.label, error && { color: C.error }]}>{_t("Mobile Number *")}</Text>
       <View style={ph2.row}>
         {/* Country code picker button */}
         <TouchableOpacity
@@ -1326,7 +1335,7 @@ const PhoneInputRow = React.memo(function PhoneInputRow({
           activeOpacity={0.7}
         >
           <MaterialIcons name="phone-iphone" size={15} color={error ? C.error : C.muted} />
-          <Text style={[ph2.ccText, error && { color: C.error }]}>{ccLabel}</Text>
+          <Text style={[ph2.ccText, error && { color: C.error }]}>{_tx(ccLabel)}</Text>
           <MaterialIcons name="arrow-drop-down" size={16} color={C.muted} />
         </TouchableOpacity>
 
@@ -1335,7 +1344,7 @@ const PhoneInputRow = React.memo(function PhoneInputRow({
           <TextInput
             style={ph2.numInput}
             placeholderTextColor={C.muted}
-            placeholder="Mobile number"
+            placeholder={_t("Mobile number")}
             keyboardType="phone-pad"
             defaultValue={refMobile.current ?? ''}
             onChangeText={handleMobileChange}
@@ -1343,14 +1352,14 @@ const PhoneInputRow = React.memo(function PhoneInputRow({
           />
         </View>
       </View>
-      {!!error && <Text style={ff.errorText}>{typeof error === 'string' ? error : 'Mobile number is required'}</Text>}
+      {!!error && <Text style={ff.errorText}>{typeof error === 'string' ? _tx(error) : _t("Mobile number is required")}</Text>}
 
       {/* Country code picker modal */}
       <Modal visible={ccOpen} transparent animationType="slide" onRequestClose={() => setCcOpen(false)}>
         <TouchableOpacity style={ph2.overlay} onPress={() => setCcOpen(false)} activeOpacity={1}>
           <View style={ph2.sheet}>
             <View style={ph2.sheetHeader}>
-              <Text style={ph2.sheetTitle}>Select Country Code</Text>
+              <Text style={ph2.sheetTitle}>{_t("Select Country Code")}</Text>
               <TouchableOpacity onPress={() => setCcOpen(false)}>
                 <MaterialIcons name="close" size={22} color={C.muted} />
               </TouchableOpacity>
@@ -1365,7 +1374,7 @@ const PhoneInputRow = React.memo(function PhoneInputRow({
                   onPress={() => selectCode(item.value)}
                 >
                   <Text style={[ph2.ccOptionText, item.value === ccLabel && ph2.ccOptionTextActive]}>
-                    {item.label}
+                    {_tx(item.label)}
                   </Text>
                   {item.value === ccLabel && <MaterialIcons name="check" size={16} color="#2563eb" />}
                 </TouchableOpacity>
@@ -1417,7 +1426,7 @@ const FieldRef = React.memo(function FieldRef({ label, icon, fieldRef, error, on
   }, [fieldRef, onClearError]);
   return (
     <View style={ff.wrap}>
-      <Text style={[ff.label, error && { color: C.error }]}>{label}</Text>
+      <Text style={[ff.label, error && { color: C.error }]}>{_tx(label)}</Text>
       <View style={[ff.row, error && ff.rowError]}>
         {icon && <MaterialIcons name={icon} size={17}
           color={error ? C.error : C.muted} style={ff.icon} />}
@@ -1426,7 +1435,7 @@ const FieldRef = React.memo(function FieldRef({ label, icon, fieldRef, error, on
           defaultValue={fieldRef.current ?? ''}
           onChangeText={handleChange} {...rest} />
       </View>
-      {!!error && <Text style={ff.errorText}>{error}</Text>}
+      {!!error && <Text style={ff.errorText}>{_tx(error)}</Text>}
     </View>
   );
 });
@@ -1448,7 +1457,7 @@ const StepperTabs = React.memo(function StepperTabs({ step, onPress }) {
                 color={active || done ? '#fff' : C.muted} />
             </View>
             <Text style={[st.stepLabel, active && { color: s.color, fontWeight: '800' }, done && { color: C.success }]}>
-              {s.label}
+              {_tx(s.label)}
             </Text>
           </TouchableOpacity>
         );
@@ -1469,8 +1478,8 @@ const SectionCard = React.memo(function SectionCard({ color, icon, title, subtit
           <MaterialIcons name={icon} size={22} color={color} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={sc.title}>{title}</Text>
-          {subtitle && <Text style={sc.subtitle}>{subtitle}</Text>}
+          <Text style={sc.title}>{_tx(title)}</Text>
+          {subtitle && <Text style={sc.subtitle}>{_tx(subtitle)}</Text>}
         </View>
       </View>
       <View style={sc.body}>{children}</View>
@@ -1495,7 +1504,7 @@ const DobModal = React.memo(function DobModal({
 
   const renderMonth = useCallback(({ item }) => (
     <TouchableOpacity style={[dob.item, item === dobMonth && dob.itemActive]} onPress={() => setDobMonth(item)}>
-      <Text style={[dob.itemText, item === dobMonth && dob.itemTextActive]}>{MONTHS[item-1]}</Text>
+      <Text style={[dob.itemText, item === dobMonth && dob.itemTextActive]}>{_tx(MONTHS[item-1])}</Text>
     </TouchableOpacity>
   ), [dobMonth]);
 
@@ -1513,7 +1522,7 @@ const DobModal = React.memo(function DobModal({
             <View style={st.modalIconWrap}>
               <MaterialIcons name="event" size={22} color={C.primary} />
             </View>
-            <Text style={st.modalTitle}>{title}</Text>
+            <Text style={st.modalTitle}>{_tx(title)}</Text>
             <TouchableOpacity style={st.modalCloseBtn} onPress={onClose}>
               <MaterialIcons name="close" size={20} color={C.muted} />
             </TouchableOpacity>
@@ -1521,23 +1530,23 @@ const DobModal = React.memo(function DobModal({
 
           <View style={st.dobPreview}>
             <Text style={st.dobPreviewText}>
-              {String(dobDay).padStart(2,'0')} {MONTHS[dobMonth-1]} {dobYear}
+              {String(dobDay).padStart(2,'0')} {_tx(MONTHS[dobMonth-1])} {_tx(dobYear)}
             </Text>
           </View>
 
           <View style={dob.cols}>
             <View style={dob.col}>
-              <Text style={dob.colLabel}>Day</Text>
+              <Text style={dob.colLabel}>{_t("Day")}</Text>
               <FlatList data={days} keyExtractor={String} renderItem={renderDay}
                 style={dob.list} showsVerticalScrollIndicator={false} />
             </View>
             <View style={[dob.col, { flex: 1.6 }]}>
-              <Text style={dob.colLabel}>Month</Text>
+              <Text style={dob.colLabel}>{_t("Month")}</Text>
               <FlatList data={months} keyExtractor={String} renderItem={renderMonth}
                 style={dob.list} showsVerticalScrollIndicator={false} />
             </View>
             <View style={dob.col}>
-              <Text style={dob.colLabel}>Year</Text>
+              <Text style={dob.colLabel}>{_t("Year")}</Text>
               <FlatList data={years} keyExtractor={String} renderItem={renderYear}
                 style={dob.list} showsVerticalScrollIndicator={false} />
             </View>
@@ -1545,11 +1554,11 @@ const DobModal = React.memo(function DobModal({
 
           <View style={st.modalFooter}>
             <TouchableOpacity style={st.modalCancelBtn} onPress={onClose}>
-              <Text style={st.modalCancelText}>Cancel</Text>
+              <Text style={st.modalCancelText}>{_t("Cancel")}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={st.modalConfirmBtn} onPress={onConfirm}>
               <MaterialIcons name="check" size={18} color="#fff" style={{ marginRight: 6 }} />
-              <Text style={st.modalConfirmText}>Confirm</Text>
+              <Text style={st.modalConfirmText}>{_t("Confirm")}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1571,7 +1580,7 @@ function SectionDivider({ label, color = C.muted }) {
   return (
     <View style={dv.row}>
       <View style={[dv.line, { backgroundColor: color + '40' }]} />
-      <Text style={[dv.label, { color }]}>{label}</Text>
+      <Text style={[dv.label, { color }]}>{_tx(label)}</Text>
       <View style={[dv.line, { backgroundColor: color + '40' }]} />
     </View>
   );
@@ -1581,7 +1590,7 @@ const InfoBox = React.memo(function InfoBox({ icon, color, text }) {
   return (
     <View style={[ib.box, { backgroundColor: color + '0d', borderColor: color + '30' }]}>
       <MaterialIcons name={icon} size={16} color={color} style={{ marginTop: 1 }} />
-      <Text style={[ib.text, { color }]}>{text}</Text>
+      <Text style={[ib.text, { color }]}>{_tx(text)}</Text>
     </View>
   );
 });
@@ -1589,8 +1598,8 @@ const InfoBox = React.memo(function InfoBox({ icon, color, text }) {
 function SummaryRow({ label, value }) {
   return (
     <View style={sr.row}>
-      <Text style={sr.label}>{label}</Text>
-      <Text style={sr.value} numberOfLines={1}>{value}</Text>
+      <Text style={sr.label}>{_tx(label)}</Text>
+      <Text style={sr.value} numberOfLines={1}>{_tx(value)}</Text>
     </View>
   );
 }
@@ -1620,16 +1629,14 @@ function RegistrationSuccessModal({ visible, data, onRegisterAnother, onDone }) 
             </View>
           </View>
 
-          <Text style={rsm.headline}>Registration Successful!</Text>
-          <Text style={rsm.subline}>
-            {data.name}'s application has been submitted and is now pending review.
-          </Text>
+          <Text style={rsm.headline}>{_t("Registration Successful!")}</Text>
+          <Text style={rsm.subline}>{_t("{name}'s application has been submitted and is now pending review.", { name: data.name })}</Text>
 
           {/* Registration number card */}
           <View style={rsm.regCard}>
-            <Text style={rsm.regCardLabel}>Registration Number</Text>
-            <Text style={rsm.regCardNumber}>{data.regNo}</Text>
-            <Text style={rsm.regCardHint}>Keep this number for your records</Text>
+            <Text style={rsm.regCardLabel}>{_t("Registration Number")}</Text>
+            <Text style={rsm.regCardNumber}>{_tx(data.regNo)}</Text>
+            <Text style={rsm.regCardHint}>{_t("Keep this number for your records")}</Text>
           </View>
 
           {/* Email status */}
@@ -1640,11 +1647,11 @@ function RegistrationSuccessModal({ visible, data, onRegisterAnother, onDone }) 
                   <MaterialIcons name="mark-email-read" size={22} color="#16a34a" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={rsm.emailStatusTitle}>Confirmation email sent</Text>
-                  <Text style={rsm.emailStatusSub} numberOfLines={1}>{data.emailAddress}</Text>
+                  <Text style={rsm.emailStatusTitle}>{_t("Confirmation email sent")}</Text>
+                  <Text style={rsm.emailStatusSub} numberOfLines={1}>{_tx(data.emailAddress)}</Text>
                 </View>
                 <View style={rsm.emailBadge}>
-                  <Text style={rsm.emailBadgeTxt}>Sent ✓</Text>
+                  <Text style={rsm.emailBadgeTxt}>{_t("Sent ✓")}</Text>
                 </View>
               </>
             ) : data.emailAddress ? (
@@ -1653,8 +1660,8 @@ function RegistrationSuccessModal({ visible, data, onRegisterAnother, onDone }) 
                   <MaterialIcons name="mail-outline" size={22} color="#b45309" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[rsm.emailStatusTitle, { color: '#92400e' }]}>Email delivery failed</Text>
-                  <Text style={rsm.emailStatusSub}>{data.emailAddress}</Text>
+                  <Text style={[rsm.emailStatusTitle, { color: '#92400e' }]}>{_t("Email delivery failed")}</Text>
+                  <Text style={rsm.emailStatusSub}>{_tx(data.emailAddress)}</Text>
                 </View>
               </>
             ) : (
@@ -1663,8 +1670,8 @@ function RegistrationSuccessModal({ visible, data, onRegisterAnother, onDone }) 
                   <MaterialIcons name="mail-outline" size={22} color="#94a3b8" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[rsm.emailStatusTitle, { color: '#64748b' }]}>No email address provided</Text>
-                  <Text style={rsm.emailStatusSub}>Add an email address to receive confirmation</Text>
+                  <Text style={[rsm.emailStatusTitle, { color: '#64748b' }]}>{_t("No email address provided")}</Text>
+                  <Text style={rsm.emailStatusSub}>{_t("Add an email address to receive confirmation")}</Text>
                 </View>
               </>
             )}
@@ -1672,17 +1679,17 @@ function RegistrationSuccessModal({ visible, data, onRegisterAnother, onDone }) 
 
           {/* What happens next */}
           <View style={rsm.nextCard}>
-            <Text style={rsm.nextTitle}>What happens next?</Text>
+            <Text style={rsm.nextTitle}>{_t("What happens next?")}</Text>
             {[
-              { icon: 'hourglass-top', text: 'Your application is being reviewed by the school administration.' },
-              { icon: 'phone-in-talk', text: 'The school will contact you once the review is complete.' },
-              { icon: 'confirmation-number', text: 'Use your Registration Number when enquiring about your application.' },
+              { icon: 'hourglass-top', text: _t("Your application is being reviewed by the school administration.") },
+              { icon: 'phone-in-talk', text: _t("The school will contact you once the review is complete.") },
+              { icon: 'confirmation-number', text: _t("Use your Registration Number when enquiring about your application.") },
             ].map(({ icon, text }, i) => (
               <View key={i} style={rsm.nextRow}>
                 <View style={rsm.nextIconWrap}>
                   <MaterialIcons name={icon} size={16} color={C.primary} />
                 </View>
-                <Text style={rsm.nextText}>{text}</Text>
+                <Text style={rsm.nextText}>{_tx(text)}</Text>
               </View>
             ))}
           </View>
@@ -1690,11 +1697,11 @@ function RegistrationSuccessModal({ visible, data, onRegisterAnother, onDone }) 
           {/* Action buttons */}
           <TouchableOpacity style={rsm.btnPrimary} onPress={onRegisterAnother} activeOpacity={0.85}>
             <MaterialIcons name="person-add" size={20} color="#fff" />
-            <Text style={rsm.btnPrimaryTxt}>Register Another Student</Text>
+            <Text style={rsm.btnPrimaryTxt}>{_t("Register Another Student")}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={rsm.btnSecondary} onPress={onDone} activeOpacity={0.8}>
-            <Text style={rsm.btnSecondaryTxt}>Done</Text>
+            <Text style={rsm.btnSecondaryTxt}>{_t("Done")}</Text>
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>

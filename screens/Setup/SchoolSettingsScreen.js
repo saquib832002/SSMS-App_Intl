@@ -16,34 +16,36 @@ import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { AuthContext } from "../../context/AuthContext";
 import { fetchSchoolSettings, saveSchoolSettings } from "../../services/SchoolSettingsServiceApi";
+import { setSessionStartMonth } from "../../hooks/useSessionMonths";
 import { HOST_NAME as _HOST_NAME } from "../../Environment/EnvironmentConfig";
+import { _t, _tx } from "../../services/i18n";
 const HOST_NAME = (_HOST_NAME ?? '').replace(/\/+$/, '');
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const ALL_DAYS = [
-  { label: "Mon", value: 1 },
-  { label: "Tue", value: 2 },
-  { label: "Wed", value: 3 },
-  { label: "Thu", value: 4 },
-  { label: "Fri", value: 5 },
-  { label: "Sat", value: 6 },
-  { label: "Sun", value: 7 },
+  { get label() { return _t("Mon"); }, value: 1 },
+  { get label() { return _t("Tue"); }, value: 2 },
+  { get label() { return _t("Wed"); }, value: 3 },
+  { get label() { return _t("Thu"); }, value: 4 },
+  { get label() { return _t("Fri"); }, value: 5 },
+  { get label() { return _t("Sat"); }, value: 6 },
+  { get label() { return _t("Sun"); }, value: 7 },
 ];
 
 const MONTHS = [
-  { label: "January",   value: 1  },
-  { label: "February",  value: 2  },
-  { label: "March",     value: 3  },
-  { label: "April",     value: 4  },
-  { label: "May",       value: 5  },
-  { label: "June",      value: 6  },
-  { label: "July",      value: 7  },
-  { label: "August",    value: 8  },
-  { label: "September", value: 9  },
-  { label: "October",   value: 10 },
-  { label: "November",  value: 11 },
-  { label: "December",  value: 12 },
+  { get label() { return _t("January"); },   value: 1  },
+  { get label() { return _t("February"); },  value: 2  },
+  { get label() { return _t("March"); },     value: 3  },
+  { get label() { return _t("April"); },     value: 4  },
+  { get label() { return _t("May"); },       value: 5  },
+  { get label() { return _t("June"); },      value: 6  },
+  { get label() { return _t("July"); },      value: 7  },
+  { get label() { return _t("August"); },    value: 8  },
+  { get label() { return _t("September"); }, value: 9  },
+  { get label() { return _t("October"); },   value: 10 },
+  { get label() { return _t("November"); },  value: 11 },
+  { get label() { return _t("December"); },  value: 12 },
 ];
 
 // ── Month Picker ──────────────────────────────────────────────────────────────
@@ -55,7 +57,7 @@ function MonthPicker({ value, onChange }) {
   return (
     <>
       <TouchableOpacity style={s.pickerBtn} onPress={() => setOpen(v => !v)} activeOpacity={0.7}>
-        <Text style={s.pickerBtnTxt}>{selected?.label ?? "Select month"}</Text>
+        <Text style={s.pickerBtnTxt}>{_tx(selected?.label) ?? _t("Select month")}</Text>
         <Feather name={open ? "chevron-up" : "chevron-down"} size={16} color="#475569" />
       </TouchableOpacity>
       {open && (
@@ -68,7 +70,7 @@ function MonthPicker({ value, onChange }) {
               activeOpacity={0.7}
             >
               <Text style={[s.pickerOptionTxt, m.value === value && s.pickerOptionTxtActive]}>
-                {m.label}
+                {_tx(m.label)}
               </Text>
               {m.value === value && <Feather name="check" size={14} color="#6d28d9" />}
             </TouchableOpacity>
@@ -105,7 +107,8 @@ export default function SchoolSettingsScreen({ navigation }) {
     setFetchErr(null);
     fetchSchoolSettings(user)
       .then(data => {
-        const days = (data.working_days ?? "1,2,3,4,5")
+        data = data ?? {};
+        const days = String(data.working_days ?? "1,2,3,4,5")
           .split(",")
           .map(Number)
           .filter(n => n >= 1 && n <= 7);
@@ -132,7 +135,7 @@ export default function SchoolSettingsScreen({ navigation }) {
   const pickSignature = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("Permission required", "Please allow access to your photo library to upload a signature.");
+      Alert.alert(_t("Permission required"), _t("Please allow access to your photo library to upload a signature."));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -165,12 +168,12 @@ export default function SchoolSettingsScreen({ navigation }) {
   // ── Save ───────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (workingDays.length === 0) {
-      Alert.alert("Validation", "Please select at least one working day.");
+      Alert.alert(_t("Validation"), _t("Please select at least one working day."));
       return;
     }
     const timeRe = /^\d{1,2}:\d{2}$/;
     if (!timeRe.test(schoolStartTime) || !timeRe.test(schoolEndTime)) {
-      Alert.alert("Validation", "Times must be in HH:MM format (e.g. 08:00).");
+      Alert.alert(_t("Validation"), _t("Times must be in HH:MM format (e.g. 08:00)."));
       return;
     }
 
@@ -191,6 +194,8 @@ export default function SchoolSettingsScreen({ navigation }) {
         },
         signatureAsset   // null if not changed
       );
+      // Fee screens show months in session order – update them right away.
+      setSessionStartMonth(user?.ssmsClientCode, sessionStartMonth);
       // If a new signature was uploaded, update the preview with the server URL
       // (append timestamp to bust React Native's image cache)
       if (signatureAsset) {
@@ -202,7 +207,7 @@ export default function SchoolSettingsScreen({ navigation }) {
       }
       setSuccess(true);
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     } finally {
       setSaving(false);
     }
@@ -214,7 +219,7 @@ export default function SchoolSettingsScreen({ navigation }) {
     return (
       <View style={s.centre}>
         <ActivityIndicator size="large" color="#6d28d9" />
-        <Text style={s.loadingTxt}>Loading settings…</Text>
+        <Text style={s.loadingTxt}>{_t("Loading settings…")}</Text>
       </View>
     );
   }
@@ -223,9 +228,9 @@ export default function SchoolSettingsScreen({ navigation }) {
     return (
       <View style={s.centre}>
         <Feather name="alert-circle" size={32} color="#ef4444" />
-        <Text style={[s.loadingTxt, { color: "#ef4444", marginTop: 8 }]}>{fetchErr}</Text>
-        <TouchableOpacity style={s.retryBtn} onPress={() => { setFetchErr(null); setLoading(true); }}>
-          <Text style={s.retryTxt}>Retry</Text>
+        <Text style={[s.loadingTxt, { color: "#ef4444", marginTop: 8 }]}>{_tx(fetchErr)}</Text>
+        <TouchableOpacity style={s.retryBtn} onPress={loadSettings}>
+          <Text style={s.retryTxt}>{_t("Retry")}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -244,8 +249,8 @@ export default function SchoolSettingsScreen({ navigation }) {
               <Feather name="calendar" size={16} color="#6d28d9" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.cardTitle}>Working Days</Text>
-              <Text style={s.cardSub}>Tap to toggle. Selected days appear in the timetable.</Text>
+              <Text style={s.cardTitle}>{_t("Working Days")}</Text>
+              <Text style={s.cardSub}>{_t("Tap to toggle. Selected days appear in the timetable.")}</Text>
             </View>
           </View>
 
@@ -260,7 +265,7 @@ export default function SchoolSettingsScreen({ navigation }) {
                   activeOpacity={0.75}
                 >
                   <Text style={[s.dayBtnTxt, active && s.dayBtnTxtActive]}>
-                    {day.label}
+                    {_tx(day.label)}
                   </Text>
                 </TouchableOpacity>
               );
@@ -270,12 +275,9 @@ export default function SchoolSettingsScreen({ navigation }) {
           {workingDays.length < 7 && (
             <View style={s.weekendRow}>
               <Feather name="moon" size={13} color="#94a3b8" />
-              <Text style={s.weekendTxt}>
-                Off days:{" "}
-                {ALL_DAYS.filter(d => !workingDays.includes(d.value))
+              <Text style={s.weekendTxt}>{_t("Off days: {v}", { v: ALL_DAYS.filter(d => !workingDays.includes(d.value))
                   .map(d => d.label)
-                  .join(", ") || "None"}
-              </Text>
+                  .join(", ") || _t("None") })}</Text>
             </View>
           )}
         </View>
@@ -287,8 +289,8 @@ export default function SchoolSettingsScreen({ navigation }) {
               <Feather name="book-open" size={16} color="#6d28d9" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.cardTitle}>Session Start Month</Text>
-              <Text style={s.cardSub}>The month the academic year begins.</Text>
+              <Text style={s.cardTitle}>{_t("Session Start Month")}</Text>
+              <Text style={s.cardSub}>{_t("The month the academic year begins.")}</Text>
             </View>
           </View>
           <MonthPicker value={sessionStartMonth} onChange={(v) => { setSessionStartMonth(v); setSuccess(false); }} />
@@ -301,14 +303,14 @@ export default function SchoolSettingsScreen({ navigation }) {
               <Feather name="clock" size={16} color="#6d28d9" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.cardTitle}>School Timings</Text>
-              <Text style={s.cardSub}>Overall school hours in HH:MM (24-hour).</Text>
+              <Text style={s.cardTitle}>{_t("School Timings")}</Text>
+              <Text style={s.cardSub}>{_t("Overall school hours in HH:MM (24-hour).")}</Text>
             </View>
           </View>
 
           <View style={s.timeRow}>
             <View style={s.timeField}>
-              <Text style={s.fieldLabel}>Start Time</Text>
+              <Text style={s.fieldLabel}>{_t("Start Time")}</Text>
               <TextInput
                 style={s.timeInput}
                 value={schoolStartTime}
@@ -320,7 +322,7 @@ export default function SchoolSettingsScreen({ navigation }) {
             </View>
             <Feather name="arrow-right" size={18} color="#cbd5e1" style={{ marginTop: 28 }} />
             <View style={s.timeField}>
-              <Text style={s.fieldLabel}>End Time</Text>
+              <Text style={s.fieldLabel}>{_t("End Time")}</Text>
               <TextInput
                 style={s.timeInput}
                 value={schoolEndTime}
@@ -340,10 +342,8 @@ export default function SchoolSettingsScreen({ navigation }) {
               <Feather name="edit-3" size={16} color="#6d28d9" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.cardTitle}>Principal's Signature</Text>
-              <Text style={s.cardSub}>
-                Used on student ID cards. Upload a PNG/JPG on a white or transparent background.
-              </Text>
+              <Text style={s.cardTitle}>{_t("Principal's Signature")}</Text>
+              <Text style={s.cardSub}>{_t("Used on student ID cards. Upload a PNG/JPG on a white or transparent background.")}</Text>
             </View>
           </View>
 
@@ -358,24 +358,24 @@ export default function SchoolSettingsScreen({ navigation }) {
               <View style={s.sigActions}>
                 <TouchableOpacity style={s.sigChangeBtn} onPress={pickSignature} activeOpacity={0.8}>
                   <Feather name="refresh-cw" size={13} color="#6d28d9" />
-                  <Text style={s.sigChangeTxt}>Change</Text>
+                  <Text style={s.sigChangeTxt}>{_t("Change")}</Text>
                 </TouchableOpacity>
                 {signatureAsset && (
                   <TouchableOpacity style={s.sigRemoveBtn} onPress={removeSignature} activeOpacity={0.8}>
                     <Feather name="x" size={13} color="#ef4444" />
-                    <Text style={s.sigRemoveTxt}>Cancel</Text>
+                    <Text style={s.sigRemoveTxt}>{_t("Cancel")}</Text>
                   </TouchableOpacity>
                 )}
               </View>
               {signatureAsset && (
-                <Text style={s.sigNewBadge}>New signature ready — save to apply</Text>
+                <Text style={s.sigNewBadge}>{_t("New signature ready — save to apply")}</Text>
               )}
             </View>
           ) : (
             <TouchableOpacity style={s.sigUploadBtn} onPress={pickSignature} activeOpacity={0.8}>
               <Feather name="upload" size={20} color="#6d28d9" />
-              <Text style={s.sigUploadTxt}>Tap to upload signature</Text>
-              <Text style={s.sigUploadHint}>PNG or JPG recommended</Text>
+              <Text style={s.sigUploadTxt}>{_t("Tap to upload signature")}</Text>
+              <Text style={s.sigUploadHint}>{_t("PNG or JPG recommended")}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -384,7 +384,7 @@ export default function SchoolSettingsScreen({ navigation }) {
         {success && (
           <View style={s.successBanner}>
             <Feather name="check-circle" size={16} color="#15803d" />
-            <Text style={s.successTxt}>Settings saved successfully.</Text>
+            <Text style={s.successTxt}>{_t("Settings saved successfully.")}</Text>
           </View>
         )}
 
@@ -399,7 +399,7 @@ export default function SchoolSettingsScreen({ navigation }) {
             ? <ActivityIndicator color="#fff" size="small" />
             : <>
                 <Feather name="save" size={16} color="#fff" />
-                <Text style={s.saveBtnTxt}>Save Settings</Text>
+                <Text style={s.saveBtnTxt}>{_t("Save Settings")}</Text>
               </>
           }
         </TouchableOpacity>

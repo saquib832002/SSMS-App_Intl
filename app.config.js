@@ -9,7 +9,7 @@ const API_URL = process.env.API_URL || (IS_PROD ? "https://managemyacademy.com/"
 export default {
   name:        IS_PROD ? "ManageMyAcademy" : "SSMS (Dev)",
   slug:        "SchoolManagementSystem",
-  version:     "1.0.2",
+  version:     "1.0.3",
   orientation: "portrait",
   userInterfaceStyle: "light",  // ← force light mode — prevents white-on-white in dark mode
   icon:        "./assets/smsLogo4.png",
@@ -28,9 +28,15 @@ export default {
       foregroundImage: "./assets/smsLogo4.png",
       backgroundColor: "#ffffff",
     },
-    versionCode: 67,
+    versionCode: 68,
     permissions: [
       "CAMERA",
+      "ACCESS_COARSE_LOCATION",
+      "ACCESS_FINE_LOCATION",
+      // live bus tracking: the driver's phone shares the bus position with the screen off
+      "ACCESS_BACKGROUND_LOCATION",
+      "FOREGROUND_SERVICE",
+      "FOREGROUND_SERVICE_LOCATION",
     ],
   },
 
@@ -50,6 +56,23 @@ export default {
       {
         photosPermission: "Allow $(PRODUCT_NAME) to access your photos for student ID upload.",
         cameraPermission: "Allow $(PRODUCT_NAME) to use the camera to take student photos.",
+      },
+    ],
+    [
+      "expo-camera",
+      {
+        cameraPermission: "Allow $(PRODUCT_NAME) to use the camera to scan the staff check-in QR code and take photos.",
+        recordAudioAndroid: false,
+      },
+    ],
+    [
+      "expo-location",
+      {
+        locationWhenInUsePermission: "Allow $(PRODUCT_NAME) to check you are at school when you check in for staff attendance, and to show the school bus on the map.",
+        locationAlwaysAndWhenInUsePermission: "Bus drivers: allow $(PRODUCT_NAME) to share the bus location with the school and parents during a trip, also when the app is closed.",
+        isAndroidBackgroundLocationEnabled: true,
+        isAndroidForegroundServiceEnabled: true,
+        isIosBackgroundLocationEnabled: true,
       },
     ],
     [

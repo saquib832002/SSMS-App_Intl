@@ -18,16 +18,17 @@ import { fetchSections } from "../../services/StudentServiceApi";
 import { fetchClassSubjects } from "../../services/SubjectServiceApi";
 import { fetchStaff } from "../../services/StaffServiceApi";
 import { fetchSchoolSettings } from "../../services/SchoolSettingsServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // All possible days — working days are filtered from this at runtime
 const ALL_DAYS = [
-  { label: "Mon", value: 1 },
-  { label: "Tue", value: 2 },
-  { label: "Wed", value: 3 },
-  { label: "Thu", value: 4 },
-  { label: "Fri", value: 5 },
-  { label: "Sat", value: 6 },
-  { label: "Sun", value: 7 },
+  { get label() { return _t("Mon"); }, value: 1 },
+  { get label() { return _t("Tue"); }, value: 2 },
+  { get label() { return _t("Wed"); }, value: 3 },
+  { get label() { return _t("Thu"); }, value: 4 },
+  { get label() { return _t("Fri"); }, value: 5 },
+  { get label() { return _t("Sat"); }, value: 6 },
+  { get label() { return _t("Sun"); }, value: 7 },
 ];
 
 // Default: Mon–Sat (matches previous behaviour before settings are loaded)
@@ -45,14 +46,14 @@ function Dropdown({ label, value, options, onChange, disabled, loading: isLoadin
         activeOpacity={0.75}
       >
         <Text style={[tt.ddTxt, !selected?.value && tt.ddPh]} numberOfLines={1}>
-          {isLoading ? "Loading…" : (selected?.label ?? label)}
+          {isLoading ? _t("Loading…") : (_tx(selected?.label) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={13} color="#94a3b8" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={tt.ddOverlay} activeOpacity={1} onPress={() => setOpen(false)}>
           <View style={tt.ddSheet}>
-            <Text style={tt.ddTitle}>{label}</Text>
+            <Text style={tt.ddTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={(o, i) => `${i}_${String(o.value)}`}
@@ -65,10 +66,10 @@ function Dropdown({ label, value, options, onChange, disabled, loading: isLoadin
                   >
                     <View style={{ flex: 1 }}>
                       <Text style={[tt.ddOptTxt, isSelected && tt.ddOptTxtAct, o.busy && tt.ddOptTxtBusy]}>
-                        {o.busy ? "⛔ " : ""}{o.label}
+                        {o.busy ? "⛔ " : ""}{_tx(o.label)}
                       </Text>
                       {o.busy && !!o.busyLabel && (
-                        <Text style={tt.ddOptBusyHint}>{o.busyLabel}</Text>
+                        <Text style={tt.ddOptBusyHint}>{_tx(o.busyLabel)}</Text>
                       )}
                     </View>
                     {isSelected && <Feather name="check" size={13} color={o.busy ? "#dc2626" : "#1e40af"} />}
@@ -131,7 +132,8 @@ export default function TimetableScreen({ navigation }) {
     (async () => {
       try {
         setLoadingInit(true);
-        const [cls, sess, per, stf, br, settings] = await Promise.all([
+        // allSettled: a 403 on one list (e.g. staff) must not blank the whole screen
+        const results = await Promise.allSettled([
           fetchClasses(user),
           fetchSessions(user),
           fetchPeriods(user),
@@ -139,26 +141,30 @@ export default function TimetableScreen({ navigation }) {
           fetchBranches(user),
           fetchSchoolSettings(user).catch(() => null),
         ]);
-        setClasses(Array.isArray(cls)   ? cls   : cls?.data   ?? []);
-        setPeriods(Array.isArray(per)   ? per   : per?.data   ?? []);
-        setStaff(Array.isArray(stf)     ? stf   : stf?.data   ?? []);
+        const [cls, sess, per, stf, br, settings] = results.map(r => (r.status === "fulfilled" ? r.value : null));
+        const toArr = (v) => (Array.isArray(v) ? v : Array.isArray(v?.data) ? v.data : []);
+        const failMsg = results.map(r => (r.status === "rejected" ? r.reason?.message : r.value?.status === false ? r.value?.message : null)).find(Boolean);
+        if (failMsg) Alert.alert(_t("Error"), _tx(failMsg));
+        setClasses(toArr(cls));
+        setPeriods(toArr(per));
+        setStaff(toArr(stf));
 
-        const sessArr = Array.isArray(sess) ? sess : sess?.data ?? [];
+        const sessArr = toArr(sess);
         setSessions(sessArr);
         if (sessArr.length === 1) setSessionId(String(sessArr[0].session_id));
 
-        const brArr = Array.isArray(br) ? br : br?.data ?? [];
+        const brArr = toArr(br);
         setBranches(brArr);
         if (brArr.length === 1) setBranchId(String(brArr[0].branch_id));
 
         // Apply working days from school settings
         if (settings?.working_days) {
-          const dayNums = settings.working_days.split(",").map(Number).filter(n => n >= 1 && n <= 7);
+          const dayNums = String(settings.working_days).split(",").map(Number).filter(n => n >= 1 && n <= 7);
           const filtered = ALL_DAYS.filter(d => dayNums.includes(d.value));
           if (filtered.length > 0) setSchoolDays(filtered);
         }
       } catch (e) {
-        Alert.alert("Error", e.message || "Failed to load data");
+        Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load data"));
       } finally {
         setLoadingInit(false);
       }
@@ -174,7 +180,7 @@ export default function TimetableScreen({ navigation }) {
     fetchSections(user, classId)
       .then(d => {
         if (!cancelled) {
-          const arr = Array.isArray(d) ? d : d?.data ?? [];
+          const arr = Array.isArray(d) ? d : Array.isArray(d?.data) ? d.data : [];
           setSections(arr);
           if (arr.length === 1) setSectionId(String(arr[0].section_id));
         }
@@ -203,22 +209,26 @@ export default function TimetableScreen({ navigation }) {
     try {
       setLoadingGrid(true);
       setGridHeight(0);
-      const [data, busy] = await Promise.all([
+      // allSettled: the busy map is optional — its failure must not hide the timetable
+      const [dataR, busyR] = await Promise.allSettled([
         fetchTimetable(user, { classId, sectionId, sessionId, branchId }),
         fetchBusyMap(user,   { classId, sectionId, sessionId, branchId }),
       ]);
+      if (dataR.status === "rejected") throw dataR.reason;
+      const data = dataR.value;
+      const busy = busyR.status === "fulfilled" ? busyR.value : null;
       setSlots(Array.isArray(data) ? data : []);
-      setBusyMap(busy ?? {});
+      setBusyMap(busy && typeof busy === "object" ? busy : {});
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load timetable");
+      Alert.alert(_t("Error"), _tx(e?.message) || _t("Failed to load timetable"));
     } finally {
       setLoadingGrid(false);
     }
   }, [user, classId, sectionId, sessionId, branchId]);
 
+  // useFocusEffect already re-runs when loadGrid changes (filters) while focused;
+  // a second useEffect on the same filters fired a duplicate fetch (and duplicate error alert).
   useFocusEffect(useCallback(() => { loadGrid(); }, [loadGrid]));
-
-  useEffect(() => { loadGrid(); }, [classId, sectionId, sessionId, branchId]);
 
   // ── Build grid map: { "day_period": slot } ───────────────────────────────
   const gridMap = useMemo(() => {
@@ -229,9 +239,9 @@ export default function TimetableScreen({ navigation }) {
 
   // ── Open slot editor ──────────────────────────────────────────────────────
   const openSlot = (day, period) => {
-    if (!classId)   { Alert.alert("Required", "Please select a class."); return; }
-    if (!sectionId) { Alert.alert("Required", "Please select a section."); return; }
-    if (!sessionId) { Alert.alert("Required", "Please select a session."); return; }
+    if (!classId)   { Alert.alert(_t("Required"), _t("Please select a class.")); return; }
+    if (!sectionId) { Alert.alert(_t("Required"), _t("Please select a section.")); return; }
+    if (!sessionId) { Alert.alert(_t("Required"), _t("Please select a session.")); return; }
     const key  = `${day.value}_${period.period_id}`;
     const slot = gridMap[key] ?? null;
     setEditingSlot(slot);
@@ -246,7 +256,7 @@ export default function TimetableScreen({ navigation }) {
 
   // ── Save slot ─────────────────────────────────────────────────────────────
   const handleSaveSlot = async () => {
-    if (!slotSubjectId) { Alert.alert("Validation", "Please select a subject."); return; }
+    if (!slotSubjectId) { Alert.alert(_t("Validation"), _t("Please select a subject.")); return; }
     try {
       setSaving(true);
       await saveTimetableSlot(user, {
@@ -263,7 +273,7 @@ export default function TimetableScreen({ navigation }) {
       setSlotModal(false);
       loadGrid();
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to save slot");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to save slot"));
     } finally {
       setSaving(false);
     }
@@ -272,10 +282,10 @@ export default function TimetableScreen({ navigation }) {
   // ── Clear slot ────────────────────────────────────────────────────────────
   const handleClearSlot = () => {
     if (!editingSlot) { setSlotModal(false); return; }
-    Alert.alert("Clear Slot", "Remove this assignment?", [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(_t("Clear Slot"), _t("Remove this assignment?"), [
+      { text: _t("Cancel"), style: "cancel" },
       {
-        text: "Clear", style: "destructive",
+        text: _t("Clear"), style: "destructive",
         onPress: async () => {
           try {
             setSaving(true);
@@ -283,7 +293,7 @@ export default function TimetableScreen({ navigation }) {
             setSlotModal(false);
             loadGrid();
           } catch (e) {
-            Alert.alert("Error", e.message || "Failed to clear slot");
+            Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to clear slot"));
           } finally {
             setSaving(false);
           }
@@ -294,18 +304,18 @@ export default function TimetableScreen({ navigation }) {
 
   // ── Copy Day ─────────────────────────────────────────────────────────────
   const handleCopyDay = (mode) => {
-    if (!classId)   { Alert.alert("Required", "Please select a class."); return; }
-    if (!sectionId) { Alert.alert("Required", "Please select a section."); return; }
-    if (!sessionId) { Alert.alert("Required", "Please select a session."); return; }
+    if (!classId)   { Alert.alert(_t("Required"), _t("Please select a class.")); return; }
+    if (!sectionId) { Alert.alert(_t("Required"), _t("Please select a section.")); return; }
+    if (!sessionId) { Alert.alert(_t("Required"), _t("Please select a session.")); return; }
     const sourceName = schoolDays.find(d => d.value === copySourceDay)?.label ?? `Day ${copySourceDay}`;
     const modeLabel  = mode === "weekdays" ? "Mon–Fri" : "Mon–Sat";
     Alert.alert(
-      "Copy Schedule",
-      `Copy ${sourceName}'s schedule to all ${modeLabel}?\n\nExisting slots on target days will be replaced.`,
+      _t("Copy Schedule"),
+      _t("Copy {sourceName}'s schedule to all {modeLabel}?\n\nExisting slots on target days will be replaced.", { sourceName, modeLabel }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Copy", style: "default",
+          text: _t("Copy"), style: "default",
           onPress: async () => {
             try {
               setCopying(true);
@@ -317,10 +327,10 @@ export default function TimetableScreen({ navigation }) {
                 source_day: copySourceDay,
                 mode,
               });
-              Alert.alert("Done", res.message ?? "Schedule copied.");
+              Alert.alert(_t("Done"), _tx(res?.message) ?? _t("Schedule copied."));
               loadGrid();
             } catch (e) {
-              Alert.alert("Error", e.message || "Copy failed.");
+              Alert.alert(_t("Error"), _tx(e.message) || _t("Copy failed."));
             } finally {
               setCopying(false);
             }
@@ -331,20 +341,20 @@ export default function TimetableScreen({ navigation }) {
   };
 
   // ── Options ───────────────────────────────────────────────────────────────
-  const classOpts   = [{ label: "Select Class", value: "" }, ...classes.map(c => ({ label: c.class_name, value: String(c.class_id) }))];
+  const classOpts   = [{ label: _t("Select Class"), value: "" }, ...classes.map(c => ({ label: c.class_name, value: String(c.class_id) }))];
   const sectionOpts = [
-    ...(sections.length !== 1 ? [{ label: "All Sections", value: "" }] : []),
+    ...(sections.length !== 1 ? [{ label: _t("All Sections"), value: "" }] : []),
     ...sections.map(s => ({ label: s.section_name, value: String(s.section_id) })),
   ];
   const sessionOpts = [
-    ...(sessions.length !== 1 ? [{ label: "All Sessions", value: "" }] : []),
+    ...(sessions.length !== 1 ? [{ label: _t("All Sessions"), value: "" }] : []),
     ...sessions.map(s => ({ label: s.session_name ?? s.session_year, value: String(s.session_id) })),
   ];
   const branchOpts = [
-    ...(branches.length !== 1 ? [{ label: "All Branches", value: "" }] : []),
+    ...(branches.length !== 1 ? [{ label: _t("All Branches"), value: "" }] : []),
     ...branches.map(b => ({ label: b.branch_name, value: String(b.branch_id) })),
   ];
-  const subjectOpts = [{ label: "Select Subject", value: "" }, ...subjects.map(s => ({
+  const subjectOpts = [{ label: _t("Select Subject"), value: "" }, ...subjects.map(s => ({
     label: s.subject_code ? `${s.subject_name} - ${s.subject_code}` : s.subject_name,
     value: String(s.id),
   }))];
@@ -355,7 +365,7 @@ export default function TimetableScreen({ navigation }) {
   };
 
   const staffOpts = [
-    { label: "Select Teacher (optional)", value: "" },
+    { label: _t("Select Teacher (optional)"), value: "" },
     ...staff.map(s => {
       const name      = `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.display_name || `Staff #${s.staff_id}`;
       const busyLabel = getSlotBusy(s.staff_id);
@@ -363,7 +373,7 @@ export default function TimetableScreen({ navigation }) {
         label:     name,
         value:     String(s.staff_id),
         busy:      !!busyLabel,
-        busyLabel: busyLabel ? `Already assigned to ${busyLabel} at this period` : null,
+        busyLabel: busyLabel ? _t("Already assigned to {busyLabel} at this period", { busyLabel }) : null,
       };
     }),
   ];
@@ -374,7 +384,7 @@ export default function TimetableScreen({ navigation }) {
   const CellContent = ({ slot, isBreak }) => {
     if (isBreak) return (
       <View style={tt.breakCell}>
-        <Text style={tt.breakCellTxt}>BREAK</Text>
+        <Text style={tt.breakCellTxt}>{_t("BREAK")}</Text>
       </View>
     );
     if (!slot) return (
@@ -385,12 +395,12 @@ export default function TimetableScreen({ navigation }) {
     return (
       <View style={tt.filledCell}>
         <Text style={tt.cellSubject} numberOfLines={2}>
-          {slot.subject_name}{slot.subject_code ? `\n${slot.subject_code}` : ""}
+          {_tx(slot.subject_name)}{slot.subject_code ? `\n${_tx(slot.subject_code)}` : ""}
         </Text>
         {!!slot.teacher_name?.trim() &&
           <Text style={tt.cellTeacher} numberOfLines={1}>{slot.teacher_name.trim()}</Text>}
         {!!slot.room &&
-          <Text style={tt.cellRoom} numberOfLines={1}><Feather name="map-pin" size={8} /> {slot.room}</Text>}
+          <Text style={tt.cellRoom} numberOfLines={1}><Feather name="map-pin" size={8} /> {_tx(slot.room)}</Text>}
       </View>
     );
   };
@@ -406,27 +416,27 @@ export default function TimetableScreen({ navigation }) {
         {/* Row 1: Branch + Session */}
         <View style={tt.filterRow}>
           <View style={tt.filterItem}>
-            <Text style={tt.filterLabel}>Branch</Text>
-            <Dropdown label="All Branches" value={branchId} options={branchOpts}
+            <Text style={tt.filterLabel}>{_t("Branch")}</Text>
+            <Dropdown label={_t("All Branches")} value={branchId} options={branchOpts}
               onChange={setBranchId} loading={loadingInit} />
           </View>
           <View style={tt.filterItem}>
-            <Text style={tt.filterLabel}>Session</Text>
-            <Dropdown label="All Sessions" value={sessionId} options={sessionOpts}
+            <Text style={tt.filterLabel}>{_t("Session")}</Text>
+            <Dropdown label={_t("All Sessions")} value={sessionId} options={sessionOpts}
               onChange={setSessionId} loading={loadingInit} />
           </View>
         </View>
         {/* Row 2: Class + Section */}
         <View style={tt.filterRow}>
           <View style={tt.filterItem}>
-            <Text style={tt.filterLabel}>Class *</Text>
-            <Dropdown label="Select Class" value={classId} options={classOpts}
+            <Text style={tt.filterLabel}>{_t("Class *")}</Text>
+            <Dropdown label={_t("Select Class")} value={classId} options={classOpts}
               onChange={v => { setClassId(v); setSectionId(""); }}
               loading={loadingInit} />
           </View>
           <View style={tt.filterItem}>
-            <Text style={tt.filterLabel}>Section</Text>
-            <Dropdown label="All Sections" value={sectionId} options={sectionOpts}
+            <Text style={tt.filterLabel}>{_t("Section")}</Text>
+            <Dropdown label={_t("All Sections")} value={sectionId} options={sectionOpts}
               onChange={setSectionId} disabled={!classId} loading={loadingSections} />
           </View>
         </View>
@@ -436,12 +446,12 @@ export default function TimetableScreen({ navigation }) {
       {classId && (
         <View style={tt.copyBar}>
           <Feather name="copy" size={12} color="#1e40af" />
-          <Text style={tt.copyBarLabel}>Copy from:</Text>
+          <Text style={tt.copyBarLabel}>{_t("Copy from:")}</Text>
           <TouchableOpacity
             style={tt.copyDayPicker}
             onPress={() => {
               Alert.alert(
-                "Select Source Day",
+                _t("Select Source Day"),
                 undefined,
                 schoolDays.map(d => ({
                   text: d.label,
@@ -452,11 +462,11 @@ export default function TimetableScreen({ navigation }) {
             }}
           >
             <Text style={tt.copyDayPickerTxt}>
-              {schoolDays.find(d => d.value === copySourceDay)?.label ?? "Mon"}
+              {_tx(schoolDays.find(d => d.value === copySourceDay)?.label) ?? _t("Mon")}
             </Text>
             <Feather name="chevron-down" size={11} color="#1e40af" />
           </TouchableOpacity>
-          <Text style={tt.copyBarLabel}>to:</Text>
+          <Text style={tt.copyBarLabel}>{_t("to:")}</Text>
           <TouchableOpacity
             style={[tt.copyBtn, copying && { opacity: 0.5 }]}
             onPress={() => !copying && handleCopyDay("all")}
@@ -464,14 +474,14 @@ export default function TimetableScreen({ navigation }) {
           >
             {copying
               ? <ActivityIndicator size="small" color="#fff" />
-              : <Text style={tt.copyBtnTxt}>All Days</Text>}
+              : <Text style={tt.copyBtnTxt}>{_t("All Days")}</Text>}
           </TouchableOpacity>
           <TouchableOpacity
             style={[tt.copyBtn, tt.copyBtnSecondary, copying && { opacity: 0.5 }]}
             onPress={() => !copying && handleCopyDay("weekdays")}
             disabled={copying}
           >
-            <Text style={[tt.copyBtnTxt, { color: "#1e40af" }]}>Mon–Fri</Text>
+            <Text style={[tt.copyBtnTxt, { color: "#1e40af" }]}>{_t("Mon–Fri")}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -488,8 +498,8 @@ export default function TimetableScreen({ navigation }) {
         {classId ? (
           <View style={tt.gridTitle}>
             <Text style={tt.gridTitleTxt}>
-              {selClass?.class_name ?? ""}
-              {selSection ? ` — ${selSection.section_name}` : ""}
+              {_tx(selClass?.class_name) ?? ""}
+              {selSection ? ` — ${_tx(selSection.section_name)}` : ""}
             </Text>
             {loadingGrid && <ActivityIndicator size="small" color="#1e40af" style={{ marginLeft: 8 }} />}
             <TouchableOpacity
@@ -497,20 +507,20 @@ export default function TimetableScreen({ navigation }) {
               onPress={() => navigation.navigate("MasterTimetable")}
             >
               <Feather name="grid" size={12} color="#1e40af" />
-              <Text style={tt.teacherViewBtnTxt}>Master View</Text>
+              <Text style={tt.teacherViewBtnTxt}>{_t("Master View")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={tt.teacherViewBtn}
               onPress={() => navigation.navigate("TeacherTimetable")}
             >
               <Feather name="user" size={12} color="#1e40af" />
-              <Text style={tt.teacherViewBtnTxt}>Teacher View</Text>
+              <Text style={tt.teacherViewBtnTxt}>{_t("Teacher View")}</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <View style={tt.noClass}>
             <Feather name="grid" size={36} color="#cbd5e1" />
-            <Text style={tt.noClassTxt}>Select a class to view timetable</Text>
+            <Text style={tt.noClassTxt}>{_t("Select a class to view timetable")}</Text>
           </View>
         )}
 
@@ -530,7 +540,7 @@ export default function TimetableScreen({ navigation }) {
                 <View style={tt.periodCol} />
                 {schoolDays.map(d => (
                   <View key={d.value} style={tt.dayCol}>
-                    <Text style={tt.dayTxt}>{d.label}</Text>
+                    <Text style={tt.dayTxt}>{_tx(d.label)}</Text>
                   </View>
                 ))}
               </View>
@@ -539,9 +549,9 @@ export default function TimetableScreen({ navigation }) {
               {periods.map(period => (
                 <View key={String(period.period_id)} style={tt.gridRow}>
                   <View style={[tt.periodCol, period.is_break == 1 && tt.periodColBreak]}>
-                    <Text style={tt.periodNum}>{period.period_number}</Text>
-                    <Text style={tt.periodNameTxt} numberOfLines={1}>{period.period_name}</Text>
-                    <Text style={tt.periodTime}>{period.start_time}</Text>
+                    <Text style={tt.periodNum}>{_tx(period.period_number)}</Text>
+                    <Text style={tt.periodNameTxt} numberOfLines={1}>{_tx(period.period_name)}</Text>
+                    <Text style={tt.periodTime}>{_tx(period.start_time)}</Text>
                   </View>
 
                   {schoolDays.map(day => {
@@ -577,10 +587,10 @@ export default function TimetableScreen({ navigation }) {
               <View style={tt.modalHeader}>
                 <View>
                   <Text style={tt.modalTitle}>
-                    {slotDay?.label} · {slotPeriod?.period_name}
+                    {_tx(slotDay?.label)} · {_tx(slotPeriod?.period_name)}
                   </Text>
                   <Text style={tt.modalSub}>
-                    {slotPeriod?.start_time} – {slotPeriod?.end_time}
+                    {_tx(slotPeriod?.start_time)} – {_tx(slotPeriod?.end_time)}
                   </Text>
                 </View>
                 <TouchableOpacity style={tt.modalClose} onPress={() => setSlotModal(false)} disabled={saving}>
@@ -590,21 +600,19 @@ export default function TimetableScreen({ navigation }) {
 
               <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-                <Text style={tt.fieldLabel}>Subject <Text style={{ color: "#ef4444" }}>*</Text></Text>
-                <Dropdown label="Select Subject" value={slotSubjectId}
+                <Text style={tt.fieldLabel}>{_t("Subject")}{" "}<Text style={{ color: "#ef4444" }}>*</Text></Text>
+                <Dropdown label={_t("Select Subject")} value={slotSubjectId}
                   options={subjectOpts} onChange={setSlotSubjectId}
                   disabled={saving} loading={loadingSubjects} />
 
-                <Text style={tt.fieldLabel}>Teacher</Text>
-                <Dropdown label="Select Teacher (optional)" value={slotStaffId}
+                <Text style={tt.fieldLabel}>{_t("Teacher")}</Text>
+                <Dropdown label={_t("Select Teacher (optional)")} value={slotStaffId}
                   options={staffOpts} onChange={setSlotStaffId} disabled={saving} />
                 {!!selectedStaffBusy && (
                   <>
                     <View style={tt.conflictBox}>
                       <Feather name="alert-circle" size={13} color="#dc2626" />
-                      <Text style={tt.conflictTxt}>
-                        This teacher is already assigned to {selectedStaffBusy} at this period.
-                      </Text>
+                      <Text style={tt.conflictTxt}>{_t("This teacher is already assigned to {selectedStaffBusy} at this period.", { selectedStaffBusy })}</Text>
                     </View>
                     <TouchableOpacity
                       style={[tt.mergeToggle, allowMerge && tt.mergeToggleOn]}
@@ -616,19 +624,17 @@ export default function TimetableScreen({ navigation }) {
                         size={15}
                         color={allowMerge ? "#15803d" : "#94a3b8"}
                       />
-                      <Text style={[tt.mergeToggleTxt, allowMerge && tt.mergeToggleTxtOn]}>
-                        Merged class — allow this teacher to take both classes simultaneously
-                      </Text>
+                      <Text style={[tt.mergeToggleTxt, allowMerge && tt.mergeToggleTxtOn]}>{_t("Merged class — allow this teacher to take both classes simultaneously")}</Text>
                     </TouchableOpacity>
                   </>
                 )}
 
-                <Text style={tt.fieldLabel}>Room / Lab</Text>
+                <Text style={tt.fieldLabel}>{_t("Room / Lab")}</Text>
                 <TextInput
                   style={tt.input}
                   value={slotRoom}
                   onChangeText={setSlotRoom}
-                  placeholder="e.g. Room 101, Science Lab"
+                  placeholder={_t("e.g. Room 101, Science Lab")}
                   placeholderTextColor="#94a3b8"
                   editable={!saving}
                 />
@@ -639,17 +645,17 @@ export default function TimetableScreen({ navigation }) {
                 {editingSlot && (
                   <TouchableOpacity style={tt.clearBtn} onPress={handleClearSlot} disabled={saving}>
                     <Feather name="trash-2" size={14} color="#dc2626" />
-                    <Text style={tt.clearBtnTxt}>Clear</Text>
+                    <Text style={tt.clearBtnTxt}>{_t("Clear")}</Text>
                   </TouchableOpacity>
                 )}
                 <View style={{ flex: 1 }} />
                 <TouchableOpacity style={tt.cancelBtn} onPress={() => setSlotModal(false)} disabled={saving}>
-                  <Text style={tt.cancelBtnTxt}>Cancel</Text>
+                  <Text style={tt.cancelBtnTxt}>{_t("Cancel")}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[tt.saveBtn, (saving || (!!selectedStaffBusy && !allowMerge)) && { opacity: 0.5 }]} onPress={handleSaveSlot} disabled={saving || (!!selectedStaffBusy && !allowMerge)}>
                   {saving
                     ? <ActivityIndicator color="#fff" size="small" />
-                    : <><Feather name="check" size={14} color="#fff" /><Text style={tt.saveBtnTxt}>Save</Text></>}
+                    : <><Feather name="check" size={14} color="#fff" /><Text style={tt.saveBtnTxt}>{_t("Save")}</Text></>}
                 </TouchableOpacity>
               </View>
 

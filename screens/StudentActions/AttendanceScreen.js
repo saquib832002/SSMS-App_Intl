@@ -21,20 +21,23 @@ import {
   fetchRecentAttendance,
 } from "../../services/StudentServiceApi";
 import { fetchSessions, fetchBranches } from "../../services/SetupServiceApi";
+import { getDayStatus, niceTime } from "../../services/StudentLeaveApi";
 
+import { fmtDate } from "../../services/Locale";
+import { _t, _tx } from "../../services/i18n";
 // ── Status config ─────────────────────────────────────────────────────────────
 const STATUS = {
-  P: { label: "Present", short: "P", color: "#16a34a", bg: "#dcfce7", border: "#86efac" },
-  A: { label: "Absent",  short: "A", color: "#dc2626", bg: "#fee2e2", border: "#fca5a5" },
-  L: { label: "Late",    short: "L", color: "#d97706", bg: "#fef3c7", border: "#fcd34d" },
+  P: { get label() { return _t("Present"); }, short: "P", color: "#16a34a", bg: "#dcfce7", border: "#86efac" },
+  A: { get label() { return _t("Absent"); },  short: "A", color: "#dc2626", bg: "#fee2e2", border: "#fca5a5" },
+  L: { get label() { return _t("Leave"); },   short: "L", color: "#d97706", bg: "#fef3c7", border: "#fcd34d" },
 };
 
 const HIST_STATUS = {
-  P:   { bg: "#dcfce7", fg: "#15803d", label: "P" },
-  A:   { bg: "#fee2e2", fg: "#dc2626", label: "A" },
-  L:   { bg: "#fef9c3", fg: "#92400e", label: "L" },
-  H:   { bg: "#e0f2fe", fg: "#0369a1", label: "H" },
-  S:   { bg: "#f1f5f9", fg: "#94a3b8", label: "S" },
+  P:   { bg: "#dcfce7", fg: "#15803d", get label() { return _t("P"); } },
+  A:   { bg: "#fee2e2", fg: "#dc2626", get label() { return _t("A"); } },
+  L:   { bg: "#fef9c3", fg: "#92400e", get label() { return _t("L"); } },
+  H:   { bg: "#e0f2fe", fg: "#0369a1", get label() { return _t("H"); } },
+  S:   { bg: "#f1f5f9", fg: "#94a3b8", get label() { return _t("S"); } },
   "-": { bg: "#fff",    fg: "#fff",    label: ""  },
 };
 
@@ -62,14 +65,14 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
         activeOpacity={0.75}
       >
         <Text style={[dd.triggerTxt, !selected?.value && dd.placeholder]} numberOfLines={1}>
-          {loading ? "Loading…" : (selected?.label ?? label)}
+          {loading ? _t("Loading…") : (_tx(selected?.label) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={14} color="#64748b" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={dd.overlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={dd.sheet}>
-            <Text style={dd.sheetTitle}>{label}</Text>
+            <Text style={dd.sheetTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={(o, i) => String(o.value) + i}
@@ -79,7 +82,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[dd.optionTxt, String(o.value) === String(value) && dd.optionTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) &&
                     <Feather name="check" size={14} color="#2563eb" />}
@@ -95,7 +98,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
 }
 
 // ── Student row ───────────────────────────────────────────────────────────────
-const StudentRow = React.memo(function StudentRow({ item, onUpdate, locked }) {
+const StudentRow = React.memo(function StudentRow({ item, onUpdate, locked, info }) {
   const statusCfg = STATUS[item.status] ?? STATUS.P;
   return (
     <View style={sc.studentRow}>
@@ -106,10 +109,20 @@ const StudentRow = React.memo(function StudentRow({ item, onUpdate, locked }) {
       </View>
       <View style={sc.studentInfo}>
         <Text style={sc.studentName} numberOfLines={1}>
-          {item.firstName ?? item.student_first_name ?? "Unknown"}
-          {item.lastName ? ` ${item.lastName}` : ""}
+          {_tx(item.firstName) ?? _tx(item.student_first_name) ?? _t("Unknown")}
+          {item.lastName ? ` ${_tx(item.lastName)}` : ""}
         </Text>
-        <Text style={sc.studentRoll}>Roll #{item.rollNumber ?? item.roll_no ?? "—"}</Text>
+        <Text style={sc.studentRoll}>{_t("Roll #{v}", { v: item.rollNumber ?? item.roll_no ?? "—" })}</Text>
+        {!!info && (
+          <Text style={sc.infoTag} numberOfLines={1}>
+            {[
+              info.leave && `On leave · ${info.leave.reason ?? ""}`,
+              info.late && (info.late.recorded ? `Arrived ${niceTime(info.late.recorded_time)}` : `Late – expected ${niceTime(info.late.time)}`),
+              info.early && (info.early.recorded ? _t("Picked up {recorded_time}", { recorded_time: niceTime(info.early.recorded_time) }) : _t("Early pickup {time}", { time: niceTime(info.early.time) })),
+              !info.leave && !info.late && !info.early && info.pending && "Parent request pending",
+            ].filter(Boolean).join(" · ")}
+          </Text>
+        )}
       </View>
       <View style={sc.statusBtns}>
         {Object.entries(STATUS).map(([key, cfg]) => {
@@ -128,7 +141,7 @@ const StudentRow = React.memo(function StudentRow({ item, onUpdate, locked }) {
               activeOpacity={0.7}
             >
               <Text style={[sc.statusBtnTxt, { color: active ? cfg.color : "#94a3b8" }]}>
-                {cfg.short}
+                {_tx(cfg.short)}
               </Text>
             </TouchableOpacity>
           );
@@ -144,7 +157,7 @@ function HistoryMatrix({ columns, dayNames, students, loading }) {
     return (
       <View style={hm.loadingBox}>
         <ActivityIndicator size="small" color="#2563eb" />
-        <Text style={hm.loadingTxt}>Loading attendance history…</Text>
+        <Text style={hm.loadingTxt}>{_t("Loading attendance history…")}</Text>
       </View>
     );
   }
@@ -152,7 +165,7 @@ function HistoryMatrix({ columns, dayNames, students, loading }) {
     return (
       <View style={hm.loadingBox}>
         <Feather name="calendar" size={16} color="#cbd5e1" />
-        <Text style={hm.loadingTxt}>No attendance records for the last 10 days</Text>
+        <Text style={hm.loadingTxt}>{_t("No attendance records for the last 10 days")}</Text>
       </View>
     );
   }
@@ -167,23 +180,23 @@ function HistoryMatrix({ columns, dayNames, students, loading }) {
     <View style={hm.card}>
       <View style={hm.titleRow}>
         <Feather name="clock" size={13} color="#2563eb" />
-        <Text style={hm.title}>Last 10 Days Attendance</Text>
+        <Text style={hm.title}>{_t("Last 10 Days Attendance")}</Text>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View>
           <View style={hm.row}>
             <View style={[hm.nameCell, { width: NAME_W }, hm.headerCell]}>
-              <Text style={hm.headerTxt}>Student</Text>
+              <Text style={hm.headerTxt}>{_t("Student")}</Text>
             </View>
             {dayHeader.map(({ col, abbr, isSun }) => (
               <View key={col} style={[hm.dayCell, { width: DAY_W }, hm.headerCell,
                 isSun && { backgroundColor: "#e8edf5" }]}>
-                <Text style={[hm.dayAbbr, isSun && { color: "#94a3b8" }]}>{abbr}</Text>
-                <Text style={[hm.dayNum,  isSun && { color: "#94a3b8" }]}>{col.split(" ")[0]}</Text>
+                <Text style={[hm.dayAbbr, isSun && { color: "#94a3b8" }]}>{_tx(abbr)}</Text>
+                <Text style={[hm.dayNum,  isSun && { color: "#94a3b8" }]}>{_tx(col.split(" ")[0])}</Text>
               </View>
             ))}
             <View style={[hm.totCell, { width: TOT_W }, hm.headerCell]}>
-              <Text style={hm.headerTxt}>P/T</Text>
+              <Text style={hm.headerTxt}>{_t("P/T")}</Text>
             </View>
             <View style={[hm.totCell, { width: TOT_W }, hm.headerCell]}>
               <Text style={hm.headerTxt}>%</Text>
@@ -193,24 +206,24 @@ function HistoryMatrix({ columns, dayNames, students, loading }) {
             <View key={stu.id ?? idx}
               style={[hm.row, idx % 2 === 1 && { backgroundColor: "#fafafa" }]}>
               <View style={[hm.nameCell, { width: NAME_W }]}>
-                <Text style={hm.nameTxt} numberOfLines={1}>{stu.firstName}</Text>
-                <Text style={hm.enrollTxt}>Roll #{stu.rollNumber}</Text>
+                <Text style={hm.nameTxt} numberOfLines={1}>{_tx(stu.firstName)}</Text>
+                <Text style={hm.enrollTxt}>{_t("Roll #{rollNumber}", { rollNumber: stu.rollNumber })}</Text>
               </View>
               {columns.map((col) => {
                 const v  = stu.days?.[col] ?? "-";
                 const st = HIST_STATUS[v] ?? HIST_STATUS["-"];
                 return (
                   <View key={col} style={[hm.dayCell, { width: DAY_W, backgroundColor: st.bg }]}>
-                    <Text style={[hm.dayVal, { color: st.fg }]}>{st.label}</Text>
+                    <Text style={[hm.dayVal, { color: st.fg }]}>{_tx(st.label)}</Text>
                   </View>
                 );
               })}
               <View style={[hm.totCell, { width: TOT_W }]}>
-                <Text style={hm.totTxt}>{stu.present}/{stu.total}</Text>
+                <Text style={hm.totTxt}>{_tx(stu.present)}/{_tx(stu.total)}</Text>
               </View>
               <View style={[hm.totCell, { width: TOT_W }]}>
                 <Text style={[hm.pctTxt, { color: pctColor(stu.percent) }]}>
-                  {stu.percent}%
+                  {_tx(stu.percent)}%
                 </Text>
               </View>
             </View>
@@ -221,10 +234,10 @@ function HistoryMatrix({ columns, dayNames, students, loading }) {
         {Object.entries(HIST_STATUS).filter(([k]) => k !== "-").map(([code, st]) => (
           <View key={code} style={hm.legendItem}>
             <View style={[hm.legendDot, { backgroundColor: st.bg, borderColor: st.fg + "66" }]} />
-            <Text style={hm.legendTxt}>{code}</Text>
+            <Text style={hm.legendTxt}>{_tx(code)}</Text>
           </View>
         ))}
-        <Text style={hm.legendNote}>  P=Present  A=Absent  L=Leave  H=Holiday  S=Sunday</Text>
+        <Text style={hm.legendNote}>{" "}{_t("P=Present  A=Absent  L=Leave  H=Holiday  S=Sunday")}</Text>
       </View>
     </View>
   );
@@ -244,25 +257,25 @@ function SaveSuccessSheet({ visible, onClose, onNotify, summary, waCount, noPhon
             <View style={ss.checkCircle}>
               <Feather name="check" size={26} color="#fff" />
             </View>
-            <Text style={ss.successTitle}>Attendance Saved!</Text>
-            <Text style={ss.successSub}>{classLabel}{classLabel ? "  ·  " : ""}{dateLabel}</Text>
+            <Text style={ss.successTitle}>{_t("Attendance Saved!")}</Text>
+            <Text style={ss.successSub}>{_tx(classLabel)}{classLabel ? "  ·  " : ""}{_tx(dateLabel)}</Text>
           </View>
 
           {/* Stats row */}
           <View style={ss.statsRow}>
             {[
-              { key: "P", label: "Present", color: "#16a34a", bg: "#dcfce7" },
-              { key: "A", label: "Absent",  color: "#dc2626", bg: "#fee2e2" },
-              { key: "L", label: "Late",    color: "#d97706", bg: "#fef3c7" },
+              { key: "P", label: _t("Present"), color: "#16a34a", bg: "#dcfce7" },
+              { key: "A", label: _t("Absent"),  color: "#dc2626", bg: "#fee2e2" },
+              { key: "L", label: _t("Leave"),   color: "#d97706", bg: "#fef3c7" },
             ].map(({ key, label, color, bg }) => (
               <View key={key} style={[ss.statChip, { backgroundColor: bg }]}>
-                <Text style={[ss.statNum, { color }]}>{summary?.[key] ?? 0}</Text>
-                <Text style={[ss.statLbl, { color }]}>{label}</Text>
+                <Text style={[ss.statNum, { color }]}>{_tx(summary?.[key]) ?? 0}</Text>
+                <Text style={[ss.statLbl, { color }]}>{_tx(label)}</Text>
               </View>
             ))}
             <View style={[ss.statChip, { backgroundColor: "#f1f5f9" }]}>
-              <Text style={[ss.statNum, { color: "#0f172a" }]}>{summary?.total ?? 0}</Text>
-              <Text style={[ss.statLbl, { color: "#64748b" }]}>Total</Text>
+              <Text style={[ss.statNum, { color: "#0f172a" }]}>{_tx(summary?.total) ?? 0}</Text>
+              <Text style={[ss.statLbl, { color: "#64748b" }]}>{_t("Total")}</Text>
             </View>
           </View>
 
@@ -273,31 +286,26 @@ function SaveSuccessSheet({ visible, onClose, onNotify, summary, waCount, noPhon
                 <Feather name="message-circle" size={18} color="#25d366" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={ss.waBtnTitle}>Notify Absent Parents via WhatsApp</Text>
-                <Text style={ss.waBtnSub}>
-                  {waCount} parent{waCount !== 1 ? "s" : ""} to notify
-                  {noPhoneCount > 0 ? `  ·  ${noPhoneCount} no phone` : ""}
-                </Text>
+                <Text style={ss.waBtnTitle}>{_t("Notify Absent Parents via WhatsApp")}</Text>
+                <Text style={ss.waBtnSub}>{_t("{waCount} parent{pl} to notify{v}", { waCount, pl: waCount !== 1 ? "s" : "", v: noPhoneCount > 0 ? `  ${_t("·  {noPhoneCount} no phone", { noPhoneCount })}` : "" })}</Text>
               </View>
               <Feather name="chevron-right" size={18} color="#0f172a" />
             </TouchableOpacity>
           ) : (summary?.A ?? 0) > 0 ? (
             <View style={ss.noPhoneNote}>
               <Feather name="alert-circle" size={14} color="#94a3b8" />
-              <Text style={ss.noPhoneTxt}>
-                {summary.A} absent student{summary.A !== 1 ? "s" : ""} — no parent phone on record
-              </Text>
+              <Text style={ss.noPhoneTxt}>{_t("{A} absent student{pl} — no parent phone on record", { A: summary.A, pl: summary.A !== 1 ? "s" : "" })}</Text>
             </View>
           ) : (
             <View style={ss.allPresentNote}>
               <Feather name="star" size={14} color="#16a34a" />
-              <Text style={ss.allPresentTxt}>All students present — great day!</Text>
+              <Text style={ss.allPresentTxt}>{_t("All students present — great day!")}</Text>
             </View>
           )}
 
           {/* Done button */}
           <TouchableOpacity style={ss.doneBtn} onPress={onClose} activeOpacity={0.8}>
-            <Text style={ss.doneTxt}>Done</Text>
+            <Text style={ss.doneTxt}>{_t("Done")}</Text>
           </TouchableOpacity>
         </TouchableOpacity>
       </TouchableOpacity>
@@ -315,7 +323,7 @@ function WaNotifyModal({ visible, onClose, students, dateLabel, classLabel, buil
     if (!phone) return;
     const msg = encodeURIComponent(buildMessage(student));
     Linking.openURL(`https://wa.me/${phone}?text=${msg}`).catch(() =>
-      Alert.alert("Error", "Could not open WhatsApp. Please make sure it is installed.")
+      Alert.alert(_t("Error"), _t("Could not open WhatsApp. Please make sure it is installed."))
     );
   };
 
@@ -329,22 +337,20 @@ function WaNotifyModal({ visible, onClose, students, dateLabel, classLabel, buil
             <Feather name="x" size={20} color="#0f172a" />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={wm.headerTitle}>WhatsApp Absent Notifications</Text>
+            <Text style={wm.headerTitle}>{_t("WhatsApp Absent Notifications")}</Text>
             <Text style={wm.headerSub}>
-              {classLabel}{classLabel ? "  ·  " : ""}{dateLabel}
+              {_tx(classLabel)}{classLabel ? "  ·  " : ""}{_tx(dateLabel)}
             </Text>
           </View>
           <View style={wm.badge}>
-            <Text style={wm.badgeTxt}>{withPhone.length}</Text>
+            <Text style={wm.badgeTxt}>{_tx(withPhone.length)}</Text>
           </View>
         </View>
 
         {/* Info banner */}
         <View style={wm.infoBanner}>
           <Feather name="info" size={13} color="#2563eb" />
-          <Text style={wm.infoTxt}>
-            Tap <Text style={{ fontWeight: "800" }}>Send</Text> next to each student to open WhatsApp with a pre-filled absent notification.
-          </Text>
+          <Text style={wm.infoTxt}>{_t("Tap")}{" "}<Text style={{ fontWeight: "800" }}>{_t("Send")}</Text>{" "}{_t("next to each student to open WhatsApp with a pre-filled absent notification.")}</Text>
         </View>
 
         <FlatList
@@ -365,11 +371,8 @@ function WaNotifyModal({ visible, onClose, students, dateLabel, classLabel, buil
 
                 {/* Info */}
                 <View style={{ flex: 1 }}>
-                  <Text style={wm.rowName}>{item.name}</Text>
-                  <Text style={wm.rowSub}>
-                    Roll #{item.rollNumber}
-                    {phone ? `  ·  ${phone}` : "  ·  No phone on record"}
-                  </Text>
+                  <Text style={wm.rowName}>{_tx(item.name)}</Text>
+                  <Text style={wm.rowSub}>{_t("Roll #{rollNumber}{v}", { rollNumber: item.rollNumber, v: phone ? `  ·  ${phone}` : ("  " + _t("·  No phone on record") + "") })}</Text>
                 </View>
 
                 {/* Send button */}
@@ -380,11 +383,11 @@ function WaNotifyModal({ visible, onClose, students, dateLabel, classLabel, buil
                     activeOpacity={0.75}
                   >
                     <Feather name="send" size={13} color="#fff" />
-                    <Text style={wm.sendTxt}>Send</Text>
+                    <Text style={wm.sendTxt}>{_t("Send")}</Text>
                   </TouchableOpacity>
                 ) : (
                   <View style={wm.noPhoneTag}>
-                    <Text style={wm.noPhoneTagTxt}>No phone</Text>
+                    <Text style={wm.noPhoneTagTxt}>{_t("No phone")}</Text>
                   </View>
                 )}
               </View>
@@ -393,17 +396,13 @@ function WaNotifyModal({ visible, onClose, students, dateLabel, classLabel, buil
           ListHeaderComponent={withPhone.length > 1 ? (
             <View style={wm.bulkHint}>
               <Feather name="zap" size={13} color="#d97706" />
-              <Text style={wm.bulkHintTxt}>
-                {withPhone.length} parents to notify — tap Send for each one individually.
-              </Text>
+              <Text style={wm.bulkHintTxt}>{_t("{length} parents to notify — tap Send for each one individually.", { length: withPhone.length })}</Text>
             </View>
           ) : null}
           ListFooterComponent={withoutPhone.length > 0 ? (
             <View style={wm.footerNote}>
               <Feather name="alert-circle" size={13} color="#94a3b8" />
-              <Text style={wm.footerNoteTxt}>
-                {withoutPhone.length} student{withoutPhone.length !== 1 ? "s" : ""} have no parent phone — update their profile to enable notifications.
-              </Text>
+              <Text style={wm.footerNoteTxt}>{_t("{length} student{pl} have no parent phone — update their profile to enable notifications.", { length: withoutPhone.length, pl: withoutPhone.length !== 1 ? "s" : "" })}</Text>
             </View>
           ) : null}
         />
@@ -412,7 +411,7 @@ function WaNotifyModal({ visible, onClose, students, dateLabel, classLabel, buil
         <View style={wm.closeBar}>
           <TouchableOpacity style={wm.closeBarBtn} onPress={onClose} activeOpacity={0.8}>
             <Feather name="check-circle" size={16} color="#fff" />
-            <Text style={wm.closeBarTxt}>Done</Text>
+            <Text style={wm.closeBarTxt}>{_t("Done")}</Text>
           </TouchableOpacity>
         </View>
 
@@ -476,12 +475,18 @@ export default function AttendanceScreen() {
   useFocusEffect(useCallback(() => {
     (async () => {
       try {
-        const [cd, sd, bd] = await Promise.all([
+        // allSettled: one denied list (e.g. 403 on branches) must not blank the others
+        const [cr, sr, br] = await Promise.allSettled([
           fetchClasses(user), fetchSessions(user), fetchBranches(user),
         ]);
-        const cl = Array.isArray(cd) ? cd : cd?.data ?? [];
-        const sl = Array.isArray(sd) ? sd : sd?.data ?? [];
-        const bl = Array.isArray(bd) ? bd : bd?.data ?? [];
+        const toList = (r) => {
+          const v = r.status === "fulfilled" ? r.value : null;
+          return Array.isArray(v) ? v : Array.isArray(v?.data) ? v.data : [];
+        };
+        const cl = toList(cr), sl = toList(sr), bl = toList(br);
+        if (cr.status === "rejected") {
+          Alert.alert(_t("Attendance"), _tx(cr.reason?.message) || _t("Could not load classes."));
+        }
         setClasses(cl); setSessions(sl); setBranches(bl);
         if (cl.length > 0) setSelectedClass(String(cl[0].class_id));
         if (sl.length > 0) setSelectedSession(String(sl[0].session_id));
@@ -499,7 +504,7 @@ export default function AttendanceScreen() {
     fetchSections(user, selectedClass)
       .then(data => {
         if (cancelled) return;
-        const list = Array.isArray(data) ? data : data?.data ?? [];
+        const list = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
         setSections(list);
         if (list.length > 0) setSelectedSection(String(list[0].section_id));
       })
@@ -525,7 +530,13 @@ export default function AttendanceScreen() {
       fetchStudents(user, selectedClass, selectedSection, dateStr, selectedSession, selectedBranch)
         .then(data => {
           if (cancelled) return;
-          const list = Array.isArray(data) ? data : data?.data ?? [];
+          // fetchStudents returns the raw body even on 403 ({ status:false, message })
+          if (data?.status === false) {
+            setStudents([]);
+            if (data?.message) Alert.alert(_t("Attendance"), _tx(data.message));
+            return;
+          }
+          const list = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
           setStudents(list);
           cache.current[cacheKey] = list;
           if (data?.schoolName  != null) setSchoolName(data.schoolName);
@@ -553,9 +564,9 @@ export default function AttendanceScreen() {
         .then(res => {
           if (cancelled) return;
           const data = {
-            columns:  res.columns  ?? [],
-            dayNames: res.dayNames ?? [],
-            students: res.students ?? [],
+            columns:  Array.isArray(res?.columns)  ? res.columns : [],
+            dayNames: Array.isArray(res?.dayNames) ? res.dayNames : [],
+            students: Array.isArray(res?.students) ? res.students : [],
           };
           histCache.current[histKey] = data;
           setHistColumns(data.columns);
@@ -568,6 +579,25 @@ export default function AttendanceScreen() {
 
     return () => { cancelled = true; };
   }, [selectedClass, selectedSection, selectedBranch, selectedSession, dateStr]);
+
+  // ── Approved leave / late arrival / early pickup for this class & day ─────
+  const [dayInfo, setDayInfo] = useState({});
+  useEffect(() => {
+    setDayInfo({});
+    if (!selectedClass || !selectedSection) return;
+    let cancelled = false;
+    getDayStatus(user, selectedClass, selectedSection, dateStr)
+      .then((d) => { if (!cancelled) setDayInfo(d || {}); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [selectedClass, selectedSection, dateStr]); // eslint-disable-line react-hooks/exhaustive-deps
+  const infoFor = (s) => dayInfo[String(s.id ?? s.enrollmentId ?? "")];
+  const onLeave = students.filter((s) => infoFor(s)?.leave);
+  const markLeaveAbsent = () => {
+    if (isLocked) return;
+    const ids = new Set(onLeave.map((s) => String(s.id ?? s.enrollmentId)));
+    setStudents(prev => prev.map(s => (ids.has(String(s.id ?? s.enrollmentId)) ? { ...s, status: "L" } : s)));
+  };
 
   // ── Toast ─────────────────────────────────────────────────────────────────
   const showToast = (msg) => {
@@ -623,9 +653,9 @@ export default function AttendanceScreen() {
         days:      10,
       }).then(res => {
         const data = {
-          columns:  res.columns  ?? [],
-          dayNames: res.dayNames ?? [],
-          students: res.students ?? [],
+          columns:  Array.isArray(res?.columns)  ? res.columns : [],
+          dayNames: Array.isArray(res?.dayNames) ? res.dayNames : [],
+          students: Array.isArray(res?.students) ? res.students : [],
         };
         histCache.current[histKey] = data;
         setHistColumns(data.columns);
@@ -639,7 +669,7 @@ export default function AttendanceScreen() {
       const L = students.filter(s => s.status === "L").length;
 
       const absentList = students
-        .filter(s => s.status === "A")
+        .filter(s => s.status === "A" && !infoFor(s)?.leave)   // parents of children on approved leave already know
         .map(s => ({
           name:       `${s.firstName ?? s.student_first_name ?? ""}${s.lastName ? " " + s.lastName : ""}`.trim(),
           rollNumber: s.rollNumber ?? s.roll_no ?? "",
@@ -736,7 +766,7 @@ export default function AttendanceScreen() {
   const isToday   = sel.getTime() === today.getTime();
   const dateLabel = isToday
     ? "Today"
-    : date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    : fmtDate(date, "medium");
 
   const classLabel = (() => {
     const cn = classes.find(c  => String(c.class_id)   === selectedClass)?.class_name   ?? "";
@@ -757,35 +787,35 @@ export default function AttendanceScreen() {
       <View style={sc.filtersCard}>
         <View style={sc.filterGrid}>
           <View style={sc.filterCell}>
-            <Text style={sc.filterLabel}>Branch</Text>
-            <Dropdown label="Branch" value={selectedBranch}
+            <Text style={sc.filterLabel}>{_t("Branch")}</Text>
+            <Dropdown label={_t("Branch")} value={selectedBranch}
               options={branches.map(b => ({ label: b.branch_name, value: String(b.branch_id) }))}
               onChange={setSelectedBranch} disabled={loading} />
           </View>
           <View style={sc.filterCell}>
-            <Text style={sc.filterLabel}>Session</Text>
-            <Dropdown label="Session" value={selectedSession}
-              options={[{ label: "All", value: "" }, ...sessions.map(s => ({ label: s.session_name ?? s.session_year ?? String(s.session_id), value: String(s.session_id) }))]}
+            <Text style={sc.filterLabel}>{_t("Session")}</Text>
+            <Dropdown label={_t("Session")} value={selectedSession}
+              options={[{ label: _t("All"), value: "" }, ...sessions.map(s => ({ label: s.session_name ?? s.session_year ?? String(s.session_id), value: String(s.session_id) }))]}
               onChange={setSelectedSession} disabled={loading} />
           </View>
           <View style={sc.filterCell}>
-            <Text style={sc.filterLabel}>Class</Text>
-            <Dropdown label="Class" value={selectedClass}
-              options={[{ label: "Select", value: "" }, ...classes.map(c => ({ label: c.class_name, value: String(c.class_id) }))]}
+            <Text style={sc.filterLabel}>{_t("Class")}</Text>
+            <Dropdown label={_t("Class")} value={selectedClass}
+              options={[{ label: _t("Select"), value: "" }, ...classes.map(c => ({ label: c.class_name, value: String(c.class_id) }))]}
               onChange={setSelectedClass} disabled={loading} />
           </View>
           <View style={sc.filterCell}>
-            <Text style={sc.filterLabel}>Section</Text>
-            <Dropdown label="Section" value={selectedSection}
-              options={[{ label: "All", value: "" }, ...sections.map(s => ({ label: s.section_name, value: String(s.section_id) }))]}
+            <Text style={sc.filterLabel}>{_t("Section")}</Text>
+            <Dropdown label={_t("Section")} value={selectedSection}
+              options={[{ label: _t("All"), value: "" }, ...sections.map(s => ({ label: s.section_name, value: String(s.section_id) }))]}
               onChange={setSelectedSection} disabled={loading || loadingSections} loading={loadingSections} />
           </View>
         </View>
 
         <TouchableOpacity style={sc.dateRow} onPress={() => setShowDatePicker(true)} activeOpacity={0.7}>
           <Feather name="calendar" size={13} color="#2563eb" />
-          <Text style={sc.dateLabel}>Date:</Text>
-          <Text style={sc.dateValue}>{dateLabel}</Text>
+          <Text style={sc.dateLabel}>{_t("Date:")}</Text>
+          <Text style={sc.dateValue}>{_tx(dateLabel)}</Text>
           <Feather name="chevron-down" size={13} color="#64748b" style={{ marginLeft: "auto" }} />
         </TouchableOpacity>
 
@@ -809,13 +839,13 @@ export default function AttendanceScreen() {
           <View style={sc.summaryStrip}>
             {Object.entries(STATUS).map(([key, cfg]) => (
               <View key={key} style={[sc.summaryItem, { backgroundColor: cfg.bg, borderColor: cfg.border }]}>
-                <Text style={[sc.summaryCount, { color: cfg.color }]}>{summary[key]}</Text>
-                <Text style={[sc.summaryLabel, { color: cfg.color }]}>{cfg.label}</Text>
+                <Text style={[sc.summaryCount, { color: cfg.color }]}>{_tx(summary[key])}</Text>
+                <Text style={[sc.summaryLabel, { color: cfg.color }]}>{_tx(cfg.label)}</Text>
               </View>
             ))}
             <View style={sc.summaryItem}>
-              <Text style={sc.summaryCount}>{pct}%</Text>
-              <Text style={sc.summaryLabel}>Present</Text>
+              <Text style={sc.summaryCount}>{_tx(pct)}%</Text>
+              <Text style={sc.summaryLabel}>{_t("Present")}</Text>
             </View>
           </View>
         )}
@@ -823,7 +853,7 @@ export default function AttendanceScreen() {
         {/* Toolbar */}
         {students.length > 0 && !isLocked && (
           <View style={sc.toolbar}>
-            <Text style={sc.toolbarLabel}>{students.length} students</Text>
+            <Text style={sc.toolbarLabel}>{_t("{length} students", { length: students.length })}</Text>
             <View style={sc.toolbarActions}>
               {Object.entries(STATUS).map(([key, cfg]) => (
                 <TouchableOpacity
@@ -831,10 +861,23 @@ export default function AttendanceScreen() {
                   style={[sc.markAllBtn, { backgroundColor: cfg.bg, borderColor: cfg.border }]}
                   onPress={() => markAll(key)}
                 >
-                  <Text style={[sc.markAllTxt, { color: cfg.color }]}>All {cfg.short}</Text>
+                  <Text style={[sc.markAllTxt, { color: cfg.color }]}>{_t("All {short}", { short: cfg.short })}</Text>
                 </TouchableOpacity>
               ))}
             </View>
+          </View>
+        )}
+
+        {/* Approved leave today */}
+        {onLeave.length > 0 && (
+          <View style={sc.leaveBanner}>
+            <Feather name="calendar" size={14} color="#6d28d9" />
+            <Text style={sc.leaveTxt}>{_t("{length} on approved leave / absence note today", { length: onLeave.length })}</Text>
+            {!isLocked && onLeave.some((s) => s.status !== "L") && (
+              <TouchableOpacity onPress={markLeaveAbsent} style={sc.leaveBtn}>
+                <Text style={sc.leaveBtnTxt}>{_t("Mark leave")}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -842,7 +885,7 @@ export default function AttendanceScreen() {
         {isLocked && (
           <View style={sc.lockBanner}>
             <Feather name="lock" size={14} color="#92400e" />
-            <Text style={sc.lockTxt}>Past date — read only. Admin can edit.</Text>
+            <Text style={sc.lockTxt}>{_t("Past date — read only. Admin can edit.")}</Text>
           </View>
         )}
 
@@ -850,18 +893,18 @@ export default function AttendanceScreen() {
         {loading ? (
           <View style={sc.loader}>
             <ActivityIndicator size="large" color="#2563eb" />
-            <Text style={sc.loaderTxt}>Loading students…</Text>
+            <Text style={sc.loaderTxt}>{_t("Loading students…")}</Text>
           </View>
         ) : students.length === 0 && selectedClass && selectedSection ? (
           <View style={sc.emptyWrap}>
             <Feather name="users" size={40} color="#cbd5e1" />
-            <Text style={sc.emptyTxt}>No students found</Text>
+            <Text style={sc.emptyTxt}>{_t("No students found")}</Text>
           </View>
         ) : (
           <View style={{ paddingHorizontal: 8, paddingTop: 6, gap: 4 }}>
             {students.map((item, idx) => (
               <View key={String(item.id ?? item.enrollmentId ?? idx)}>
-                <StudentRow item={item} onUpdate={updateStatus} locked={isLocked} />
+                <StudentRow item={item} onUpdate={updateStatus} locked={isLocked} info={infoFor(item)} />
               </View>
             ))}
           </View>
@@ -881,7 +924,7 @@ export default function AttendanceScreen() {
                 : <>
                     <Feather name={isLocked ? "lock" : "check"} size={18} color="#fff" />
                     <Text style={sc.saveTxt}>
-                      {isLocked ? "Locked — Read Only" : "Save Attendance"}
+                      {isLocked ? _t("Locked — Read Only") : _t("Save Attendance")}
                     </Text>
                   </>}
             </TouchableOpacity>
@@ -905,7 +948,7 @@ export default function AttendanceScreen() {
           name={toastMsg.includes("Failed") ? "x-circle" : "check-circle"}
           size={16} color="#fff" style={{ marginRight: 8 }}
         />
-        <Text style={sc.toastTxt}>{toastMsg}</Text>
+        <Text style={sc.toastTxt}>{_tx(toastMsg)}</Text>
       </Animated.View>
 
       {/* ── Save Success Sheet ── */}
@@ -913,11 +956,11 @@ export default function AttendanceScreen() {
         visible={showSaveSheet}
         onClose={() => setShowSaveSheet(false)}
         onNotify={() => { setShowSaveSheet(false); setShowWaModal(true); }}
-        summary={saveSummary}
+        summary={_tx(saveSummary)}
         waCount={waCount}
         noPhoneCount={noPhoneCount}
-        dateLabel={dateLabel}
-        classLabel={classLabel}
+        dateLabel={_tx(dateLabel)}
+        classLabel={_tx(classLabel)}
       />
 
       {/* ── WhatsApp Notify Modal ── */}
@@ -925,9 +968,9 @@ export default function AttendanceScreen() {
         visible={showWaModal}
         onClose={() => setShowWaModal(false)}
         students={waAbsent}
-        dateLabel={dateLabel}
-        classLabel={classLabel}
-        buildMessage={buildWaMessage}
+        dateLabel={_tx(dateLabel)}
+        classLabel={_tx(classLabel)}
+        buildMessage={_tx(buildWaMessage)}
       />
 
     </SafeAreaView>
@@ -955,6 +998,11 @@ const sc = StyleSheet.create({
   toolbar:         { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 10, paddingVertical: 5, backgroundColor: "#f8fafc" },
   toolbarLabel:    { fontSize: 11, fontWeight: "600", color: "#64748b" },
   toolbarActions:  { flexDirection: "row", gap: 4 },
+  leaveBanner:     { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 8, marginTop: 6, padding: 10, borderRadius: 10, backgroundColor: "#f5f3ff", borderWidth: 1, borderColor: "#ddd6fe" },
+  leaveTxt:        { flex: 1, fontSize: 12, color: "#5b21b6", fontWeight: "600" },
+  leaveBtn:        { backgroundColor: "#6d28d9", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  leaveBtnTxt:     { color: "#fff", fontSize: 11, fontWeight: "800" },
+  infoTag:         { fontSize: 10.5, color: "#6d28d9", fontWeight: "700", marginTop: 2 },
   markAllBtn:      { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1 },
   markAllTxt:      { fontSize: 10, fontWeight: "700" },
 

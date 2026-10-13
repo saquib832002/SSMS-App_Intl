@@ -64,7 +64,7 @@ class LibraryUserApiController extends AppController
     /** Same scheme as UserServiceApiController::login(). Must not diverge. */
     private function encryptPassword(string $plain): string
     {
-        return crypt($plain, '$2y$10$iusesomecrazystrings22');
+        return \App\Service\Passwords::hash($plain);   // login uses Passwords::verify (accepts old and new hashes)
     }
 
     /**

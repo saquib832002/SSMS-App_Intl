@@ -2,7 +2,7 @@
  * screens/Exams/QuestionBankScreen.js
  * Browse, search, filter, and manage the school's question bank.
  */
-import React, { useState, useContext, useCallback, useEffect } from "react";
+import React, { useState, useContext, useCallback, useEffect, useRef } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   StyleSheet, Alert, ActivityIndicator, Modal, ScrollView,
@@ -14,6 +14,7 @@ import { fetchQuestions, deleteQuestion } from "../../services/QuestionPaperServ
 import { fetchClasses } from "../../services/SetupServiceApi";
 import { fetchSubjects } from "../../services/SubjectServiceApi";
 import { fetchChapters } from "../../services/TestSeriesServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 const TYPE_LABELS = {
   fill_blank: "Fill Blanks",
@@ -47,13 +48,15 @@ export default function QuestionBankScreen({ navigation }) {
   const [filterDiff,    setFilterDiff]    = useState("");
   const [filterOpen,    setFilterOpen]    = useState(false);
   const [chapters,      setChapters]      = useState([]);
+  // Last error shown — load() re-runs on every search keystroke, so don't repeat the same alert
+  const lastErrRef = useRef("");
 
   // ── Load chapters when class + subject both set ───────────────────────────
   useEffect(() => {
     setFilterChapter("");
     if (!filterClass || !filterSub) { setChapters([]); return; }
     fetchChapters(user, filterClass, filterSub)
-      .then(setChapters)
+      .then(r => setChapters(Array.isArray(r) ? r : []))
       .catch(() => setChapters([]));
   }, [user, filterClass, filterSub]);
 
@@ -62,7 +65,8 @@ export default function QuestionBankScreen({ navigation }) {
     if (!user) return;
     setLoading(true);
     try {
-      const [qs, cls, subs] = await Promise.all([
+      // allSettled: a 403 on classes/subjects must not hide the questions (and vice versa)
+      const settled = await Promise.allSettled([
         fetchQuestions(user, {
           class_id:   filterClass,
           subject_id: filterSub,
@@ -74,30 +78,36 @@ export default function QuestionBankScreen({ navigation }) {
         fetchClasses(user),
         fetchSubjects(user),
       ]);
+      const [qs, cls, subs] = settled.map(r => r.status === "fulfilled" ? r.value : null);
+      const failed = settled.find(r => r.status === "rejected");
       setQuestions(Array.isArray(qs)   ? qs   : []);
       setClasses  (Array.isArray(cls)  ? cls  : []);
       setSubjects (Array.isArray(subs) ? subs : []);
+      if (failed) throw failed.reason;
+      lastErrRef.current = "";
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load questions");
+      const msg = e?.message || "Failed to load questions";
+      if (msg !== lastErrRef.current) { lastErrRef.current = msg; Alert.alert(_t("Error"), _tx(msg)); }
     } finally {
       setLoading(false);
     }
   }, [user, filterClass, filterSub, filterChapter, filterType, filterDiff, search]);
 
+  useFocusEffect(useCallback(() => { lastErrRef.current = ""; }, [])); // allow one alert per visit
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   // ── Delete ────────────────────────────────────────────────────────────────
   const handleDelete = (item) => {
-    Alert.alert("Delete Question", "Remove this question from the bank?", [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(_t("Delete Question"), _t("Remove this question from the bank?"), [
+      { text: _t("Cancel"), style: "cancel" },
       {
-        text: "Delete", style: "destructive",
+        text: _t("Delete"), style: "destructive",
         onPress: async () => {
           try {
             await deleteQuestion(user, item.id);
             load();
           } catch (e) {
-            Alert.alert("Error", e.message);
+            Alert.alert(_t("Error"), _tx(e.message));
           }
         },
       },
@@ -118,30 +128,30 @@ export default function QuestionBankScreen({ navigation }) {
       >
         {/* Row 1: number + type badge + marks */}
         <View style={st.cardTop}>
-          <Text style={st.qNum}>Q{index + 1}.</Text>
+          <Text style={st.qNum}>{_t("Q{v}.", { v: index + 1 })}</Text>
           <View style={[st.typeBadge, { backgroundColor: typeColor }]}>
-            <Text style={st.typeText}>{TYPE_LABELS[item.type] ?? item.type}</Text>
+            <Text style={st.typeText}>{_tx(TYPE_LABELS[item.type]) ?? _tx(item.type)}</Text>
           </View>
           {item.difficulty ? (
             <View style={[st.diffBadge, { backgroundColor: item.difficulty === "easy" ? "#d1fae5" : item.difficulty === "hard" ? "#fee2e2" : "#fef9c3" }]}>
               <Text style={[st.diffText, { color: item.difficulty === "easy" ? "#065f46" : item.difficulty === "hard" ? "#991b1b" : "#854d0e" }]}>
-                {item.difficulty}
+                {_tx(item.difficulty)}
               </Text>
             </View>
           ) : null}
-          <Text style={st.marks}>{item.marks ?? 0} mk</Text>
+          <Text style={st.marks}>{_t("{v} mk", { v: item.marks ?? 0 })}</Text>
         </View>
         {/* Row 2: question preview */}
-        <Text style={st.qPreview} numberOfLines={2}>{item.question_text ?? ""}</Text>
+        <Text style={st.qPreview} numberOfLines={2}>{_tx(item.question_text) ?? ""}</Text>
         {/* Row 3: chapter + edit/delete */}
         <View style={st.cardBot}>
           {(item.chapter_name || item.chapter)
-            ? <Text style={st.chapterTag}>📘 {item.chapter_name ?? item.chapter}</Text>
+            ? <Text style={st.chapterTag}>📘 {_tx(item.chapter_name) ?? _tx(item.chapter)}</Text>
             : <View />}
           <View style={st.actions}>
             <TouchableOpacity style={st.editBtn} onPress={() => navigation.navigate("AddEditQuestion", { question: item })}>
               <Feather name="edit-2" size={14} color="#2563eb" />
-              <Text style={st.editTxt}>Edit</Text>
+              <Text style={st.editTxt}>{_t("Edit")}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={st.delBtn} onPress={() => handleDelete(item)}>
               <Feather name="trash-2" size={14} color="#dc2626" />
@@ -160,7 +170,7 @@ export default function QuestionBankScreen({ navigation }) {
           <Feather name="search" size={16} color="#9ca3af" style={{ marginRight: 6 }} />
           <TextInput
             style={st.searchInput}
-            placeholder="Search questions…"
+            placeholder={_t("Search questions…")}
             placeholderTextColor="#9ca3af"
             value={search}
             onChangeText={setSearch}
@@ -178,7 +188,7 @@ export default function QuestionBankScreen({ navigation }) {
           onPress={() => setFilterOpen(true)}
         >
           <Feather name="filter" size={16} color={activeFilters > 0 ? "#fff" : "#374151"} />
-          {activeFilters > 0 && <Text style={st.filterCount}>{activeFilters}</Text>}
+          {activeFilters > 0 && <Text style={st.filterCount}>{_tx(activeFilters)}</Text>}
         </TouchableOpacity>
         <TouchableOpacity
           style={st.importBtn}
@@ -191,11 +201,11 @@ export default function QuestionBankScreen({ navigation }) {
       {/* Active filter chips */}
       {activeFilters > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={st.chipRow} contentContainerStyle={{ paddingHorizontal: 14, gap: 6 }}>
-          {filterClass   && <Chip label={`Class: ${classes.find(c => String(c.class_id) === String(filterClass))?.class_name ?? filterClass}`} onRemove={() => setFilterClass("")} />}
-          {filterSub     && <Chip label={`Sub: ${subjects.find(s => String(s.subject_id) === String(filterSub))?.subject_name ?? filterSub}`} onRemove={() => setFilterSub("")} />}
-          {filterChapter && <Chip label={`Ch: ${chapters.find(ch => String(ch.id) === String(filterChapter))?.chapter_name ?? filterChapter}`} onRemove={() => setFilterChapter("")} />}
-          {filterType    && <Chip label={TYPE_LABELS[filterType] ?? filterType} onRemove={() => setFilterType("")} />}
-          {filterDiff    && <Chip label={filterDiff} onRemove={() => setFilterDiff("")} />}
+          {filterClass   && <Chip label={_t("Class: {v}", { v: classes.find(c => String(c.class_id) === String(filterClass))?.class_name ?? filterClass })} onRemove={() => setFilterClass("")} />}
+          {filterSub     && <Chip label={_t("Sub: {v}", { v: subjects.find(s => String(s.subject_id) === String(filterSub))?.subject_name ?? filterSub })} onRemove={() => setFilterSub("")} />}
+          {filterChapter && <Chip label={_t("Ch: {v}", { v: chapters.find(ch => String(ch.id) === String(filterChapter))?.chapter_name ?? filterChapter })} onRemove={() => setFilterChapter("")} />}
+          {filterType    && <Chip label={_tx(TYPE_LABELS[filterType]) ?? _tx(filterType)} onRemove={() => setFilterType("")} />}
+          {filterDiff    && <Chip label={_tx(filterDiff)} onRemove={() => setFilterDiff("")} />}
         </ScrollView>
       )}
 
@@ -208,7 +218,7 @@ export default function QuestionBankScreen({ navigation }) {
           keyExtractor={(item) => String(item.id)}
           renderItem={renderItem}
           contentContainerStyle={st.list}
-          ListEmptyComponent={<Text style={st.empty}>No questions found.{"\n"}Add one using the + button.</Text>}
+          ListEmptyComponent={<Text style={st.empty}>{_t("No questions found.\nAdd one using the + button.")}</Text>}
         />
       )}
 
@@ -239,7 +249,7 @@ export default function QuestionBankScreen({ navigation }) {
 function Chip({ label, onRemove }) {
   return (
     <View style={st.chip}>
-      <Text style={st.chipTxt}>{label}</Text>
+      <Text style={st.chipTxt}>{_tx(label)}</Text>
       <TouchableOpacity onPress={onRemove} hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}>
         <Feather name="x" size={12} color="#1e40af" />
       </TouchableOpacity>
@@ -253,44 +263,44 @@ function FilterModal({ visible, onClose, classes, subjects, chapters, filterClas
       <TouchableOpacity style={st.overlay} activeOpacity={1} onPress={onClose} />
       <View style={st.sheet}>
         <View style={st.sheetHandle} />
-        <Text style={st.sheetTitle}>Filter Questions</Text>
+        <Text style={st.sheetTitle}>{_t("Filter Questions")}</Text>
         <ScrollView showsVerticalScrollIndicator={false}>
-          <FilterSection title="Class">
+          <FilterSection title={_t("Class")}>
             {[{ class_id: "", class_name: "All Classes" }, ...classes].map(c => (
-              <FilterChip key={String(c.class_id)} label={c.class_name} selected={String(filterClass) === String(c.class_id)} onPress={() => setFilterClass(c.class_id ? String(c.class_id) : "")} />
+              <FilterChip key={String(c.class_id)} label={_tx(c.class_name)} selected={String(filterClass) === String(c.class_id)} onPress={() => setFilterClass(c.class_id ? String(c.class_id) : "")} />
             ))}
           </FilterSection>
-          <FilterSection title="Subject">
+          <FilterSection title={_t("Subject")}>
             {[{ subject_id: "", subject_name: "All Subjects" }, ...subjects].map(s => (
-              <FilterChip key={String(s.subject_id)} label={s.subject_name} selected={String(filterSub) === String(s.subject_id)} onPress={() => setFilterSub(s.subject_id ? String(s.subject_id) : "")} />
+              <FilterChip key={String(s.subject_id)} label={_tx(s.subject_name)} selected={String(filterSub) === String(s.subject_id)} onPress={() => setFilterSub(s.subject_id ? String(s.subject_id) : "")} />
             ))}
           </FilterSection>
           {chapters.length > 0 && (
-            <FilterSection title="Chapter">
+            <FilterSection title={_t("Chapter")}>
               {[{ id: "", chapter_name: "All Chapters" }, ...chapters].map(ch => (
                 <FilterChip
                   key={String(ch.id)}
-                  label={ch.chapter_name}
+                  label={_tx(ch.chapter_name)}
                   selected={String(filterChapter) === String(ch.id)}
                   onPress={() => setFilterChapter(ch.id ? String(ch.id) : "")}
                 />
               ))}
             </FilterSection>
           )}
-          <FilterSection title="Question Type">
+          <FilterSection title={_t("Question Type")}>
             {[["", "All Types"], ...Object.entries(TYPE_LABELS)].map(([k, v]) => (
-              <FilterChip key={k} label={v} selected={filterType === k} onPress={() => setFilterType(k)} />
+              <FilterChip key={k} label={_tx(v)} selected={filterType === k} onPress={() => setFilterType(k)} />
             ))}
           </FilterSection>
-          <FilterSection title="Difficulty">
+          <FilterSection title={_t("Difficulty")}>
             {DIFFICULTIES.map(d => (
-              <FilterChip key={d} label={d || "All Levels"} selected={filterDiff === d} onPress={() => setFilterDiff(d)} />
+              <FilterChip key={d} label={_tx(d) || _t("All Levels")} selected={filterDiff === d} onPress={() => setFilterDiff(d)} />
             ))}
           </FilterSection>
         </ScrollView>
         <View style={st.sheetBtns}>
-          <TouchableOpacity style={st.clearBtn} onPress={onClear}><Text style={st.clearTxt}>Clear All</Text></TouchableOpacity>
-          <TouchableOpacity style={st.applyBtn} onPress={onApply}><Text style={st.applyTxt}>Apply Filters</Text></TouchableOpacity>
+          <TouchableOpacity style={st.clearBtn} onPress={onClear}><Text style={st.clearTxt}>{_t("Clear All")}</Text></TouchableOpacity>
+          <TouchableOpacity style={st.applyBtn} onPress={onApply}><Text style={st.applyTxt}>{_t("Apply Filters")}</Text></TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -300,7 +310,7 @@ function FilterModal({ visible, onClose, classes, subjects, chapters, filterClas
 function FilterSection({ title, children }) {
   return (
     <View style={st.filterSec}>
-      <Text style={st.filterSecTitle}>{title}</Text>
+      <Text style={st.filterSecTitle}>{_tx(title)}</Text>
       <View style={st.filterChips}>{children}</View>
     </View>
   );
@@ -309,7 +319,7 @@ function FilterSection({ title, children }) {
 function FilterChip({ label, selected, onPress }) {
   return (
     <TouchableOpacity style={[st.fChip, selected && st.fChipSel]} onPress={onPress}>
-      <Text style={[st.fChipTxt, selected && st.fChipTxtSel]}>{label}</Text>
+      <Text style={[st.fChipTxt, selected && st.fChipTxtSel]}>{_tx(label)}</Text>
     </TouchableOpacity>
   );
 }

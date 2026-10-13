@@ -26,6 +26,7 @@ import {
 } from "../../services/HostelServiceApi";
 import { fetchClasses, fetchSessions, fetchSections, fetchBranches }
   from "../../services/StudentServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ─── Reusable Dropdown ────────────────────────────────────────────────────────
 function Dropdown({ label, value, options, onChange, disabled, loading }) {
@@ -39,14 +40,14 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
         activeOpacity={0.7}
       >
         <Text style={selected?.value ? fm.dropTxt : fm.dropPlaceholder} numberOfLines={1}>
-          {loading ? "Loading…" : (selected?.label ?? label)}
+          {loading ? _t("Loading…") : (_tx(selected?.label) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={15} color="#6366f1" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={fm.dropOverlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={fm.dropSheet}>
-            <Text style={fm.dropTitle}>{label}</Text>
+            <Text style={fm.dropTitle}>{_tx(label)}</Text>
             <ScrollView style={{ maxHeight: 300 }} keyboardShouldPersistTaps="handled">
               {options.map((o, i) => (
                 <TouchableOpacity
@@ -55,7 +56,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[fm.dropOptionTxt, String(o.value) === String(value) && fm.dropOptionTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) && <Feather name="check" size={14} color="#6366f1" />}
                 </TouchableOpacity>
@@ -72,7 +73,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
 function FieldRow({ label, children, required }) {
   return (
     <View style={sc.fieldRow}>
-      <Text style={sc.fieldLabel}>{label}{required ? " *" : ""}</Text>
+      <Text style={sc.fieldLabel}>{_tx(label)}{required ? " *" : ""}</Text>
       {children}
     </View>
   );
@@ -83,7 +84,7 @@ function SectionHeader({ icon, title, color = "#6366f1" }) {
   return (
     <View style={[sc.sectionHeader, { borderLeftColor: color }]}>
       <Feather name={icon} size={15} color={color} />
-      <Text style={[sc.sectionTitle, { color }]}>{title}</Text>
+      <Text style={[sc.sectionTitle, { color }]}>{_tx(title)}</Text>
     </View>
   );
 }
@@ -141,17 +142,21 @@ export default function HostelEnrollmentScreen({ navigation, route }) {
     (async () => {
       try {
         setLoadingInit(true);
-        const [enrollment, sess, cls, br] = await Promise.all([
+        // allSettled: a 403 on one call must not leave the whole form empty
+        const results = await Promise.allSettled([
           fetchHostelEnrollment(userRef.current, student.enrollmentId),
           fetchSessions(userRef.current),
           fetchClasses(userRef.current),
           fetchBranches(userRef.current),
         ]);
         if (cancelled) return;
+        const [enrollment, sess, cls, br] = results.map(r => (r.status === "fulfilled" ? r.value : null));
+        const firstFail = results.find(r => r.status === "rejected");
+        if (firstFail) Alert.alert(_t("Error"), _tx(firstFail.reason?.message) || _t("Failed to load hostel enrolment data."));
 
-        setSessions(sess  || []);
-        setClasses(cls    || []);
-        setBranches(br    || []);
+        setSessions(Array.isArray(sess) ? sess : []);
+        setClasses(Array.isArray(cls)   ? cls  : []);
+        setBranches(Array.isArray(br)   ? br   : []);
 
         if (enrollment) {
           setExisting(enrollment);
@@ -172,7 +177,7 @@ export default function HostelEnrollmentScreen({ navigation, route }) {
           setBranchId( String(student.branchId  ?? ""));
         }
       } catch (e) {
-        if (!cancelled) Alert.alert("Error", e.message);
+        if (!cancelled) Alert.alert(_t("Error"), _tx(e?.message) || _t("Failed to load hostel enrolment data."));
       } finally {
         if (!cancelled) setLoadingInit(false);
       }
@@ -187,7 +192,7 @@ export default function HostelEnrollmentScreen({ navigation, route }) {
     let cancelled = false;
     setLoadingSections(true);
     fetchSections(userRef.current, classId)
-      .then(d  => { if (!cancelled) setSections(d || []); })
+      .then(d  => { if (!cancelled) setSections(Array.isArray(d) ? d : []); })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoadingSections(false); });
     return () => { cancelled = true; };
@@ -200,7 +205,7 @@ export default function HostelEnrollmentScreen({ navigation, route }) {
     let cancelled = false;
     setLoadingBuildings(true);
     fetchBuildings(userRef.current)
-      .then(d  => { if (!cancelled) setBuildings(d || []); })
+      .then(d  => { if (!cancelled) setBuildings(Array.isArray(d) ? d : []); })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoadingBuildings(false); });
     return () => { cancelled = true; };
@@ -213,7 +218,7 @@ export default function HostelEnrollmentScreen({ navigation, route }) {
     let cancelled = false;
     setLoadingRooms(true);
     fetchRooms(userRef.current, buildingId)
-      .then(d  => { if (!cancelled) setRooms(d || []); })
+      .then(d  => { if (!cancelled) setRooms(Array.isArray(d) ? d : []); })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoadingRooms(false); });
     return () => { cancelled = true; };
@@ -226,7 +231,7 @@ export default function HostelEnrollmentScreen({ navigation, route }) {
     let cancelled = false;
     setLoadingSeats(true);
     fetchAvailableSeats(userRef.current, roomId)
-      .then(d  => { if (!cancelled) setSeats(d || []); })
+      .then(d  => { if (!cancelled) setSeats(Array.isArray(d) ? d : []); })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoadingSeats(false); });
     return () => { cancelled = true; };
@@ -234,48 +239,48 @@ export default function HostelEnrollmentScreen({ navigation, route }) {
 
   // ── Options ──────────────────────────────────────────────────────────────
   const sessionOptions  = useMemo(() => [
-    { label: "— Select Session —", value: "" },
+    { label: _t("— Select Session —"), value: "" },
     ...sessions.map(s => ({ label: s.session_name, value: String(s.session_id) })),
   ], [sessions]);
 
   const classOptions    = useMemo(() => [
-    { label: "— Select Class —", value: "" },
+    { label: _t("— Select Class —"), value: "" },
     ...classes.map(c => ({ label: c.class_name, value: String(c.class_id) })),
   ], [classes]);
 
   const sectionOptions  = useMemo(() => [
-    { label: classId ? "— Select Section —" : "Select class first", value: "" },
+    { label: classId ? _t("— Select Section —") : _t("Select class first"), value: "" },
     ...sections.map(s => ({
-      label: s.section_name ?? s.section ?? `Section ${s}`,
+      label: s.section_name ?? s.section ?? _t("Section {s}", { s }),
       value: String(s.section_id ?? s.section_name ?? s.section ?? s),
     })),
   ], [sections, classId]);
 
   const branchOptions   = useMemo(() => [
-    { label: "— Select Branch —", value: "" },
+    { label: _t("— Select Branch —"), value: "" },
     ...branches.map(b => ({ label: b.branch_name, value: String(b.branch_id) })),
   ], [branches]);
 
   const buildingOptions = useMemo(() => [
-    { label: branchId ? "— Select Building —" : "Select branch first", value: "" },
+    { label: branchId ? _t("— Select Building —") : _t("Select branch first"), value: "" },
     ...buildings.map(b => ({ label: b.building_name, value: String(b.building_id) })),
   ], [buildings, branchId]);
 
   const roomOptions     = useMemo(() => [
-    { label: buildingId ? "— Select Room —" : "Select building first", value: "" },
+    { label: buildingId ? _t("— Select Room —") : _t("Select building first"), value: "" },
     ...rooms.map(r => ({ label: r.room_name, value: String(r.room_id) })),
   ], [rooms, buildingId]);
 
   const seatOptions     = useMemo(() => [
-    { label: roomId ? "— Select Seat —" : "Select room first", value: "" },
+    { label: roomId ? _t("— Select Seat —") : _t("Select room first"), value: "" },
     ...seats.map(s => ({ label: `${s.seat_number} (${s.status})`, value: String(s.seat_id) })),
   ], [seats, roomId]);
 
   // ── Save enrolment ───────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!seatId)    { Alert.alert("Validation", "Please select a seat.");    return; }
-    if (!sessionId) { Alert.alert("Validation", "Please select a session."); return; }
-    if (!classId)   { Alert.alert("Validation", "Please select a class.");   return; }
+    if (!seatId)    { Alert.alert(_t("Validation"), _t("Please select a seat."));    return; }
+    if (!sessionId) { Alert.alert(_t("Validation"), _t("Please select a session.")); return; }
+    if (!classId)   { Alert.alert(_t("Validation"), _t("Please select a class."));   return; }
     try {
       setSaving(true);
       await saveHostelEnrollment(userRef.current, {
@@ -292,11 +297,11 @@ export default function HostelEnrollmentScreen({ navigation, route }) {
         ssmsClientCode: user?.ssmsClientCode,
         currentStatus:  "active",
       });
-      Alert.alert("✅ Success", existing ? "Hostel enrolment updated." : "Student enrolled in hostel.",
-        [{ text: "OK", onPress: () => navigation.goBack() }]
+      Alert.alert(_t("✅ Success"), existing ? _t("Hostel enrolment updated.") : _t("Student enrolled in hostel."),
+        [{ text: _t("OK"), onPress: () => navigation.goBack() }]
       );
     } catch (e) {
-      Alert.alert("Save Failed", e.message ?? "Could not save enrolment.");
+      Alert.alert(_t("Save Failed"), _tx(e.message) ?? _t("Could not save enrolment."));
     } finally {
       setSaving(false);
     }
@@ -305,16 +310,16 @@ export default function HostelEnrollmentScreen({ navigation, route }) {
   // ── De-enrol ─────────────────────────────────────────────────────────────
   const handleDeEnroll = () => {
     if (!deEnrollDate.trim()) {
-      Alert.alert("Validation", "Please enter the de-enrolment date.");
+      Alert.alert(_t("Validation"), _t("Please enter the de-enrolment date."));
       return;
     }
     Alert.alert(
-      "Confirm De-enrolment",
-      `Remove ${student.firstName} ${student.lastName} from hostel on ${deEnrollDate}?`,
+      _t("Confirm De-enrolment"),
+      _t("Remove {firstName} {lastName} from hostel on {deEnrollDate}?", { firstName: student.firstName, lastName: student.lastName, deEnrollDate }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "De-enrol", style: "destructive",
+          text: _t("De-enrol"), style: "destructive",
           onPress: async () => {
             try {
               setDeEnrolling(true);
@@ -323,11 +328,11 @@ export default function HostelEnrollmentScreen({ navigation, route }) {
                 existing.hostelEnrollmentId,
                 deEnrollDate
               );
-              Alert.alert("✅ De-enrolled", "Student has been removed from hostel.",
-                [{ text: "OK", onPress: () => navigation.goBack() }]
+              Alert.alert(_t("✅ De-enrolled"), _t("Student has been removed from hostel."),
+                [{ text: _t("OK"), onPress: () => navigation.goBack() }]
               );
             } catch (e) {
-              Alert.alert("Error", e.message);
+              Alert.alert(_t("Error"), _tx(e.message));
             } finally {
               setDeEnrolling(false);
             }
@@ -343,7 +348,7 @@ export default function HostelEnrollmentScreen({ navigation, route }) {
       <SafeAreaView style={sc.safe} edges={["top"]}>
         <View style={sc.loader}>
           <ActivityIndicator size="large" color="#6366f1" />
-          <Text style={sc.loaderTxt}>Loading enrolment data…</Text>
+          <Text style={sc.loaderTxt}>{_t("Loading enrolment data…")}</Text>
         </View>
       </SafeAreaView>
     );
@@ -359,9 +364,9 @@ export default function HostelEnrollmentScreen({ navigation, route }) {
             <Feather name="arrow-left" size={20} color="#6366f1" />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={sc.headerTitle}>Hostel Enrolment</Text>
+            <Text style={sc.headerTitle}>{_t("Hostel Enrolment")}</Text>
             <Text style={sc.headerSub}>
-              {student.firstName} {student.lastName}  •  {student.enrollmentId}
+              {_tx(student.firstName)} {_tx(student.lastName)}  •  {_tx(student.enrollmentId)}
             </Text>
           </View>
           {/* Status badge */}
@@ -369,7 +374,7 @@ export default function HostelEnrollmentScreen({ navigation, route }) {
             <View style={[sc.statusBadge,
               existing.currentStatus === "active" ? sc.statusActive : sc.statusInactive]}>
               <Text style={sc.statusBadgeTxt}>
-                {existing.currentStatus === "active" ? "Enrolled" : "De-enrolled"}
+                {existing.currentStatus === "active" ? _t("Enrolled") : _t("De-enrolled")}
               </Text>
             </View>
           )}
@@ -385,31 +390,31 @@ export default function HostelEnrollmentScreen({ navigation, route }) {
           <View style={sc.infoCard}>
             <View style={sc.infoRow}>
               <View style={sc.infoItem}>
-                <Text style={sc.infoLabel}>Class</Text>
-                <Text style={sc.infoValue}>{student.className ?? "—"}</Text>
+                <Text style={sc.infoLabel}>{_t("Class")}</Text>
+                <Text style={sc.infoValue}>{_tx(student.className) ?? "—"}</Text>
               </View>
               <View style={sc.infoItem}>
-                <Text style={sc.infoLabel}>Section</Text>
-                <Text style={sc.infoValue}>{student.section ?? "—"}</Text>
+                <Text style={sc.infoLabel}>{_t("Section")}</Text>
+                <Text style={sc.infoValue}>{_tx(student.section) ?? "—"}</Text>
               </View>
               <View style={sc.infoItem}>
-                <Text style={sc.infoLabel}>Reg No</Text>
-                <Text style={sc.infoValue}>{student.registrationNo ?? "—"}</Text>
+                <Text style={sc.infoLabel}>{_t("Reg No")}</Text>
+                <Text style={sc.infoValue}>{_tx(student.registrationNo) ?? "—"}</Text>
               </View>
             </View>
             {existing && (
               <View style={[sc.infoRow, { marginTop: 8 }]}>
                 <View style={sc.infoItem}>
-                  <Text style={sc.infoLabel}>Building</Text>
-                  <Text style={sc.infoValue}>{existing.buildingName ?? "—"}</Text>
+                  <Text style={sc.infoLabel}>{_t("Building")}</Text>
+                  <Text style={sc.infoValue}>{_tx(existing.buildingName) ?? "—"}</Text>
                 </View>
                 <View style={sc.infoItem}>
-                  <Text style={sc.infoLabel}>Room</Text>
-                  <Text style={sc.infoValue}>{existing.roomName ?? "—"}</Text>
+                  <Text style={sc.infoLabel}>{_t("Room")}</Text>
+                  <Text style={sc.infoValue}>{_tx(existing.roomName) ?? "—"}</Text>
                 </View>
                 <View style={sc.infoItem}>
-                  <Text style={sc.infoLabel}>Seat</Text>
-                  <Text style={sc.infoValue}>{existing.seatNumber ?? "—"}</Text>
+                  <Text style={sc.infoLabel}>{_t("Seat")}</Text>
+                  <Text style={sc.infoValue}>{_tx(existing.seatNumber) ?? "—"}</Text>
                 </View>
               </View>
             )}
@@ -417,55 +422,55 @@ export default function HostelEnrollmentScreen({ navigation, route }) {
 
           {/* ── Academic section ── */}
           <View style={sc.card}>
-            <SectionHeader icon="book-open" title="Academic Details" color="#6366f1" />
+            <SectionHeader icon="book-open" title={_t("Academic Details")} color="#6366f1" />
 
-            <FieldRow label="Session" required>
-              <Dropdown label="— Select Session —" value={sessionId}
+            <FieldRow label={_t("Session")} required>
+              <Dropdown label={_t("— Select Session —")} value={sessionId}
                 options={sessionOptions} onChange={setSessionId} disabled={saving} />
             </FieldRow>
 
-            <FieldRow label="Class" required>
-              <Dropdown label="— Select Class —" value={classId}
+            <FieldRow label={_t("Class")} required>
+              <Dropdown label={_t("— Select Class —")} value={classId}
                 options={classOptions} onChange={(v) => { setClassId(v); setSectionId(""); }}
                 disabled={saving} />
             </FieldRow>
 
-            <FieldRow label="Section">
-              <Dropdown label={classId ? "— Select Section —" : "Select class first"}
+            <FieldRow label={_t("Section")}>
+              <Dropdown label={classId ? _t("— Select Section —") : _t("Select class first")}
                 value={sectionId} options={sectionOptions}
                 onChange={setSectionId}
                 disabled={!classId || loadingSections || saving}
                 loading={loadingSections} />
             </FieldRow>
 
-            <FieldRow label="Branch">
-              <Dropdown label="— Select Branch —" value={branchId}
+            <FieldRow label={_t("Branch")}>
+              <Dropdown label={_t("— Select Branch —")} value={branchId}
                 options={branchOptions} onChange={setBranchId} disabled={saving} />
             </FieldRow>
           </View>
 
           {/* ── Hostel section ── */}
           <View style={sc.card}>
-            <SectionHeader icon="home" title="Hostel Allocation" color="#059669" />
+            <SectionHeader icon="home" title={_t("Hostel Allocation")} color="#059669" />
 
-            <FieldRow label="Building" required>
-              <Dropdown label={branchId ? "— Select Building —" : "Select branch first"}
+            <FieldRow label={_t("Building")} required>
+              <Dropdown label={branchId ? _t("— Select Building —") : _t("Select branch first")}
                 value={buildingId} options={buildingOptions}
                 onChange={(v) => { setBuildingId(v); setRoomId(""); setSeatId(""); }}
                 disabled={!branchId || loadingBuildings || saving}
                 loading={loadingBuildings} />
             </FieldRow>
 
-            <FieldRow label="Room" required>
-              <Dropdown label={buildingId ? "— Select Room —" : "Select building first"}
+            <FieldRow label={_t("Room")} required>
+              <Dropdown label={buildingId ? _t("— Select Room —") : _t("Select building first")}
                 value={roomId} options={roomOptions}
                 onChange={(v) => { setRoomId(v); setSeatId(""); }}
                 disabled={!buildingId || loadingRooms || saving}
                 loading={loadingRooms} />
             </FieldRow>
 
-            <FieldRow label="Seat" required>
-              <Dropdown label={roomId ? "— Select Seat —" : "Select room first"}
+            <FieldRow label={_t("Seat")} required>
+              <Dropdown label={roomId ? _t("— Select Seat —") : _t("Select room first")}
                 value={seatId} options={seatOptions}
                 onChange={setSeatId}
                 disabled={!roomId || loadingSeats || saving}
@@ -481,10 +486,10 @@ export default function HostelEnrollmentScreen({ navigation, route }) {
             >
               {saving
                 ? <><ActivityIndicator color="#fff" size="small" />
-                    <Text style={sc.saveTxt}> Saving…</Text></>
+                    <Text style={sc.saveTxt}>{" "}{_t("Saving…")}</Text></>
                 : <><Feather name="check-circle" size={18} color="#fff" />
                     <Text style={sc.saveTxt}>
-                      {existing ? " Update Enrolment" : " Enrol in Hostel"}
+                      {existing ? (" " + _t("Update Enrolment") + "") : (" " + _t("Enrol in Hostel") + "")}
                     </Text></>}
             </TouchableOpacity>
           )}
@@ -492,16 +497,14 @@ export default function HostelEnrollmentScreen({ navigation, route }) {
           {/* ── De-enrol section (only if active enrolment exists) ── */}
           {existing?.currentStatus === "active" && isAdminOrOwner && (
             <View style={sc.card}>
-              <SectionHeader icon="user-x" title="De-enrolment" color="#dc2626" />
-              <Text style={sc.deEnrollNote}>
-                Enter the date the student vacates the hostel seat.
-              </Text>
-              <FieldRow label="De-enrol Date" required>
+              <SectionHeader icon="user-x" title={_t("De-enrolment")} color="#dc2626" />
+              <Text style={sc.deEnrollNote}>{_t("Enter the date the student vacates the hostel seat.")}</Text>
+              <FieldRow label={_t("De-enrol Date")} required>
                 <TextInput
                   style={fm.input}
                   value={deEnrollDate}
                   onChangeText={setDeEnrollDate}
-                  placeholder="YYYY-MM-DD"
+                  placeholder={_t("YYYY-MM-DD")}
                   placeholderTextColor="#94a3b8"
                   editable={!deEnrolling}
                 />
@@ -511,8 +514,8 @@ export default function HostelEnrollmentScreen({ navigation, route }) {
                 onPress={handleDeEnroll} disabled={deEnrolling}
               >
                 {deEnrolling
-                  ? <><ActivityIndicator color="#fff" size="small" /><Text style={sc.saveTxt}> Processing…</Text></>
-                  : <><Feather name="user-x" size={18} color="#fff" /><Text style={sc.saveTxt}> De-enrol from Hostel</Text></>}
+                  ? <><ActivityIndicator color="#fff" size="small" /><Text style={sc.saveTxt}>{" "}{_t("Processing…")}</Text></>
+                  : <><Feather name="user-x" size={18} color="#fff" /><Text style={sc.saveTxt}>{" "}{_t("De-enrol from Hostel")}</Text></>}
               </TouchableOpacity>
             </View>
           )}

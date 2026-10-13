@@ -17,6 +17,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
 import { fetchLeaveTypes, saveLeaveType } from "../../services/LeaveServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 const C = {
   primary: "#1e40af",
@@ -29,7 +30,7 @@ const C = {
   red:     "#dc2626",
 };
 
-const BLANK = { id: null, name: "", abbreviation: "", max_days_per_year: "12", carry_forward: false, status: true };
+const BLANK = { id: null, name: "", abbreviation: "", max_days_per_year: "12", carry_forward: false, is_paid: true, status: true };
 
 export default function LeaveTypesScreen({ navigation }) {
   const { user } = useContext(AuthContext);
@@ -47,9 +48,9 @@ export default function LeaveTypesScreen({ navigation }) {
       // fetch all (including inactive) — backend already returns only active; for admin
       // we call without filter (backend returns status=1; admin sees all via edit)
       const data = await fetchLeaveTypes(user);
-      setTypes(data);
+      setTypes(Array.isArray(data) ? data : []);
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     } finally {
       isRefresh ? setRefreshing(false) : setLoading(false);
     }
@@ -65,6 +66,7 @@ export default function LeaveTypesScreen({ navigation }) {
       abbreviation:     t.abbreviation ?? "",
       max_days_per_year: String(t.max_days_per_year ?? 12),
       carry_forward:    t.carry_forward == 1,
+      is_paid:          t.is_paid === undefined || t.is_paid === null || t.is_paid == 1,
       status:           t.status == 1,
     });
     setModalV(true);
@@ -75,8 +77,8 @@ export default function LeaveTypesScreen({ navigation }) {
     const abbr = form.abbreviation.trim();
     const days = parseFloat(form.max_days_per_year);
 
-    if (!name) return Alert.alert("Required", "Leave type name is required.");
-    if (isNaN(days) || days <= 0) return Alert.alert("Invalid", "Max days must be a positive number.");
+    if (!name) return Alert.alert(_t("Required"), _t("Leave type name is required."));
+    if (isNaN(days) || days <= 0) return Alert.alert(_t("Invalid"), _t("Max days must be a positive number."));
 
     try {
       setSaving(true);
@@ -86,12 +88,13 @@ export default function LeaveTypesScreen({ navigation }) {
         abbreviation:      abbr,
         max_days_per_year: days,
         carry_forward:     form.carry_forward ? 1 : 0,
+        is_paid:           form.is_paid ? 1 : 0,
         status:            form.status ? 1 : 0,
       });
       setModalV(false);
       load(true);
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     } finally {
       setSaving(false);
     }
@@ -102,23 +105,29 @@ export default function LeaveTypesScreen({ navigation }) {
       <View style={st.cardLeft}>
         <View style={[st.abbrBadge, item.status != 1 && { backgroundColor: "#f1f5f9" }]}>
           <Text style={[st.abbrTxt, item.status != 1 && { color: C.muted }]}>
-            {item.abbreviation || item.name.slice(0,2).toUpperCase()}
+            {_tx(item.abbreviation) || item.name.slice(0,2).toUpperCase()}
           </Text>
         </View>
         <View style={{ flex: 1 }}>
           <Text style={[st.typeName, item.status != 1 && { color: C.muted }]}>
-            {item.name}
-            {item.status != 1 ? "  (Inactive)" : ""}
+            {_tx(item.name)}
+            {item.status != 1 ? ("  " + _t("(Inactive)") + "") : ""}
           </Text>
           <View style={st.metaRow}>
             <View style={st.metaChip}>
               <Feather name="calendar" size={10} color={C.primary} />
-              <Text style={st.metaChipTxt}>{item.max_days_per_year} days/yr</Text>
+              <Text style={st.metaChipTxt}>{_t("{max_days_per_year} days/yr", { max_days_per_year: item.max_days_per_year })}</Text>
             </View>
+            {item.is_paid == 0 && (
+              <View style={st.metaChip}>
+                <Feather name="slash" size={10} color="#b91c1c" />
+                <Text style={[st.metaChipTxt, { color: "#b91c1c" }]}>{_t("Unpaid")}</Text>
+              </View>
+            )}
             {item.carry_forward == 1 && (
               <View style={st.metaChip}>
                 <Feather name="repeat" size={10} color={C.green} />
-                <Text style={[st.metaChipTxt, { color: C.green }]}>Carry forward</Text>
+                <Text style={[st.metaChipTxt, { color: C.green }]}>{_t("Carry forward")}</Text>
               </View>
             )}
           </View>
@@ -145,7 +154,7 @@ export default function LeaveTypesScreen({ navigation }) {
         <TouchableOpacity style={st.backBtn} onPress={() => navigation.goBack()}>
           <Feather name="arrow-left" size={20} color="#fff" />
         </TouchableOpacity>
-        <Text style={st.headerTitle}>Leave Types</Text>
+        <Text style={st.headerTitle}>{_t("Leave Types")}</Text>
         <TouchableOpacity style={st.addBtn} onPress={openAdd}>
           <Feather name="plus" size={20} color="#fff" />
         </TouchableOpacity>
@@ -161,7 +170,7 @@ export default function LeaveTypesScreen({ navigation }) {
         ListEmptyComponent={
           <View style={st.emptyBox}>
             <Feather name="tag" size={48} color={C.border} />
-            <Text style={st.emptyTxt}>No leave types yet. Tap + to add.</Text>
+            <Text style={st.emptyTxt}>{_t("No leave types yet. Tap + to add.")}</Text>
           </View>
         }
       />
@@ -171,26 +180,26 @@ export default function LeaveTypesScreen({ navigation }) {
         <View style={st.modalOverlay}>
           <View style={st.modalSheet}>
             <View style={st.modalHeader}>
-              <Text style={st.modalTitle}>{form.id ? "Edit Leave Type" : "New Leave Type"}</Text>
+              <Text style={st.modalTitle}>{form.id ? _t("Edit Leave Type") : _t("New Leave Type")}</Text>
               <TouchableOpacity onPress={() => setModalV(false)}>
                 <Feather name="x" size={20} color={C.text} />
               </TouchableOpacity>
             </View>
 
             <View style={st.modalBody}>
-              <Text style={st.label}>Name *</Text>
+              <Text style={st.label}>{_t("Name *")}</Text>
               <TextInput
                 style={st.input}
-                placeholder="e.g. Casual Leave"
+                placeholder={_t("e.g. Casual Leave")}
                 placeholderTextColor={C.muted}
                 value={form.name}
                 onChangeText={v => setForm(f => ({ ...f, name: v }))}
               />
 
-              <Text style={st.label}>Abbreviation</Text>
+              <Text style={st.label}>{_t("Abbreviation")}</Text>
               <TextInput
                 style={st.input}
-                placeholder="e.g. CL"
+                placeholder={_t("e.g. CL")}
                 placeholderTextColor={C.muted}
                 value={form.abbreviation}
                 onChangeText={v => setForm(f => ({ ...f, abbreviation: v.toUpperCase().slice(0,5) }))}
@@ -198,7 +207,7 @@ export default function LeaveTypesScreen({ navigation }) {
                 maxLength={5}
               />
 
-              <Text style={st.label}>Max Days per Year *</Text>
+              <Text style={st.label}>{_t("Max Days per Year *")}</Text>
               <TextInput
                 style={st.input}
                 placeholder="12"
@@ -210,8 +219,8 @@ export default function LeaveTypesScreen({ navigation }) {
 
               <View style={st.switchRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={st.switchLabel}>Carry Forward</Text>
-                  <Text style={st.switchSub}>Unused days carry to next year</Text>
+                  <Text style={st.switchLabel}>{_t("Carry Forward")}</Text>
+                  <Text style={st.switchSub}>{_t("Unused days carry to next year")}</Text>
                 </View>
                 <Switch
                   value={form.carry_forward}
@@ -223,8 +232,21 @@ export default function LeaveTypesScreen({ navigation }) {
 
               <View style={st.switchRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={st.switchLabel}>Active</Text>
-                  <Text style={st.switchSub}>Staff can apply for this leave type</Text>
+                  <Text style={st.switchLabel}>{_t("Paid Leave")}</Text>
+                  <Text style={st.switchSub}>{_t("Off = unpaid (e.g. Leave Without Pay) – reduces payable days in payroll")}</Text>
+                </View>
+                <Switch
+                  value={form.is_paid}
+                  onValueChange={v => setForm(f => ({ ...f, is_paid: v }))}
+                  trackColor={{ false: C.border, true: "#93c5fd" }}
+                  thumbColor={form.is_paid ? C.primary : "#94a3b8"}
+                />
+              </View>
+
+              <View style={st.switchRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={st.switchLabel}>{_t("Active")}</Text>
+                  <Text style={st.switchSub}>{_t("Staff can apply for this leave type")}</Text>
                 </View>
                 <Switch
                   value={form.status}
@@ -243,7 +265,7 @@ export default function LeaveTypesScreen({ navigation }) {
                   ? <ActivityIndicator size="small" color="#fff" />
                   : <>
                       <Feather name="save" size={16} color="#fff" />
-                      <Text style={st.saveBtnTxt}>Save</Text>
+                      <Text style={st.saveBtnTxt}>{_t("Save")}</Text>
                     </>
                 }
               </TouchableOpacity>

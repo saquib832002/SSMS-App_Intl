@@ -14,6 +14,11 @@ use Cake\Database\Expression\QueryExpression;
 use Cake\Log\Log;
 use Cake\Mailer\Mailer;
 use Firebase\JWT\JWT;
+use App\Service\AccountSecurity;
+use App\Service\Audit;
+use App\Service\Passwords;
+use App\Service\Permissions;
+use App\Service\TwoFactor;
 
 /**
  * SaweraSsmsUsers Controller
@@ -31,14 +36,16 @@ class UserServiceApiController extends AppController
     }
     private function _encryptPassword(string $password): string
     {
-        return crypt($password, '$2y$10$iusesomecrazystrings22');
+        // unique salt per password (old fixed-salt hashes are still accepted at sign-in and upgraded)
+        return Passwords::hash($password);
     }
 	public function login()
     {
         $this->request->allowMethod(['post']);
 
-        $username = trim($this->request->getData('username') ?? '');
-        $password = $this->request->getData('password') ?? '';
+        $username = trim((string)($this->request->getData('username') ?? ''));
+        $password = (string)($this->request->getData('password') ?? '');
+        $ip       = AccountSecurity::clientIp($this->request);
 
         if (!$username || $password === '') {
             return $this->_json(['status' => false, 'message' => 'Username and password are required']);
@@ -46,6 +53,12 @@ class UserServiceApiController extends AppController
 
         try {
             $conn = ConnectionManager::get('default');
+
+            // ── 0. Too many wrong attempts? ───────────────────────────────────
+            $mins = AccountSecurity::lockedFor($username, $ip);
+            if ($mins > 0) {
+                return $this->_json(['status' => false, 'code' => 'LOCKED', 'message' => AccountSecurity::lockMessage($mins)]);
+            }
 
             // ── 1. Fetch user row ─────────────────────────────────────────────
             $userRow = $conn->execute(
@@ -59,168 +72,324 @@ class UserServiceApiController extends AppController
                 ['uname' => $username]
             )->fetch('assoc');
 
-            if (!$userRow) {
-                return $this->_json(['status' => false, 'message' => 'Invalid username or password']);
-            }
-
-            // ── 2. Verify password using shared _encryptPassword helper ───────
-            $stored   = $userRow['ssms_user_password'];
-            $verified = ($stored === $this->_encryptPassword($password));
-
-            if (!$verified) {
-                return $this->_json(['status' => false, 'message' => 'Invalid username or password']);
-            }
-
-            // ── 2a. Check individual user account status ───────────────────────
-            $userStatus = strtolower(trim((string)($userRow['ssms_user_status'] ?? '')));
-            if ($userStatus !== 'active') {
-                return $this->_json([
-                    'status'  => false,
-                    'message' => 'Your account is inactive. Please contact your school administration to activate your account.',
-                ]);
-            }
-
-            $ssmsClientCode = $userRow['ssms_client_code'];
-
-            // ── 3. Check client status / expiry ───────────────────────────────
-            $clientRow = $conn->execute(
-                "SELECT ssms_client_status, ssms_client_expiry_date
-                 FROM   ssms_clients
-                 WHERE  ssms_client_code = :code
-                 LIMIT  1",
-                ['code' => $ssmsClientCode]
-            )->fetch('assoc');
-
-            if (!$clientRow) {
-                return $this->_json(['status' => false, 'message' => 'Account not found. Contact support.']);
-            }
-
-            if (strtolower(trim($clientRow['ssms_client_status'] ?? '')) === 'inactive') {
-                return $this->_json(['status' => false, 'message' => 'Your account is inactive. Please contact support.']);
-            }
-
-            // ── 3a. Billing model ─────────────────────────────────────────────
-            // 'legacy' (Indian schools) → unchanged rules below.
-            // 'subscription' (international) → never blocked at login; when a
-            // subscription lapses the school simply drops back to free modules.
-            \App\Service\Entitlements::clear($ssmsClientCode);
-            $entitlements   = \App\Service\Entitlements::forClient($ssmsClientCode);
-            $isSubscription = \App\Service\Entitlements::isSubscription($entitlements);
-
-            $expiryRaw = $clientRow['ssms_client_expiry_date'] ?? null;
-            if ($expiryRaw && !$isSubscription) {
-                $expiryStr = is_object($expiryRaw) && method_exists($expiryRaw, 'format')
-                    ? $expiryRaw->format('Y-m-d')
-                    : substr((string)$expiryRaw, 0, 10);
-                if ($expiryStr && new \DateTime($expiryStr) < new \DateTime('today')) {
-                    return $this->_json(['status' => false, 'message' => 'Your membership has expired. Please renew to continue.']);
+            // ── 2. Verify password (old fixed-salt hashes still accepted, upgraded below) ──
+            if (!$userRow || !Passwords::verify($password, $userRow['ssms_user_password'])) {
+                $locked = AccountSecurity::recordFailure($username, $ip);
+                if ($userRow) {
+                    Audit::log((string)$userRow['ssms_client_code'], $locked ? 'login.locked' : 'login.failed', [
+                        'category' => 'security', 'actor' => $username, 'role' => (string)$userRow['ssms_user_role'], 'ip' => $ip,
+                        'app_version' => $this->request->getHeaderLine('X-App-Version'),
+                        'summary' => $locked ? AccountSecurity::MAX_USER_FAILS . ' wrong passwords · sign-in paused for ' . AccountSecurity::LOCK_MINUTES . ' min'
+                                             : 'Wrong password',
+                    ]);
                 }
+                return $this->_json(['status' => false, 'message' => $locked
+                    ? AccountSecurity::lockMessage(AccountSecurity::LOCK_MINUTES)
+                    : 'Invalid username or password']);
+            }
+            AccountSecurity::recordSuccess($username, $ip);
+            if (Passwords::needsRehash($userRow['ssms_user_password'])) {
+                $conn->execute('UPDATE sawera_ssms_users SET ssms_user_password = ? WHERE ssms_user_name = ?',
+                    [Passwords::hash($password), $userRow['ssms_user_name']]);
             }
 
-            // ── 4. Active modules ──────────────────────────────────────────────
-            $modRows = $conn->execute(
-                "SELECT module_key FROM ssms_client_modules
-                 WHERE  ssms_client_code = :code",
-                ['code' => $ssmsClientCode]
-            )->fetchAll('assoc');
-
-            // Product modules (school / finance / library …) – unchanged for every school.
-            $activeModules = !empty($modRows) ? array_column($modRows, 'module_key') : ['school'];
-
-            // ── 5. Generate JWT ────────────────────────────────────────────────
-            $secret = env('JWT_SECRET', '');
-            if (empty($secret)) {
-                $secret = \Cake\Core\Configure::read('Jwt.secret', '');
-            }
-            if (empty($secret)) {
-                Log::error('login: JWT_SECRET is not configured');
-                return $this->_json(['status' => false, 'message' => 'Server configuration error']);
+            $blocked = $this->_loginBlocked($userRow);
+            if ($blocked !== null) {
+                return $this->_json(['status' => false, 'message' => $blocked]);
             }
 
-            // ── 5a. For student accounts, resolve enrollment_id from username ──
-            $enrollmentId = null;
-            $userRole     = strtolower(trim((string)($userRow['ssms_user_role'] ?? '')));
-            if ($userRole === 'student') {
-                $enrollRow = $conn->execute(
-                    "SELECT enrollment_id FROM ssms_student_enrollment
-                     WHERE  enrollment_id    = ?
-                       AND  ssms_client_code = ?
-                       AND  status           = 'active'
-                     LIMIT 1",
-                    [$userRow['ssms_user_name'], $ssmsClientCode]
-                )->fetchAssoc();
-                $enrollmentId = $enrollRow['enrollment_id'] ?? null;
-
-                // Fallback: username might not equal enrollment_id — try matching
-                // registration_id or a student_user link if your schema has one
-                if (!$enrollmentId) {
-                    $regRow = $conn->execute(
-                        "SELECT e.enrollment_id
-                         FROM   ssms_student_enrollment e
-                         JOIN   ssms_student_registration r ON r.registration_id = e.registration_id
-                         WHERE  r.ssms_client_code  = ?
-                           AND  e.ssms_client_code  = ?
-                           AND  e.status            = 'active'
-                           AND  (r.mobile_number = ? OR r.student_first_name = ?)
-                         ORDER  BY e.enrollment_id ASC
-                         LIMIT  1",
-                        [$ssmsClientCode, $ssmsClientCode,
-                         $userRow['ssms_user_name'], $userRow['ssms_user_name']]
-                    )->fetchAssoc();
-                    $enrollmentId = $regRow['enrollment_id'] ?? null;
-                }
-            }
-
-            $now        = time();
-            $expSeconds = 30 * 24 * 60 * 60; // 30 days
-            $payload    = [
-                'iss'            => 'ssms',
-                'iat'            => $now,
-                'exp'            => $now + $expSeconds,
-                'user'           => $userRow['ssms_user_name'],
-                'client_code'    => $ssmsClientCode,
-                'role'           => $userRow['ssms_user_role'] ?? '',
-                'enrollment_id'  => $enrollmentId,
-                'active_modules' => $activeModules,
-                'billing_model'  => $entitlements['billing_model'],
-            ];
-
-            $token = $this->_createJwt($payload, $secret);
-
-            // ── 6. Update last_login_date ──────────────────────────────────────
-            $conn->execute(
-                "UPDATE sawera_ssms_users
-                 SET    last_login_date = NOW()
-                 WHERE  ssms_user_name = :uname",
-                ['uname' => $username]
+            // ── 2b. Two-step login ────────────────────────────────────────────
+            $gate = TwoFactor::gate(
+                $userRow,
+                (string)($this->request->getData('device_token') ?? ''),
+                (string)($this->request->getData('app_mfa') ?? $this->request->getHeaderLine('X-App-Mfa')) === '1'
             );
+            if ($gate !== null) {
+                if (isset($gate['blocked'])) {
+                    return $this->_json(['status' => false, 'code' => 'UPDATE_APP', 'message' => $gate['blocked']]);
+                }
+                return $this->_json(['status' => true, 'message' => 'Enter your two-step code', 'data' => $gate]);
+            }
 
-            return $this->_json([
-                'status'  => true,
-                'message' => 'Login successful',
-                'data'    => [
-                    'ssmsUserName'   => $userRow['ssms_user_name'],
-                    'firstName'      => $userRow['ssms_user_firstname'] ?? '',
-                    'lastName'       => $userRow['ssms_user_lastname']  ?? '',
-                    'userEmail'      => $userRow['ssms_user_email']  ?? '',
-                    'ssmsUserRole'   => $userRow['ssms_user_role']   ?? '',
-                    'ssmsClientCode' => $ssmsClientCode,
-                    'token'          => $token,
-                    'expiresAt'      => ($now + $expSeconds) * 1000, // ms for JS Date.now()
-                    'branchId'       => null, // set per-user if branch_id column exists
-                    'enrollmentId'   => $enrollmentId,   // non-null only for student accounts
-                    'staffId'        => $userRow['staff_id'] ?? null,
-                    'activeModules'  => $activeModules,
-                    'billingModel'   => $entitlements['billing_model'],
-                    // Plan features for subscription schools ([] for Indian/legacy schools)
-                    'activeFeatures' => $entitlements['features'],
-                ],
-            ]);
+            return $this->_issueLogin($userRow, false);
 
         } catch (\Exception $e) {
             Log::error('login error: ' . $e->getMessage());
-            return $this->_json(['status' => false, 'message' => 'Server error: ' . $e->getMessage()]);
+            return $this->_json(['status' => false, 'message' => 'Server error. Please try again.']);
         }
+    }
+
+    /** Account / school checks that apply to every sign-in (also after the two-step code). → message or null */
+    private function _loginBlocked(array $userRow): ?string
+    {
+        $conn = ConnectionManager::get('default');
+        $userStatus = strtolower(trim((string)($userRow['ssms_user_status'] ?? '')));
+        if ($userStatus !== 'active') {
+            return 'Your account is inactive. Please contact your school administration to activate your account.';
+        }
+        $ssmsClientCode = $userRow['ssms_client_code'];
+        $clientRow = $conn->execute(
+            "SELECT ssms_client_status, ssms_client_expiry_date FROM ssms_clients WHERE ssms_client_code = :code LIMIT 1",
+            ['code' => $ssmsClientCode]
+        )->fetch('assoc');
+        if (!$clientRow) {
+            return 'Account not found. Contact support.';
+        }
+        if (strtolower(trim($clientRow['ssms_client_status'] ?? '')) === 'inactive') {
+            return 'Your account is inactive. Please contact support.';
+        }
+        // 'legacy' (Indian schools) → expiry blocks sign-in; 'subscription' → never blocked at login.
+        \App\Service\Entitlements::clear($ssmsClientCode);
+        $entitlements = \App\Service\Entitlements::forClient($ssmsClientCode);
+        $expiryRaw    = $clientRow['ssms_client_expiry_date'] ?? null;
+        if ($expiryRaw && !\App\Service\Entitlements::isSubscription($entitlements)) {
+            $expiryStr = is_object($expiryRaw) && method_exists($expiryRaw, 'format')
+                ? $expiryRaw->format('Y-m-d')
+                : substr((string)$expiryRaw, 0, 10);
+            if ($expiryStr && new \DateTime($expiryStr) < new \DateTime('today')) {
+                return 'Your membership has expired. Please renew to continue.';
+            }
+        }
+        if (strtolower((string)$userRow['ssms_user_role']) === 'student') {
+            $coppa = \App\Service\Consents::studentBlocked($ssmsClientCode, (string)$userRow['ssms_user_name']);
+            if ($coppa) {
+                return $coppa;
+            }
+        }
+
+        return null;
+    }
+
+    /** Builds the sign-in reply: token (with a revocable session id) + user data. */
+    private function _issueLogin(array $userRow, bool $mfaUsed, array $extra = [])
+    {
+        $conn           = ConnectionManager::get('default');
+        $username       = (string)$userRow['ssms_user_name'];
+        $ssmsClientCode = (string)$userRow['ssms_client_code'];
+        $entitlements   = \App\Service\Entitlements::forClient($ssmsClientCode);
+
+        // ── Active product modules ──────────────────────────────────────────
+        $modRows = $conn->execute(
+            "SELECT module_key FROM ssms_client_modules WHERE ssms_client_code = :code",
+            ['code' => $ssmsClientCode]
+        )->fetchAll('assoc');
+        $activeModules = !empty($modRows) ? array_column($modRows, 'module_key') : ['school'];
+
+        $secret = env('JWT_SECRET', '');
+        if (empty($secret)) {
+            $secret = \Cake\Core\Configure::read('Jwt.secret', '');
+        }
+        if (empty($secret)) {
+            Log::error('login: JWT_SECRET is not configured');
+            return $this->_json(['status' => false, 'message' => 'Server configuration error']);
+        }
+
+        // ── Student accounts: enrollment id from the username ────────────────
+        $enrollmentId = null;
+        $userRole     = strtolower(trim((string)($userRow['ssms_user_role'] ?? '')));
+        if ($userRole === 'student') {
+            $enrollRow = $conn->execute(
+                "SELECT enrollment_id FROM ssms_student_enrollment
+                 WHERE  enrollment_id = ? AND ssms_client_code = ? AND status = 'active' LIMIT 1",
+                [$username, $ssmsClientCode]
+            )->fetchAssoc();
+            $enrollmentId = $enrollRow['enrollment_id'] ?? null;
+            if (!$enrollmentId) {
+                $regRow = $conn->execute(
+                    "SELECT e.enrollment_id
+                     FROM   ssms_student_enrollment e
+                     JOIN   ssms_student_registration r ON r.registration_id = e.registration_id
+                     WHERE  r.ssms_client_code = ? AND e.ssms_client_code = ? AND e.status = 'active'
+                       AND  (r.mobile_number = ? OR r.student_first_name = ?)
+                     ORDER  BY e.enrollment_id ASC LIMIT 1",
+                    [$ssmsClientCode, $ssmsClientCode, $username, $username]
+                )->fetchAssoc();
+                $enrollmentId = $regRow['enrollment_id'] ?? null;
+            }
+        }
+
+        $ip  = AccountSecurity::clientIp($this->request);
+        $sid = AccountSecurity::createSession($ssmsClientCode, $username, [
+            'device'      => (string)($this->request->getData('device_label') ?? $this->request->getHeaderLine('X-Device') ?: 'App'),
+            'platform'    => (string)($this->request->getData('platform') ?? ''),
+            'app_version' => (string)$this->request->getHeaderLine('X-App-Version'),
+            'ip'          => $ip,
+        ], $mfaUsed);
+
+        $now        = time();
+        $expSeconds = AccountSecurity::SESSION_DAYS * 24 * 60 * 60;
+        $payload    = [
+            'iss'            => 'ssms',
+            'iat'            => $now,
+            'exp'            => $now + $expSeconds,
+            'user'           => $username,
+            'client_code'    => $ssmsClientCode,
+            'role'           => $userRow['ssms_user_role'] ?? '',
+            'enrollment_id'  => $enrollmentId,
+            'active_modules' => $activeModules,
+            'billing_model'  => $entitlements['billing_model'],
+        ];
+        if ($sid !== null) {
+            $payload['sid'] = $sid;   // revocable sign-in (Settings › Security › Where you're signed in)
+        }
+        $token = $this->_createJwt($payload, $secret);
+
+        $conn->execute("UPDATE sawera_ssms_users SET last_login_date = NOW() WHERE ssms_user_name = :uname", ['uname' => $username]);
+
+        Audit::log($ssmsClientCode, 'login', [
+            'category' => 'security', 'actor' => $username, 'role' => (string)$userRow['ssms_user_role'], 'ip' => $ip,
+            'app_version' => $this->request->getHeaderLine('X-App-Version'),
+            'summary' => 'Signed in' . ($mfaUsed ? ' (two-step)' : ''),
+        ]);
+
+        $customRole = null;
+        try {
+            $customRole = $conn->execute('SELECT custom_role_id FROM sawera_ssms_users WHERE ssms_user_name = ?', [$username])->fetch('assoc')['custom_role_id'] ?? null;
+        } catch (\Throwable $e) {
+        }
+        $mfaReq = TwoFactor::requirement($ssmsClientCode, $userRole);
+
+        return $this->_json([
+            'status'  => true,
+            'message' => 'Login successful',
+            'data'    => [
+                'ssmsUserName'   => $username,
+                'firstName'      => $userRow['ssms_user_firstname'] ?? '',
+                'lastName'       => $userRow['ssms_user_lastname']  ?? '',
+                'userEmail'      => $userRow['ssms_user_email']  ?? '',
+                'ssmsUserRole'   => $userRow['ssms_user_role']   ?? '',
+                'ssmsClientCode' => $ssmsClientCode,
+                'token'          => $token,
+                'expiresAt'      => ($now + $expSeconds) * 1000, // ms for JS Date.now()
+                'branchId'       => null,
+                'enrollmentId'   => $enrollmentId,   // non-null only for student accounts
+                'staffId'        => $userRow['staff_id'] ?? null,
+                'activeModules'  => $activeModules,
+                'billingModel'   => $entitlements['billing_model'],
+                'activeFeatures' => $entitlements['features'],
+                'schoolCountry'  => $this->_schoolCountry($ssmsClientCode),
+                // Roles & permissions: module → allowed kinds ({} for parents/students)
+                'permissions'    => Permissions::forApp($ssmsClientCode, $userRole, $customRole),
+                // Two-step login: required but not set up yet → the app shows a reminder until the deadline
+                'mfaEnabled'     => TwoFactor::isEnabled($username),
+                'mfaSetupDue'    => ($mfaReq['required'] && !TwoFactor::isEnabled($username)) ? $mfaReq['deadline'] : null,
+            ] + $extra,
+        ]);
+    }
+
+    /**
+     * POST /UserServiceApi/loginVerify  { challenge, method: totp|email|backup, code, trust_device?, device_label? }
+     * Second step of sign-in.
+     */
+    public function loginVerify()
+    {
+        $this->request->allowMethod(['post']);
+        $d = (array)$this->request->getData();
+        try {
+            [$user, $client] = TwoFactor::readChallenge((string)($d['challenge'] ?? ''), 'verify');
+            $ip     = AccountSecurity::clientIp($this->request);
+            $method = in_array($d['method'] ?? 'totp', ['totp', 'email', 'backup'], true) ? $d['method'] : 'totp';
+            $row    = $this->_userRow($user);
+            try {
+                TwoFactor::verify($user, $method, (string)($d['code'] ?? ''), $ip);
+            } catch (\InvalidArgumentException | \DomainException $e) {
+                Audit::log($client, 'mfa.failed', ['category' => 'security', 'actor' => $user, 'role' => (string)($row['ssms_user_role'] ?? ''),
+                    'ip' => $ip, 'summary' => 'Wrong two-step code (' . $method . ')']);
+                throw $e;
+            }
+            if ($method === 'backup') {
+                Audit::log($client, 'mfa.backup_used', ['category' => 'security', 'actor' => $user, 'ip' => $ip, 'summary' => 'Signed in with a backup code']);
+            }
+            $blocked = $row ? $this->_loginBlocked($row) : 'Account not found.';
+            if ($blocked !== null) {
+                return $this->_json(['status' => false, 'message' => $blocked]);
+            }
+            $extra = [];
+            if (!empty($d['trust_device'])) {
+                $extra['deviceToken'] = TwoFactor::trustDevice($client, $user, (string)($d['device_label'] ?? 'Phone'));
+            }
+
+            return $this->_issueLogin($row, true, $extra);
+        } catch (\InvalidArgumentException | \DomainException $e) {
+            return $this->_json(['status' => false, 'message' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            Log::error('loginVerify: ' . $e->getMessage());
+            return $this->_json(['status' => false, 'message' => 'Server error. Please try again.']);
+        }
+    }
+
+    /** POST /UserServiceApi/loginEmailCode { challenge } → e-mails a 6-digit code */
+    public function loginEmailCode()
+    {
+        $this->request->allowMethod(['post']);
+        try {
+            [$user] = TwoFactor::readChallenge((string)($this->request->getData('challenge') ?? ''), 'verify');
+            $to = TwoFactor::sendEmailCode($user);
+
+            return $this->_json(['status' => true, 'message' => "We sent a code to {$to}.", 'data' => ['email' => $to]]);
+        } catch (\InvalidArgumentException | \DomainException $e) {
+            return $this->_json(['status' => false, 'message' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            Log::error('loginEmailCode: ' . $e->getMessage());
+            return $this->_json(['status' => false, 'message' => 'Could not send the e-mail. Use your authenticator app or a backup code.']);
+        }
+    }
+
+    /**
+     * POST /UserServiceApi/mfaSetupStart { challenge }   (required set-up during sign-in)
+     * → { secret, uri } for the authenticator app
+     */
+    public function mfaSetupStart()
+    {
+        $this->request->allowMethod(['post']);
+        try {
+            [$user, $client] = TwoFactor::readChallenge((string)($this->request->getData('challenge') ?? ''), 'setup');
+
+            return $this->_json(['status' => true, 'data' => TwoFactor::setupStart($client, $user)]);
+        } catch (\InvalidArgumentException | \DomainException $e) {
+            return $this->_json(['status' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /UserServiceApi/mfaSetupConfirm { challenge, code, trust_device? }
+     * Turns two-step login on, then signs in. Reply includes backupCodes (shown once).
+     */
+    public function mfaSetupConfirm()
+    {
+        $this->request->allowMethod(['post']);
+        $d = (array)$this->request->getData();
+        try {
+            [$user, $client] = TwoFactor::readChallenge((string)($d['challenge'] ?? ''), 'setup');
+            $codes = TwoFactor::setupConfirm($user, (string)($d['code'] ?? ''));
+            $ip    = AccountSecurity::clientIp($this->request);
+            Audit::log($client, 'mfa.enabled', ['category' => 'security', 'actor' => $user, 'ip' => $ip, 'summary' => 'Two-step login turned on']);
+            $row = $this->_userRow($user);
+            $blocked = $row ? $this->_loginBlocked($row) : 'Account not found.';
+            if ($blocked !== null) {
+                return $this->_json(['status' => false, 'message' => $blocked]);
+            }
+            $extra = ['backupCodes' => $codes];
+            if (!empty($d['trust_device'])) {
+                $extra['deviceToken'] = TwoFactor::trustDevice($client, $user, (string)($d['device_label'] ?? 'Phone'));
+            }
+
+            return $this->_issueLogin($row, true, $extra);
+        } catch (\InvalidArgumentException | \DomainException $e) {
+            return $this->_json(['status' => false, 'message' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            Log::error('mfaSetupConfirm: ' . $e->getMessage());
+            return $this->_json(['status' => false, 'message' => 'Server error. Please try again.']);
+        }
+    }
+
+    private function _userRow(string $user): ?array
+    {
+        return ConnectionManager::get('default')->execute(
+            "SELECT ssms_user_name, ssms_user_password, ssms_user_email, ssms_user_role, ssms_client_code,
+                    ssms_user_firstname, ssms_user_lastname, ssms_user_status, staff_id
+               FROM sawera_ssms_users WHERE ssms_user_name = ? LIMIT 1", [$user]
+        )->fetch('assoc') ?: null;
     }
 
  /**
@@ -264,8 +433,25 @@ class UserServiceApiController extends AppController
                 'activeModules'   => $ent['modules'],
                 'activeFeatures'  => $ent['features'],
                 'featureExpiries' => (object)$ent['expiries'],
+                'schoolCountry'   => $this->_schoolCountry($clientCode),
             ],
         ]);
+    }
+
+    /** ssms_clients.country_code for the school ('' when unknown / column missing). */
+    private function _schoolCountry(string $clientCode): string
+    {
+        try {
+            $row = ConnectionManager::get('default')->execute(
+                'SELECT country_code FROM ssms_clients WHERE ssms_client_code = ? LIMIT 1',
+                [$clientCode]
+            )->fetch('assoc');
+            $cc = strtoupper(trim((string)($row['country_code'] ?? '')));
+
+            return preg_match('/^[A-Z]{2}$/', $cc) ? $cc : '';
+        } catch (\Throwable $e) {
+            return '';
+        }
     }
 
  public function getUserProfile()
@@ -432,7 +618,7 @@ class UserServiceApiController extends AppController
 
             // Verify current password using the shared _encryptPassword helper
             $stored   = $row['ssms_user_password'];
-            $verified = ($stored === $this->_encryptPassword($currentPassword));
+            $verified = Passwords::verify($currentPassword, $stored);
 
             if (!$verified) {
                 return $this->_json(['status' => false, 'message' => 'Current password is incorrect']);
@@ -442,8 +628,12 @@ class UserServiceApiController extends AppController
                 return $this->_json(['status' => false, 'message' => 'New password must be different from current password']);
             }
 
+            try {
+                AccountSecurity::checkStrength($newPassword);
+            } catch (\InvalidArgumentException $e) {
+                return $this->_json(['status' => false, 'message' => 'New password: ' . $e->getMessage()]);
+            }
             $newHash = $this->_encryptPassword($newPassword);
-            log::error("new passwrd to update". $newHash);
             $conn->execute(
                 "UPDATE sawera_ssms_users
                  SET    ssms_user_password = :hash
@@ -451,7 +641,11 @@ class UserServiceApiController extends AppController
                 ['hash' => $newHash, 'uname' => $ssmsUserName, 'code' => $ssmsClientCode]
             );
 
-            return $this->_json(['status' => true, 'message' => 'Password changed successfully']);
+            // sign out every other device; this one stays signed in
+            AccountSecurity::revokeAll($ssmsClientCode, $ssmsUserName, (string)$this->request->getAttribute('jwt_sid') ?: null, 'password changed');
+            Audit::fromRequest($this->request, 'password.changed', ['category' => 'security', 'summary' => 'Password changed · other devices signed out']);
+
+            return $this->_json(['status' => true, 'message' => 'Password changed successfully. Other devices were signed out.']);
 
         } catch (\Exception $e) {
             Log::error('changePassword error: ' . $e->getMessage());
@@ -895,8 +1089,8 @@ class UserServiceApiController extends AppController
                 );
                 $newClassId = (int)$db->execute("SELECT LAST_INSERT_ID() AS id")->fetchAssoc()['id'];
                 $db->execute(
-                    "INSERT INTO ssms_sections (section_name, class_id, ssms_client_code) VALUES (?, ?, ?)",
-                    ['Section A', $newClassId, $clientCode]
+                    "INSERT INTO ssms_sections (section_name, class_id, capacity, ssms_client_code) VALUES (?, ?, ?, ?)",
+                    ['Section A', $newClassId, 40, $clientCode]   // default capacity 40 students
                 );
             }
 
@@ -1420,6 +1614,10 @@ public function createUser()
     $entity = $UsersTable->patchEntity($entity, $updateData);
 
     if ($UsersTable->save($entity)) {
+        if (!empty($data['ssms_user_password'])) {
+            // password set by an admin → sign the person out everywhere
+            AccountSecurity::revokeAll((string)$entity->ssms_client_code, (string)$entity->ssms_user_name, null, 'password set by admin');
+        }
         // Update mobile_number via raw SQL to bypass Entity accessibility guards
         if (array_key_exists('mobile_number', $data)) {
             $mobileNumber = !empty($data['mobile_number']) ? trim($data['mobile_number']) : null;
@@ -1759,8 +1957,12 @@ public function createUser()
 
       private function sendWelcomeEmail( string $fullName,  string $username, string $email, string $tempPassword, string $templateName ): bool 
       {
-          log::error("Template error name received as :". $templateName );
                 $emailName = ($templateName === 'welcome_client') ? 'welcome_client' : 'welcome_user';
+                // New staff / parent accounts get a one-time "set your password" link instead of the password itself
+                $setPasswordUrl = null;
+                if ($emailName === 'welcome_user') {
+                    $setPasswordUrl = $this->_setPasswordLink($username);
+                }
 
                 try {
                     $mailer = new Mailer('default');
@@ -1775,8 +1977,9 @@ public function createUser()
                         ->setViewVars([
                             'fullName'     => $fullName,
                             'username'     => $username,
-                            'tempPassword' => $tempPassword,
+                            'tempPassword' => $setPasswordUrl ? '' : $tempPassword,
                             'loginUrl'     => env('APP_URL', 'https://managemyacademy.com/'),
+                            'setPasswordUrl' => $setPasswordUrl,
                         ]);
 
                     // viewBuilder() is separate — not chained on $mailer after setViewVars
@@ -1967,10 +2170,20 @@ public function verifyForgotPasswordCode()
         $mobile   = preg_replace('/\D/', '', trim((string)($data['mobile']  ?? '')));
         $code     = (string)($data['code'] ?? '');
 
+        // limit guessing: 5 wrong codes → 15-minute pause
+        $rk   = 'reset:' . strtolower($username);
+        $ip   = AccountSecurity::clientIp($this->request);
+        $mins = AccountSecurity::lockedFor($rk, $ip);
+        if ($mins > 0) {
+            return $this->response->withType('application/json')->withStringBody(json_encode([
+                'status' => false, 'message' => AccountSecurity::lockMessage($mins),
+            ]));
+        }
+
         $UsersTable = $this->fetchTable('SaweraSsmsUsers');
 
         // Look up by username + code (same for both paths)
-        $user = $UsersTable->find()
+        $user = trim($code) === '' ? null : $UsersTable->find()
             ->where([
                 'LOWER(ssms_user_name) =' => strtolower($username),
                 'validationCode'           => $code,
@@ -1978,6 +2191,7 @@ public function verifyForgotPasswordCode()
             ->first();
 
         if (!$user) {
+            AccountSecurity::recordFailure($rk, $ip);
             return $this->response->withType('application/json')->withStringBody(json_encode([
                 'status'  => false,
                 'message' => 'Invalid verification code.',
@@ -2023,7 +2237,22 @@ public function resetPassword()
     $mobile              = preg_replace('/\D/', '', trim((string)($data['mobile'] ?? '')));
     $code                = (string)($data['code']             ?? '');
     $newPasswordFromUser = $data['newPassword']               ?? '';
-    $newPassword         = $this->_encryptPassword($newPasswordFromUser);
+    try {
+        AccountSecurity::checkStrength((string)$newPasswordFromUser);
+    } catch (\InvalidArgumentException $e) {
+        return $this->response->withType('application/json')->withStringBody(json_encode([
+            'status' => false, 'message' => 'New password: ' . $e->getMessage(),
+        ]));
+    }
+    $newPassword         = $this->_encryptPassword((string)$newPasswordFromUser);
+    $rk   = 'reset:' . strtolower($username);
+    $ip   = AccountSecurity::clientIp($this->request);
+    $mins = AccountSecurity::lockedFor($rk, $ip);
+    if ($mins > 0 || trim($code) === '') {
+        return $this->response->withType('application/json')->withStringBody(json_encode([
+            'status' => false, 'message' => $mins > 0 ? AccountSecurity::lockMessage($mins) : 'User validation failed',
+        ]));
+    }
 
     $UsersTable = $this->fetchTable('SaweraSsmsUsers');
 
@@ -2050,6 +2279,7 @@ public function resetPassword()
     }
 
     if (!$user) {
+        AccountSecurity::recordFailure($rk, $ip);
         return $this->response->withType('application/json')->withStringBody(json_encode([
             'status'  => false,
             'message' => 'User validation failed',
@@ -2074,6 +2304,12 @@ public function resetPassword()
             'message' => 'Failed to save new password. Please try again.',
         ]));
     }
+
+    // every device signed in with the old password is signed out
+    AccountSecurity::recordSuccess($rk, $ip);
+    AccountSecurity::revokeAll((string)$user->ssms_client_code, (string)$user->ssms_user_name, null, 'password reset');
+    Audit::log((string)$user->ssms_client_code, 'password.reset', ['category' => 'security', 'actor' => (string)$user->ssms_user_name,
+        'ip' => $ip, 'summary' => 'Password reset with a verification code · all devices signed out']);
 
     return $this->response->withType('application/json')->withStringBody(json_encode([
         'status'  => true,
@@ -2161,7 +2397,9 @@ public function resetPassword()
 
             // Verify mobile matches (compare last 10 digits)
             $dbMobileLast10 = substr(preg_replace('/\D/', '', (string)($studentRow['mobile_number'] ?? '')), -10);
-            if (!$dbMobileLast10 || $dbMobileLast10 !== $last10) {
+            // A guardian the school gave app sign-in (Student record › Guardians) may also register
+            $isAppGuardian = \App\Service\StudentRecord::isAppGuardian((string)$studentRow['ssms_client_code'], $enrollmentId, $last10);
+            if ((!$dbMobileLast10 || $dbMobileLast10 !== $last10) && !$isAppGuardian) {
                 return $this->response->withType('application/json')
                     ->withStringBody(json_encode([
                         'status'  => false,
@@ -2237,7 +2475,7 @@ public function resetPassword()
             $whatsappText = "Hello {$fullName},\n\n"
                 . "Your Parent Portal login credentials:\n\n"
                 . "User ID: {$parentUserName}\n"
-                . "Password: {$plainPassword}\n\n"
+                . ($this->_setPasswordLink($parentUserName ?? '') ? "Set your password (link works once, 48 hours):\n" . $this->_setPasswordLink($parentUserName ?? '', true) . "\n\n" : "Password: {$plainPassword}\n\n")
                 . "Login at the school app to view your child's progress.\n\n"
                 . "Thank you";
 
@@ -2425,7 +2663,7 @@ public function resetPassword()
             $whatsappText  = "Hello {$fullName},\n\n"
                 . "Your School Portal login credentials:\n\n"
                 . "User ID: {$enrollmentId}\n"
-                . "Password: {$plainPassword}\n\n"
+                . ($this->_setPasswordLink($enrollmentId ?? '') ? "Set your password (link works once, 48 hours):\n" . $this->_setPasswordLink($enrollmentId ?? '', true) . "\n\n" : "Password: {$plainPassword}\n\n")
                 . "Please login and change your password after first login.\n\n"
                 . "Thank you";
         }
@@ -2768,6 +3006,32 @@ public function resetPassword()
                 'updated_status'   => $newStatus,
             ]));
     }
+/**
+ * One-time set-password link for a new account (48 h). Cached per request so the e-mail and
+ * WhatsApp text share the same link. null if the security tables are not installed yet.
+ */
+private function _setPasswordLink(string $username, bool $peek = false): ?string
+{
+    static $links = [];
+    if ($username === '') {
+        return null;
+    }
+    if (array_key_exists($username, $links)) {
+        return $links[$username];
+    }
+    try {
+        $row = ConnectionManager::get('default')->execute('SELECT ssms_client_code FROM sawera_ssms_users WHERE ssms_user_name = ? LIMIT 1', [$username])->fetch('assoc');
+        if (!$row) {
+            return $links[$username] = null;
+        }
+        $links[$username] = AccountSecurity::setPasswordUrl(AccountSecurity::passwordToken((string)$row['ssms_client_code'], $username));
+    } catch (\Throwable $e) {
+        $links[$username] = null;
+    }
+
+    return $links[$username];
+}
+
 private function _createJwt(array $payload, string $secret): string
     {
         $b64 = function (string $data): string {

@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { AuthContext } from "../context/AuthContext";
+import { _t, _tx } from "../services/i18n";
 
 export default function SelectStudentScreen({ navigation }) {
   const { linkedStudents, setActiveEnrollmentId } = useContext(AuthContext);
@@ -36,11 +37,11 @@ export default function SelectStudentScreen({ navigation }) {
         >
           <Feather name="arrow-left" size={20} color="#1e3a5f" />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Select Student</Text>
+        <Text style={s.headerTitle}>{_t("Select Student")}</Text>
         <View style={{ width: 32 }} />
       </View>
 
-      <Text style={s.subtitle}>Tap a student to view their dashboard</Text>
+      <Text style={s.subtitle}>{_t("Tap a student to view their dashboard")}</Text>
 
       <FlatList
         data={students}
@@ -59,32 +60,32 @@ export default function SelectStudentScreen({ navigation }) {
 
             {/* Info */}
             <View style={s.info}>
-              <Text style={s.name} numberOfLines={1}>{item.student_name}</Text>
+              <Text style={s.name} numberOfLines={1}>{_tx(item.student_name)}</Text>
 
               {/* Chips */}
               <View style={s.chips}>
                 {!!item.class_name && (
                   <View style={s.chip}>
                     <Feather name="book-open" size={10} color="#1e40af" />
-                    <Text style={s.chipTxt}>{item.class_name}</Text>
+                    <Text style={s.chipTxt}>{_tx(item.class_name)}</Text>
                   </View>
                 )}
                 {!!item.section_name && (
                   <View style={[s.chip, s.chipPurple]}>
                     <Feather name="users" size={10} color="#7c3aed" />
-                    <Text style={[s.chipTxt, { color: "#7c3aed" }]}>{item.section_name}</Text>
+                    <Text style={[s.chipTxt, { color: "#7c3aed" }]}>{_tx(item.section_name)}</Text>
                   </View>
                 )}
                 {!!item.session_name && (
                   <View style={[s.chip, s.chipTeal]}>
                     <Feather name="calendar" size={10} color="#0369a1" />
-                    <Text style={[s.chipTxt, { color: "#0369a1" }]}>{item.session_name}</Text>
+                    <Text style={[s.chipTxt, { color: "#0369a1" }]}>{_tx(item.session_name)}</Text>
                   </View>
                 )}
               </View>
 
               {!!item.roll_number && (
-                <Text style={s.roll}>Roll No: {item.roll_number}</Text>
+                <Text style={s.roll}>{_t("Roll No: {roll_number}", { roll_number: item.roll_number })}</Text>
               )}
             </View>
 
@@ -94,7 +95,7 @@ export default function SelectStudentScreen({ navigation }) {
         ListEmptyComponent={
           <View style={s.empty}>
             <Feather name="users" size={40} color="#cbd5e1" />
-            <Text style={s.emptyTxt}>No linked students found</Text>
+            <Text style={s.emptyTxt}>{_t("No linked students found")}</Text>
           </View>
         }
       />

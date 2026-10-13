@@ -15,6 +15,7 @@ import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
 import { HOST_NAME } from "../../Environment/EnvironmentConfig";
 import { fetchHiredStaff } from "../../services/StaffServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Detail row ────────────────────────────────────────────────────────────────
 const DetailRow = ({ icon, label, value }) => {
@@ -25,8 +26,8 @@ const DetailRow = ({ icon, label, value }) => {
         <Feather name={icon} size={13} color="#1e40af" />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={st.detailLabel}>{label}</Text>
-        <Text style={st.detailValue}>{value}</Text>
+        <Text style={st.detailLabel}>{_tx(label)}</Text>
+        <Text style={st.detailValue}>{_tx(value)}</Text>
       </View>
     </View>
   );
@@ -38,7 +39,7 @@ const SectionHead = ({ icon, title }) => (
     <View style={st.sectionIconWrap}>
       <Feather name={icon} size={12} color="#1e40af" />
     </View>
-    <Text style={st.sectionTitle}>{title}</Text>
+    <Text style={st.sectionTitle}>{_tx(title)}</Text>
   </View>
 );
 
@@ -109,14 +110,14 @@ export default function HiredStaffScreen({ navigation }) {
           {photoUri
             ? <Image source={{ uri: photoUri }} style={st.photo} />
             : <View style={st.avatarWrap}>
-                <Text style={st.avatarTxt}>{initials}</Text>
+                <Text style={st.avatarTxt}>{_tx(initials)}</Text>
               </View>}
 
           {/* Name & category */}
           <View style={st.cardTopInfo}>
-            <Text style={st.cardName} numberOfLines={1}>{fullName}</Text>
+            <Text style={st.cardName} numberOfLines={1}>{_tx(fullName)}</Text>
             <View style={st.categoryPill}>
-              <Text style={st.categoryPillTxt}>{item.category_name ?? "Staff"}</Text>
+              <Text style={st.categoryPillTxt}>{_tx(item.category_name) ?? _t("Staff")}</Text>
             </View>
           </View>
         </View>
@@ -125,20 +126,20 @@ export default function HiredStaffScreen({ navigation }) {
         <View style={st.cardStrip}>
           <View style={st.stripItem}>
             <Feather name="briefcase" size={11} color="#64748b" />
-            <Text style={st.stripTxt} numberOfLines={1}>{item.specialty || "—"}</Text>
+            <Text style={st.stripTxt} numberOfLines={1}>{_tx(item.specialty) || "—"}</Text>
           </View>
           <View style={st.stripItem}>
             <Feather name="home" size={11} color="#64748b" />
-            <Text style={st.stripTxt} numberOfLines={1}>{item.branch_name || "—"}</Text>
+            <Text style={st.stripTxt} numberOfLines={1}>{_tx(item.branch_name) || "—"}</Text>
           </View>
           <View style={st.stripItem}>
             <Feather name="phone" size={11} color="#64748b" />
-            <Text style={st.stripTxt}>{item.mobile_number || "—"}</Text>
+            <Text style={st.stripTxt}>{_tx(item.mobile_number) || "—"}</Text>
           </View>
           {item.date_of_hiring && (
             <View style={st.stripItem}>
               <Feather name="calendar" size={11} color="#64748b" />
-              <Text style={st.stripTxt}>{item.date_of_hiring}</Text>
+              <Text style={st.stripTxt}>{_tx(item.date_of_hiring)}</Text>
             </View>
           )}
         </View>
@@ -146,7 +147,7 @@ export default function HiredStaffScreen({ navigation }) {
         {/* Options hint */}
         <View style={st.cardFooter}>
           <Feather name="more-horizontal" size={12} color="#1e40af" />
-          <Text style={st.cardFooterTxt}>Tap to view more options</Text>
+          <Text style={st.cardFooterTxt}>{_t("Tap to view more options")}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -169,7 +170,7 @@ export default function HiredStaffScreen({ navigation }) {
         <Feather name="search" size={14} color="#94a3b8" style={{ marginRight: 8 }} />
         <TextInput
           style={st.searchInput}
-          placeholder="Search by name, specialty, branch…"
+          placeholder={_t("Search by name, specialty, branch…")}
           placeholderTextColor="#94a3b8"
           value={search}
           onChangeText={setSearch}
@@ -182,15 +183,13 @@ export default function HiredStaffScreen({ navigation }) {
       </View>
 
       {/* Count */}
-      <Text style={st.countTxt}>
-        {filtered.length} hired staff{filtered.length !== 1 ? "" : ""}
-      </Text>
+      <Text style={st.countTxt}>{_t("{length} hired staff{pl}", { length: filtered.length, pl: filtered.length !== 1 ? "" : "" })}</Text>
 
       {/* List */}
       {loading
         ? <View style={st.loader}>
             <ActivityIndicator size="large" color="#1e40af" />
-            <Text style={st.loaderTxt}>Loading staff…</Text>
+            <Text style={st.loaderTxt}>{_t("Loading staff…")}</Text>
           </View>
         : <FlatList
             data={filtered}
@@ -211,8 +210,8 @@ export default function HiredStaffScreen({ navigation }) {
             ListEmptyComponent={
               <View style={st.empty}>
                 <Feather name="users" size={40} color="#cbd5e1" />
-                <Text style={st.emptyTxt}>No hired staff found</Text>
-                <Text style={st.emptySubTxt}>Staff must be marked as Hired in Hiring Review</Text>
+                <Text style={st.emptyTxt}>{_t("No hired staff found")}</Text>
+                <Text style={st.emptySubTxt}>{_t("Staff must be marked as Hired in Hiring Review")}</Text>
               </View>
             }
           />}
@@ -237,9 +236,9 @@ export default function HiredStaffScreen({ navigation }) {
                   </View>}
               <View style={{ flex: 1 }}>
                 <Text style={st.optName} numberOfLines={1}>
-                  {`${optionStaff?.staff_title ? optionStaff.staff_title + " " : ""}${optionStaff?.first_name ?? ""} ${optionStaff?.last_name ?? ""}`}
+                  {`${optionStaff?.staff_title ? optionStaff.staff_title + " " : ""}${_tx(optionStaff?.first_name) ?? ""} ${_tx(optionStaff?.last_name) ?? ""}`}
                 </Text>
-                <Text style={st.optRole}>{optionStaff?.category_name ?? "Staff"}</Text>
+                <Text style={st.optRole}>{_tx(optionStaff?.category_name) ?? _t("Staff")}</Text>
               </View>
             </View>
 
@@ -257,8 +256,8 @@ export default function HiredStaffScreen({ navigation }) {
                 <Feather name="user" size={16} color="#1e40af" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={st.optItemLabel}>View Complete Profile</Text>
-                <Text style={st.optItemSub}>See all staff details and documents</Text>
+                <Text style={st.optItemLabel}>{_t("View Complete Profile")}</Text>
+                <Text style={st.optItemSub}>{_t("See all staff details and documents")}</Text>
               </View>
               <Feather name="chevron-right" size={14} color="#94a3b8" />
             </TouchableOpacity>
@@ -297,15 +296,15 @@ export default function HiredStaffScreen({ navigation }) {
                 <Feather name="edit-2" size={16} color="#d97706" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={st.optItemLabel}>Update Profile</Text>
-                <Text style={st.optItemSub}>Edit staff registration details</Text>
+                <Text style={st.optItemLabel}>{_t("Update Profile")}</Text>
+                <Text style={st.optItemSub}>{_t("Edit staff registration details")}</Text>
               </View>
               <Feather name="chevron-right" size={14} color="#94a3b8" />
             </TouchableOpacity>
 
             {/* Cancel */}
             <TouchableOpacity style={st.optCancel} onPress={() => setOptionsVisible(false)}>
-              <Text style={st.optCancelTxt}>Cancel</Text>
+              <Text style={st.optCancelTxt}>{_t("Cancel")}</Text>
             </TouchableOpacity>
 
           </View>
@@ -321,14 +320,14 @@ export default function HiredStaffScreen({ navigation }) {
             <View style={st.detailHeader}>
               {s?.staff_photo
                 ? <Image source={{ uri: s.staff_photo?.startsWith("http") ? s.staff_photo : HOST_NAME + s.staff_photo }} style={st.detailPhoto} />
-                : <View style={st.detailAvatar}><Text style={st.detailAvatarTxt}>{initials}</Text></View>}
+                : <View style={st.detailAvatar}><Text style={st.detailAvatarTxt}>{_tx(initials)}</Text></View>}
               <View style={{ flex: 1, marginLeft: 14 }}>
-                <Text style={st.detailName}>{fullName}</Text>
+                <Text style={st.detailName}>{_tx(fullName)}</Text>
                 <View style={st.categoryPill}>
-                  <Text style={st.categoryPillTxt}>{s?.category_name ?? "Staff"}</Text>
+                  <Text style={st.categoryPillTxt}>{_tx(s?.category_name) ?? _t("Staff")}</Text>
                 </View>
                 {s?.specialty
-                  ? <Text style={st.detailSpecialty}>{s.specialty}</Text>
+                  ? <Text style={st.detailSpecialty}>{_tx(s.specialty)}</Text>
                   : null}
               </View>
               <TouchableOpacity style={st.detailClose} onPress={() => setDetailVisible(false)}>
@@ -339,65 +338,65 @@ export default function HiredStaffScreen({ navigation }) {
             <ScrollView showsVerticalScrollIndicator={true} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }}>
 
               {/* ── Personal Info ── */}
-              <SectionHead icon="user" title="Personal Information" />
+              <SectionHead icon="user" title={_t("Personal Information")} />
               <View style={st.detailGrid}>
-                <DetailRow icon="hash"       label="Staff ID"       value={s?.staff_id ? `#${s.staff_id}` : null} />
-                <DetailRow icon="user"       label="Gender"         value={s?.gender} />
-                <DetailRow icon="calendar"   label="Date of Birth"  value={s?.date_of_birth} />
-                <DetailRow icon="users"      label="Father Name"    value={s?.father_name} />
-                <DetailRow icon="users"      label="Mother Name"    value={s?.mother_name} />
+                <DetailRow icon="hash"       label={_t("Staff ID")}       value={s?.staff_id ? `#${s.staff_id}` : null} />
+                <DetailRow icon="user"       label={_t("Gender")}         value={s?.gender} />
+                <DetailRow icon="calendar"   label={_t("Date of Birth")}  value={s?.date_of_birth} />
+                <DetailRow icon="users"      label={_t("Father Name")}    value={s?.father_name} />
+                <DetailRow icon="users"      label={_t("Mother Name")}    value={s?.mother_name} />
               </View>
 
               {/* ── Contact ── */}
-              <SectionHead icon="phone" title="Contact Details" />
+              <SectionHead icon="phone" title={_t("Contact Details")} />
               <View style={st.detailGrid}>
-                <DetailRow icon="phone"    label="Mobile"   value={s?.mobile_number} />
-                <DetailRow icon="mail"     label="Email"    value={s?.email_address} />
-                <DetailRow icon="map-pin"  label="Address"  value={s?.address} />
-                <DetailRow icon="map"      label="State"    value={s?.state} />
+                <DetailRow icon="phone"    label={_t("Mobile")}   value={s?.mobile_number} />
+                <DetailRow icon="mail"     label={_t("Email")}    value={s?.email_address} />
+                <DetailRow icon="map-pin"  label={_t("Address")}  value={s?.address} />
+                <DetailRow icon="map"      label={_t("State")}    value={s?.state} />
               </View>
 
               {/* ── Employment ── */}
-              <SectionHead icon="briefcase" title="Employment Details" />
+              <SectionHead icon="briefcase" title={_t("Employment Details")} />
               <View style={st.detailGrid}>
-                <DetailRow icon="home"         label="Branch"           value={s?.branch_name} />
-                <DetailRow icon="tag"          label="Category"         value={s?.category_name} />
-                <DetailRow icon="book-open"    label="Specialty"        value={s?.specialty} />
-                <DetailRow icon="calendar"     label="Date of Hiring"   value={s?.date_of_hiring} />
-                <DetailRow icon="award"        label="Experience"       value={s?.years_of_experience ? `${s.years_of_experience} years` : null} />
-                <DetailRow icon="trending-up"  label="Expected Salary"  value={s?.expected_salary ? `${s.expected_salary}` : null} />
-                <DetailRow icon="dollar-sign"  label="Hiring Salary"    value={s?.salary ? `${s.salary}` : null} />
+                <DetailRow icon="home"         label={_t("Branch")}           value={s?.branch_name} />
+                <DetailRow icon="tag"          label={_t("Category")}         value={s?.category_name} />
+                <DetailRow icon="book-open"    label={_t("Specialty")}        value={s?.specialty} />
+                <DetailRow icon="calendar"     label={_t("Date of Hiring")}   value={s?.date_of_hiring} />
+                <DetailRow icon="award"        label={_t("Experience")}       value={s?.years_of_experience ? `${s.years_of_experience} years` : null} />
+                <DetailRow icon="trending-up"  label={_t("Expected Salary")}  value={s?.expected_salary ? `${s.expected_salary}` : null} />
+                <DetailRow icon="dollar-sign"  label={_t("Hiring Salary")}    value={s?.salary ? `${s.salary}` : null} />
               </View>
 
               {/* ── Documents ── */}
               {(s?.id_proof || s?.address_proof || s?.experience_letter) && (
                 <>
-                  <SectionHead icon="file-text" title="Documents" />
+                  <SectionHead icon="file-text" title={_t("Documents")} />
                   <View style={st.detailGrid}>
                     {s?.id_proof && (
                       <View style={st.docChip}>
                         <Feather name="file" size={13} color="#1e40af" />
-                        <Text style={st.docChipTxt}>ID Proof</Text>
+                        <Text style={st.docChipTxt}>{_t("ID Proof")}</Text>
                         <View style={[st.docBadge, { backgroundColor: "#dcfce7" }]}>
-                          <Text style={[st.docBadgeTxt, { color: "#16a34a" }]}>Uploaded</Text>
+                          <Text style={[st.docBadgeTxt, { color: "#16a34a" }]}>{_t("Uploaded")}</Text>
                         </View>
                       </View>
                     )}
                     {s?.address_proof && (
                       <View style={st.docChip}>
                         <Feather name="file" size={13} color="#1e40af" />
-                        <Text style={st.docChipTxt}>Address Proof</Text>
+                        <Text style={st.docChipTxt}>{_t("Address Proof")}</Text>
                         <View style={[st.docBadge, { backgroundColor: "#dcfce7" }]}>
-                          <Text style={[st.docBadgeTxt, { color: "#16a34a" }]}>Uploaded</Text>
+                          <Text style={[st.docBadgeTxt, { color: "#16a34a" }]}>{_t("Uploaded")}</Text>
                         </View>
                       </View>
                     )}
                     {s?.experience_letter && (
                       <View style={st.docChip}>
                         <Feather name="file" size={13} color="#1e40af" />
-                        <Text style={st.docChipTxt}>Exp. Letter</Text>
+                        <Text style={st.docChipTxt}>{_t("Exp. Letter")}</Text>
                         <View style={[st.docBadge, { backgroundColor: "#dcfce7" }]}>
-                          <Text style={[st.docBadgeTxt, { color: "#16a34a" }]}>Uploaded</Text>
+                          <Text style={[st.docBadgeTxt, { color: "#16a34a" }]}>{_t("Uploaded")}</Text>
                         </View>
                       </View>
                     )}

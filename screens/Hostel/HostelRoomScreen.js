@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
 import { fetchRooms, saveRoom, deleteRoom } from "../../services/HostelServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ─── Room Form Modal ──────────────────────────────────────────────────────────
 function RoomFormModal({ visible, room, building, onClose, onSave }) {
@@ -31,7 +32,7 @@ function RoomFormModal({ visible, room, building, onClose, onSave }) {
   }, [visible, room]);
 
   const handleSave = async () => {
-    if (!roomName.trim()) { Alert.alert("Validation", "Room name is required."); return; }
+    if (!roomName.trim()) { Alert.alert(_t("Validation"), _t("Room name is required.")); return; }
     try {
       setSaving(true);
       await onSave({
@@ -41,7 +42,7 @@ function RoomFormModal({ visible, room, building, onClose, onSave }) {
       });
       setRoomName("");
     } catch (e) {
-      Alert.alert("Save Failed", e.message ?? "Could not save room. Please try again.");
+      Alert.alert(_t("Save Failed"), _tx(e.message) ?? _t("Could not save room. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -57,18 +58,18 @@ function RoomFormModal({ visible, room, building, onClose, onSave }) {
           <TouchableOpacity style={fm.sheet} onPress={() => {}} activeOpacity={1}>
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>
               <View style={fm.handle} />
-              <Text style={fm.title}>{room ? "Edit Room" : "Add Room"}</Text>
+              <Text style={fm.title}>{room ? _t("Edit Room") : _t("Add Room")}</Text>
               <View style={fm.buildingBadge}>
                 <Feather name="home" size={12} color="#6366f1" />
-                <Text style={fm.buildingBadgeTxt}>{building?.building_name}</Text>
+                <Text style={fm.buildingBadgeTxt}>{_tx(building?.building_name)}</Text>
               </View>
 
-              <Text style={fm.label}>Room Name *</Text>
+              <Text style={fm.label}>{_t("Room Name *")}</Text>
               <TextInput
                 style={fm.input}
                 value={roomName}
                 onChangeText={setRoomName}
-                placeholder="e.g. Room 101"
+                placeholder={_t("e.g. Room 101")}
                 placeholderTextColor="#94a3b8"
                 editable={!saving}
                 returnKeyType="done"
@@ -78,12 +79,12 @@ function RoomFormModal({ visible, room, building, onClose, onSave }) {
               <TouchableOpacity style={[fm.saveBtn, saving && { opacity: 0.6 }]}
                 onPress={handleSave} disabled={saving}>
                 {saving
-                  ? <><ActivityIndicator color="#fff" size="small" /><Text style={fm.saveTxt}> Saving…</Text></>
-                  : <><Feather name="check-circle" size={18} color="#fff" /><Text style={fm.saveTxt}> {room ? "Update" : "Add Room"}</Text></>}
+                  ? <><ActivityIndicator color="#fff" size="small" /><Text style={fm.saveTxt}>{" "}{_t("Saving…")}</Text></>
+                  : <><Feather name="check-circle" size={18} color="#fff" /><Text style={fm.saveTxt}> {room ? _t("Update") : _t("Add Room")}</Text></>}
               </TouchableOpacity>
               {!saving && (
                 <TouchableOpacity style={fm.cancelBtn} onPress={onClose}>
-                  <Text style={fm.cancelTxt}>Cancel</Text>
+                  <Text style={fm.cancelTxt}>{_t("Cancel")}</Text>
                 </TouchableOpacity>
               )}
             </ScrollView>
@@ -103,8 +104,8 @@ function RoomCard({ item, isAdmin, onEdit, onDelete, onSeats }) {
           <Feather name="square" size={22} color="#6366f1" />
         </View>
         <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={st.roomName}>{item.room_name}</Text>
-          <Text style={st.roomSub}>{item.seat_count ?? 0} seat{(item.seat_count ?? 0) !== 1 ? "s" : ""}</Text>
+          <Text style={st.roomName}>{_tx(item.room_name)}</Text>
+          <Text style={st.roomSub}>{_t("{v} seat{pl}", { v: item.seat_count ?? 0, pl: (item.seat_count ?? 0) !== 1 ? "s" : "" })}</Text>
         </View>
         {isAdmin && (
           <View style={st.actions}>
@@ -119,7 +120,7 @@ function RoomCard({ item, isAdmin, onEdit, onDelete, onSeats }) {
       </View>
       <TouchableOpacity style={st.seatsBtn} onPress={() => onSeats(item)}>
         <Feather name="grid" size={13} color="#6366f1" />
-        <Text style={st.seatsBtnTxt}>Manage Seats</Text>
+        <Text style={st.seatsBtnTxt}>{_t("Manage Seats")}</Text>
         <Feather name="chevron-right" size={13} color="#6366f1" />
       </TouchableOpacity>
     </View>
@@ -147,9 +148,9 @@ export default function HostelRoomScreen({ navigation, route }) {
     try {
       setLoading(true);
       const data = await fetchRooms(userRef.current, building.building_id);
-      setRooms(data);
+      setRooms(Array.isArray(data) ? data : []);
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e?.message) || _t("Failed to load rooms."));
     } finally {
       setLoading(false);
     }
@@ -163,26 +164,26 @@ export default function HostelRoomScreen({ navigation, route }) {
       setModalVisible(false);
       setEditRoom(null);
       load();
-      Alert.alert("✅ Success", formData.room_id ? "Room updated." : "Room added.");
+      Alert.alert(_t("✅ Success"), formData.room_id ? _t("Room updated.") : _t("Room added."));
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     }
   }, [load]);
 
   const handleDelete = useCallback((item) => {
     Alert.alert(
-      "Delete Room",
-      `Delete "${item.room_name}"? This will fail if seats are assigned to it.`,
+      _t("Delete Room"),
+      _t("Delete \"{room_name}\"? This will fail if seats are assigned to it.", { room_name: item.room_name }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Delete", style: "destructive",
+          text: _t("Delete"), style: "destructive",
           onPress: async () => {
             try {
               await deleteRoom(userRef.current, item.room_id);
               load();
             } catch (e) {
-              Alert.alert("Cannot Delete", e.message);
+              Alert.alert(_t("Cannot Delete"), _tx(e.message));
             }
           },
         },
@@ -201,20 +202,20 @@ export default function HostelRoomScreen({ navigation, route }) {
           <Feather name="arrow-left" size={20} color="#6366f1" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={sc.headerTitle}>Rooms</Text>
-          <Text style={sc.headerSub}>{building.building_name} • {rooms.length} room{rooms.length !== 1 ? "s" : ""}</Text>
+          <Text style={sc.headerTitle}>{_t("Rooms")}</Text>
+          <Text style={sc.headerSub}>{_t("{building_name} • {length} room{pl}", { building_name: building.building_name, length: rooms.length, pl: rooms.length !== 1 ? "s" : "" })}</Text>
         </View>
         {isAdmin && (
           <TouchableOpacity style={sc.addBtn} onPress={() => { setEditRoom(null); setModalVisible(true); }}>
             <Feather name="plus" size={18} color="#fff" />
-            <Text style={sc.addBtnTxt}>Add</Text>
+            <Text style={sc.addBtnTxt}>{_t("Add")}</Text>
           </TouchableOpacity>
         )}
       </View>
 
       <View style={sc.searchWrap}>
         <Feather name="search" size={15} color="#94a3b8" style={{ marginRight: 8 }} />
-        <TextInput style={sc.searchInput} placeholder="Search rooms…"
+        <TextInput style={sc.searchInput} placeholder={_t("Search rooms…")}
           placeholderTextColor="#94a3b8" value={search} onChangeText={setSearch} />
         {search.length > 0 && (
           <TouchableOpacity onPress={() => setSearch("")}><Feather name="x" size={15} color="#94a3b8" /></TouchableOpacity>
@@ -222,7 +223,7 @@ export default function HostelRoomScreen({ navigation, route }) {
       </View>
 
       {loading
-        ? <View style={sc.loader}><ActivityIndicator size="large" color="#6366f1" /><Text style={sc.loaderTxt}>Loading rooms…</Text></View>
+        ? <View style={sc.loader}><ActivityIndicator size="large" color="#6366f1" /><Text style={sc.loaderTxt}>{_t("Loading rooms…")}</Text></View>
         : <FlatList
             data={filtered}
             keyExtractor={r => String(r.room_id)}
@@ -239,8 +240,8 @@ export default function HostelRoomScreen({ navigation, route }) {
             ListEmptyComponent={
               <View style={sc.empty}>
                 <Feather name="square" size={44} color="#cbd5e1" />
-                <Text style={sc.emptyTitle}>No rooms yet</Text>
-                <Text style={sc.emptyTxt}>{isAdmin ? 'Tap "Add" to create a room.' : "No rooms added."}</Text>
+                <Text style={sc.emptyTitle}>{_t("No rooms yet")}</Text>
+                <Text style={sc.emptyTxt}>{isAdmin ? _t("Tap \"Add\" to create a room.") : _t("No rooms added.")}</Text>
               </View>
             }
           />}

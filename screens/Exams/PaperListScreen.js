@@ -12,6 +12,7 @@ import { Feather } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
 import { fetchPapers, deletePaper, publishPaper } from "../../services/QuestionPaperServiceApi";
 import { fetchBranches, fetchSessions } from "../../services/SetupServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 const STATUS_COLOR = { draft: "#f59e0b", published: "#10b981", archived: "#9ca3af" };
 const STATUS_BG    = { draft: "#fef9c3", published: "#d1fae5", archived: "#f3f4f6" };
@@ -30,7 +31,7 @@ function FilterPicker({ icon, label, value, items, labelKey, valueKey, onChange 
       >
         <Feather name={icon} size={12} color={isSet ? "#2563eb" : "#64748b"} />
         <Text style={[st.filterBtnTxt, isSet && st.filterBtnTxtActive]} numberOfLines={1}>
-          {selected ? selected[labelKey] : label}
+          {selected ? _tx(selected[labelKey]) : _tx(label)}
         </Text>
         <Feather name="chevron-down" size={12} color={isSet ? "#2563eb" : "#64748b"} />
       </TouchableOpacity>
@@ -39,10 +40,10 @@ function FilterPicker({ icon, label, value, items, labelKey, valueKey, onChange 
         <TouchableOpacity style={st.modalOverlay} activeOpacity={1} onPress={() => setOpen(false)} />
         <View style={st.modalSheet}>
           <View style={st.modalHandle} />
-          <Text style={st.modalTitle}>{label}</Text>
+          <Text style={st.modalTitle}>{_tx(label)}</Text>
           <TouchableOpacity style={st.clearRow} onPress={() => { onChange(""); setOpen(false); }}>
             <Feather name="x-circle" size={14} color="#9ca3af" />
-            <Text style={st.clearTxt}>Clear filter</Text>
+            <Text style={st.clearTxt}>{_t("Clear filter")}</Text>
           </TouchableOpacity>
           <FlatList
             data={items}
@@ -55,7 +56,7 @@ function FilterPicker({ icon, label, value, items, labelKey, valueKey, onChange 
                   onPress={() => { onChange(String(item[valueKey])); setOpen(false); }}
                 >
                   <Text style={[st.modalItemTxt, isSel && st.modalItemTxtSel]}>
-                    {item[labelKey]}
+                    {_tx(item[labelKey])}
                   </Text>
                   {isSel && <Feather name="check" size={15} color="#2563eb" />}
                 </TouchableOpacity>
@@ -105,7 +106,7 @@ export default function PaperListScreen({ navigation }) {
       const data = await fetchPapers(user, filters);
       setPapers(Array.isArray(data) ? data : []);
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load papers");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load papers"));
     } finally {
       setLoading(false);
     }
@@ -114,17 +115,17 @@ export default function PaperListScreen({ navigation }) {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const handleDelete = (item) => {
-    if (item.status === "published") { Alert.alert("Cannot Delete", "Published papers cannot be deleted. Archive it first."); return; }
-    Alert.alert("Delete Paper", `Delete "${item.title}"?`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: async () => { try { await deletePaper(user, item.id); load(); } catch (e) { Alert.alert("Error", e.message); } } },
+    if (item.status === "published") { Alert.alert(_t("Cannot Delete"), _t("Published papers cannot be deleted. Archive it first.")); return; }
+    Alert.alert(_t("Delete Paper"), _t("Delete \"{title}\"?", { title: item.title }), [
+      { text: _t("Cancel"), style: "cancel" },
+      { text: _t("Delete"), style: "destructive", onPress: async () => { try { await deletePaper(user, item.id); load(); } catch (e) { Alert.alert(_t("Error"), _tx(e.message)); } } },
     ]);
   };
 
   const handlePublish = (item) => {
-    Alert.alert("Publish Paper", `Publish "${item.title}"? It will become read-only.`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Publish", onPress: async () => { try { await publishPaper(user, item.id); load(); } catch (e) { Alert.alert("Error", e.message); } } },
+    Alert.alert(_t("Publish Paper"), _t("Publish \"{title}\"? It will become read-only.", { title: item.title }), [
+      { text: _t("Cancel"), style: "cancel" },
+      { text: _t("Publish"), onPress: async () => { try { await publishPaper(user, item.id); load(); } catch (e) { Alert.alert(_t("Error"), _tx(e.message)); } } },
     ]);
   };
 
@@ -142,27 +143,27 @@ export default function PaperListScreen({ navigation }) {
         onPress={() => navigation.navigate("PaperBuilder", { paper: item })}
       >
         <View style={st.cardTop}>
-          <Text style={st.cardTitle} numberOfLines={1}>{item.title ?? "Untitled Paper"}</Text>
+          <Text style={st.cardTitle} numberOfLines={1}>{_tx(item.title) ?? _t("Untitled Paper")}</Text>
           <View style={[st.statusBadge, { backgroundColor: sb }]}>
-            <Text style={[st.statusTxt, { color: sc }]}>{item.status ?? "draft"}</Text>
+            <Text style={[st.statusTxt, { color: sc }]}>{_tx(item.status) ?? "draft"}</Text>
           </View>
         </View>
         <View style={st.cardMeta}>
-          {!!branchName        && <MetaTag icon="git-branch" label={branchName} />}
-          {!!item.class_name   && <MetaTag icon="book-open"  label={item.class_name} />}
-          {!!item.subject_name && <MetaTag icon="book"       label={item.subject_name} />}
-          {!!item.session      && <MetaTag icon="calendar"   label={item.session} />}
-          {item.total_marks > 0 && <MetaTag icon="award"    label={`${item.total_marks} marks`} />}
+          {!!branchName        && <MetaTag icon="git-branch" label={_tx(branchName)} />}
+          {!!item.class_name   && <MetaTag icon="book-open"  label={_tx(item.class_name)} />}
+          {!!item.subject_name && <MetaTag icon="book"       label={_tx(item.subject_name)} />}
+          {!!item.session      && <MetaTag icon="calendar"   label={_tx(item.session)} />}
+          {item.total_marks > 0 && <MetaTag icon="award"    label={_t("{total_marks} marks", { total_marks: item.total_marks })} />}
         </View>
         <View style={st.cardBtns}>
           <TouchableOpacity style={st.editBtn} onPress={() => navigation.navigate("PaperBuilder", { paper: item })}>
             <Feather name="edit-3" size={13} color="#2563eb" />
-            <Text style={st.editTxt}>{item.status === "published" ? "Preview" : "Edit / Build"}</Text>
+            <Text style={st.editTxt}>{item.status === "published" ? _t("Preview") : _t("Edit / Build")}</Text>
           </TouchableOpacity>
           {item.status === "draft" && (
             <TouchableOpacity style={st.publishBtn} onPress={() => handlePublish(item)}>
               <Feather name="upload" size={13} color="#fff" />
-              <Text style={st.publishTxt}>Publish</Text>
+              <Text style={st.publishTxt}>{_t("Publish")}</Text>
             </TouchableOpacity>
           )}
           {item.status !== "published" && (
@@ -179,15 +180,15 @@ export default function PaperListScreen({ navigation }) {
     <View style={st.root}>
       <View style={st.header}>
         <View style={st.headerRow}>
-          <Text style={st.headerTitle}>Question Papers</Text>
-          <Text style={st.headerSub}>{papers.length} paper{papers.length !== 1 ? "s" : ""}</Text>
+          <Text style={st.headerTitle}>{_t("Question Papers")}</Text>
+          <Text style={st.headerSub}>{_t("{length} paper{pl}", { length: papers.length, pl: papers.length !== 1 ? "s" : "" })}</Text>
         </View>
 
         {/* Filter bar */}
         <View style={st.filterBar}>
           <FilterPicker
             icon="git-branch"
-            label="All Branches"
+            label={_t("All Branches")}
             value={filterBranchId}
             items={branches}
             labelKey="branch_name"
@@ -196,7 +197,7 @@ export default function PaperListScreen({ navigation }) {
           />
           <FilterPicker
             icon="calendar"
-            label="All Sessions"
+            label={_t("All Sessions")}
             value={filterSessionId}
             items={sessions}
             labelKey="session_name"
@@ -209,7 +210,7 @@ export default function PaperListScreen({ navigation }) {
               onPress={() => { setFilterBranchId(""); setFilterSessionId(""); }}
             >
               <Feather name="x" size={12} color="#dc2626" />
-              <Text style={st.clearAllTxt}>Clear</Text>
+              <Text style={st.clearAllTxt}>{_t("Clear")}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -226,8 +227,8 @@ export default function PaperListScreen({ navigation }) {
           ListEmptyComponent={
             <Text style={st.empty}>
               {activeFilters > 0
-                ? "No papers match the selected filters."
-                : "No papers yet.\nTap + to create your first paper."}
+                ? _t("No papers match the selected filters.")
+                : _t("No papers yet.\nTap + to create your first paper.")}
             </Text>
           }
         />
@@ -244,7 +245,7 @@ function MetaTag({ icon, label }) {
   return (
     <View style={st.metaTag}>
       <Feather name={icon} size={11} color="#6b7280" />
-      <Text style={st.metaTagTxt}>{label}</Text>
+      <Text style={st.metaTagTxt}>{_tx(label)}</Text>
     </View>
   );
 }

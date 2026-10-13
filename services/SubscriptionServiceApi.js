@@ -7,6 +7,7 @@
  */
 import { safeFetch } from "./apiInterceptor";
 import { BASE_URL as _BASE_URL_RAW } from "../Environment/EnvironmentConfig";
+import { _t } from "./i18n";
 
 const BASE_URL = _BASE_URL_RAW.replace(/\/+$/, "");
 
@@ -27,7 +28,7 @@ async function call(user, path, method = "GET") {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.status === false) {
-    throw new Error(data.message || "Something went wrong. Please try again.");
+    throw new Error(data.message || _t("Something went wrong. Please try again."));
   }
   return data.data;
 }

@@ -537,7 +537,7 @@ class LibraryFineApiController extends AppController
                      WHERE  id = ? AND ssms_client_code = ?",
                     [
                         $newWaived, $actor,
-                        ($fine['waive_reason'] ? "\n" : '') . date('Y-m-d') . ' — ' . $reason,
+                        ($fine['waive_reason'] ? "\n" : '') . $this->schoolToday() . ' — ' . $reason,
                         $fineId, $clientCode,
                     ]
                 );

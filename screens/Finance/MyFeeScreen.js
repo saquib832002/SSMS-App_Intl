@@ -7,20 +7,23 @@
 import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, RefreshControl, Platform,
+  ActivityIndicator, RefreshControl, Platform, Alert, AppState, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
 import { fetchStudentFeeData } from '../../services/FeeServiceApi';
+import { getOnlinePayAvailability, createFeePayment } from '../../services/OnlinePayApi';
 
+import { fmtMoney, fmtDate as fmtLocalDate, currencySymbol, taxLabel } from "../../services/Locale";
+import { _t, _tx } from "../../services/i18n";
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt     = (v) => isNaN(parseFloat(v)) ? '0.00' : parseFloat(v).toFixed(2);
-const fmtCurr = (v) => `₹ ${fmt(v)}`;
+const fmtCurr = (v) => fmtMoney(v);   // Region & formats
 const fmtDate = (d) => {
   if (!d) return '—';
   const x = new Date(d);
-  return isNaN(x) ? d : x.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return isNaN(x) ? d : fmtLocalDate(x, 'medium');
 };
 
 // ── Section header ────────────────────────────────────────────────────────────
@@ -30,10 +33,10 @@ function SectionHeader({ icon, label, color, bg, count }) {
       <View style={[sh.iconWrap, { backgroundColor: color + '22' }]}>
         <MaterialIcons name={icon} size={18} color={color} />
       </View>
-      <Text style={[sh.label, { color }]}>{label}</Text>
+      <Text style={[sh.label, { color }]}>{_tx(label)}</Text>
       {count != null && (
         <View style={[sh.badge, { backgroundColor: color }]}>
-          <Text style={sh.badgeTxt}>{count}</Text>
+          <Text style={sh.badgeTxt}>{_tx(count)}</Text>
         </View>
       )}
     </View>
@@ -49,7 +52,7 @@ const sh = StyleSheet.create({
 
 // Month name from month_no (1-12)
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const monthName = (n) => MONTHS[(parseInt(n, 10) - 1)] ?? `M${n}`;
+const monthName = (n) => _tx(MONTHS[(parseInt(n, 10) - 1)]) ?? `M${n}`;
 
 // ── Fee due row ───────────────────────────────────────────────────────────────
 function FeeRow({ item }) {
@@ -70,42 +73,38 @@ function FeeRow({ item }) {
     <View style={fr.row}>
       {/* Left: name + meta */}
       <View style={{ flex: 1, marginRight: 10 }}>
-        <Text style={fr.name}>{item.fee_item_name ?? 'Fee'}</Text>
+        <Text style={fr.name}>{_tx(item.fee_item_name) ?? _t("Fee")}</Text>
 
         {/* Month + Session */}
         <View style={fr.metaRow}>
           {item.month_no ? (
             <View style={fr.tag}>
-              <Text style={fr.tagTxt}>{item.month_no}</Text>
+              <Text style={fr.tagTxt}>{_tx(item.month_no)}</Text>
             </View>
           ) : null}
           {item.session_name ? (
-            <Text style={fr.metaTxt}>{item.session_name}</Text>
+            <Text style={fr.metaTxt}>{_tx(item.session_name)}</Text>
           ) : null}
           {item.due_date ? (
-            <Text style={fr.metaTxt}>Due: {fmtDate(item.due_date)}</Text>
+            <Text style={fr.metaTxt}>{_t("Due: {due_date}", { due_date: fmtDate(item.due_date) })}</Text>
           ) : null}
         </View>
 
         {/* Breakdown: base → discount → tax */}
         <View style={fr.breakdown}>
-          <Text style={fr.breakdownTxt}>Base: {fmtCurr(base)}</Text>
+          <Text style={fr.breakdownTxt}>{_t("Base: {base}", { base: fmtCurr(base) })}</Text>
           {hasDiscount && (
-            <Text style={fr.discountTxt}>
-              − Discount{discPct > 0 ? ` (${discPct}%)` : ''}: {fmtCurr(discount)}
-            </Text>
+            <Text style={fr.discountTxt}>{_t("− Discount{v}: {discount}", { v: discPct > 0 ? ` (${discPct}%)` : '', discount: fmtCurr(discount) })}</Text>
           )}
           {hasTax && (
-            <Text style={fr.taxTxt}>
-              + Tax{taxPct > 0 ? ` (${taxPct}%)` : ''}: {fmtCurr(tax)}
-            </Text>
+            <Text style={fr.taxTxt}>{_t("+ Tax{v}: {tax}", { v: taxPct > 0 ? ` (${taxPct}%)` : '', tax: fmtCurr(tax) })}</Text>
           )}
         </View>
       </View>
 
       {/* Right: balance due */}
       <View style={fr.amountCol}>
-        <Text style={fr.balanceLabel}>Balance</Text>
+        <Text style={fr.balanceLabel}>{_t("Balance")}</Text>
         <Text style={fr.balanceAmount}>{fmtCurr(balance)}</Text>
       </View>
     </View>
@@ -142,9 +141,9 @@ function PaymentRow({ item, idx }) {
         <MaterialIcons name="check-circle" size={18} color="#15803d" />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={pr.name}>{title}</Text>
+        <Text style={pr.name}>{_tx(title)}</Text>
         <Text style={pr.date}>{fmtDate(item.fee_paid_date ?? item.paid_date ?? item.payment_date ?? item.created)}</Text>
-        {payMode ? <Text style={pr.mode}>{payMode}{itemCount ? ` · ${itemCount} item${itemCount > 1 ? 's' : ''}` : ''}</Text> : null}
+        {payMode ? <Text style={pr.mode}>{_tx(payMode)}{itemCount ? ` ${_t("· {itemCount} item{pl}", { itemCount, pl: itemCount > 1 ? 's' : '' })}` : ''}</Text> : null}
       </View>
       <Text style={pr.amount}>{fmtCurr(paid)}</Text>
     </View>
@@ -179,14 +178,14 @@ export default function MyFeeScreen({ navigation }) {
   const [error,      setError]      = useState(null);
 
   const load = useCallback(async (silent = false) => {
-    if (!user || !enrollmentId) return;
+    if (!user || !enrollmentId) { setLoading(false); setRefreshing(false); return; }
     if (!silent) setLoading(true);
     setError(null);
     try {
       const res = await fetchStudentFeeData(enrollmentId, {}, effectiveUser);
       setData(res);
     } catch (e) {
-      setError(e.message ?? 'Failed to load fee data');
+      setError(e.message ?? _t("Failed to load fee data"));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -195,14 +194,40 @@ export default function MyFeeScreen({ navigation }) {
 
   useEffect(() => { load(); }, [load]);
 
+  // ── Online payment (school has connected Stripe / Razorpay) ───────────────
+  const [payInfo, setPayInfo] = useState({ available: false });
+  const [paying,  setPaying]  = useState(false);
+  useEffect(() => {
+    let alive = true;
+    if (user) getOnlinePayAvailability(user).then(r => { if (alive) setPayInfo(r || { available: false }); });
+    return () => { alive = false; };
+  }, [user]);
+  // Coming back from the payment page → refresh dues and history
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') load(true); });
+    return () => sub.remove();
+  }, [load]);
+
+  const payOnline = useCallback(async () => {
+    setPaying(true);
+    try {
+      const r = await createFeePayment(effectiveUser, enrollmentId);
+      await Linking.openURL(r.payUrl);
+    } catch (e) {
+      Alert.alert(_t("Online payment"), _tx(e?.message) || _t("Could not start the payment. Please try again."));
+    } finally {
+      setPaying(false);
+    }
+  }, [effectiveUser, enrollmentId]);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     load(true);
   }, [load]);
 
   // ── Derived totals ─────────────────────────────────────────────────────────
-  const dueItems  = data?.due  ?? [];
-  const paidItems = data?.paid ?? [];
+  const dueItems  = Array.isArray(data?.due)  ? data.due  : [];
+  const paidItems = Array.isArray(data?.paid) ? data.paid : [];
 
   const totalDue  = dueItems.reduce((sum, i) =>
     sum + parseFloat(i.balance_due ?? i.net_fee_amount ?? i.fee_amount ?? 0), 0);
@@ -217,8 +242,8 @@ export default function MyFeeScreen({ navigation }) {
           <Feather name="arrow-left" size={20} color="#1e40af" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={s.headerTitle}>My Fee</Text>
-          <Text style={s.headerSub}>Due & payment history</Text>
+          <Text style={s.headerTitle}>{_t("My Fee")}</Text>
+          <Text style={s.headerSub}>{_t("Due & payment history")}</Text>
         </View>
         <TouchableOpacity onPress={() => load()} style={s.refreshBtn}>
           <Feather name="refresh-cw" size={16} color="#1e40af" />
@@ -229,15 +254,15 @@ export default function MyFeeScreen({ navigation }) {
       {loading ? (
         <View style={s.centred}>
           <ActivityIndicator size="large" color="#1e40af" />
-          <Text style={s.loadingTxt}>Loading fee details…</Text>
+          <Text style={s.loadingTxt}>{_t("Loading fee details…")}</Text>
         </View>
       ) : error ? (
         <View style={s.centred}>
           <MaterialIcons name="error-outline" size={48} color="#fca5a5" />
-          <Text style={s.errorTitle}>Could not load data</Text>
-          <Text style={s.errorSub}>{error}</Text>
+          <Text style={s.errorTitle}>{_t("Could not load data")}</Text>
+          <Text style={s.errorSub}>{_tx(error)}</Text>
           <TouchableOpacity style={s.retryBtn} onPress={() => load()}>
-            <Text style={s.retryTxt}>Try again</Text>
+            <Text style={s.retryTxt}>{_t("Try again")}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -252,14 +277,14 @@ export default function MyFeeScreen({ navigation }) {
           {/* ── Summary banner ────────────────────────────────────────── */}
           <View style={s.banner}>
             <View style={s.bannerSide}>
-              <Text style={s.bannerSubLabel}>Total Due</Text>
+              <Text style={s.bannerSubLabel}>{_t("Total Due")}</Text>
               <Text style={[s.bannerAmount, { color: totalDue > 0 ? '#dc2626' : '#15803d' }]}>
                 {fmtCurr(totalDue)}
               </Text>
             </View>
             <View style={s.bannerDivider} />
             <View style={s.bannerSide}>
-              <Text style={s.bannerSubLabel}>Total Paid</Text>
+              <Text style={s.bannerSubLabel}>{_t("Total Paid")}</Text>
               <Text style={[s.bannerAmount, { color: '#15803d' }]}>
                 {fmtCurr(totalPaid)}
               </Text>
@@ -269,14 +294,14 @@ export default function MyFeeScreen({ navigation }) {
           {/* ── Due fees ──────────────────────────────────────────────── */}
           <View style={s.card}>
             <SectionHeader
-              icon="receipt-long" label="Fee Due"
+              icon="receipt-long" label={_t("Fee Due")}
               color="#dc2626" bg="#fff5f5"
               count={dueItems.length || null}
             />
             {dueItems.length === 0 ? (
               <View style={s.emptyBox}>
                 <MaterialIcons name="check-circle" size={36} color="#86efac" />
-                <Text style={s.emptyTxt}>No outstanding fees — you're all clear!</Text>
+                <Text style={s.emptyTxt}>{_t("No outstanding fees — you're all clear!")}</Text>
               </View>
             ) : (
               <>
@@ -284,9 +309,22 @@ export default function MyFeeScreen({ navigation }) {
                   <FeeRow key={i} item={item} />
                 ))}
                 <View style={s.totalRow}>
-                  <Text style={s.totalLabel}>Total Due</Text>
+                  <Text style={s.totalLabel}>{_t("Total Due")}</Text>
                   <Text style={[s.totalAmount, { color: '#dc2626' }]}>{fmtCurr(totalDue)}</Text>
                 </View>
+                {payInfo.available && totalDue > 0 && (
+                  <TouchableOpacity style={s.payBtn} onPress={payOnline} disabled={paying} activeOpacity={0.85}>
+                    {paying
+                      ? <ActivityIndicator color="#fff" />
+                      : <>
+                          <Feather name="credit-card" size={16} color="#fff" />
+                          <Text style={s.payTxt}>{_t("Pay online {v}", { v: `${fmt(totalDue)} ${payInfo.currency ?? ''}`.trim() })}</Text>
+                        </>}
+                  </TouchableOpacity>
+                )}
+                {payInfo.available && totalDue > 0 && (
+                  <Text style={s.payNote}>{_t("Secure payment by {v}. Opens in your browser.", { v: payInfo.provider === 'razorpay' ? _t("Razorpay (UPI, cards, net banking)") : _t("Stripe (card, Apple Pay, Google Pay)") })}</Text>
+                )}
               </>
             )}
           </View>
@@ -294,14 +332,14 @@ export default function MyFeeScreen({ navigation }) {
           {/* ── Payment history ───────────────────────────────────────── */}
           <View style={s.card}>
             <SectionHeader
-              icon="history" label="Payment History"
+              icon="history" label={_t("Payment History")}
               color="#15803d" bg="#f0fdf4"
               count={paidItems.length || null}
             />
             {paidItems.length === 0 ? (
               <View style={s.emptyBox}>
                 <MaterialIcons name="hourglass-empty" size={36} color="#cbd5e1" />
-                <Text style={s.emptyTxt}>No payment records found yet.</Text>
+                <Text style={s.emptyTxt}>{_t("No payment records found yet.")}</Text>
               </View>
             ) : (
               <>
@@ -309,7 +347,7 @@ export default function MyFeeScreen({ navigation }) {
                   <PaymentRow key={i} item={item} idx={i} />
                 ))}
                 <View style={s.totalRow}>
-                  <Text style={s.totalLabel}>Total Paid</Text>
+                  <Text style={s.totalLabel}>{_t("Total Paid")}</Text>
                   <Text style={[s.totalAmount, { color: '#15803d' }]}>{fmtCurr(totalPaid)}</Text>
                 </View>
               </>
@@ -350,6 +388,9 @@ const s = StyleSheet.create({
   errorSub:   { fontSize: 13, color: '#94a3b8', marginTop: 6, textAlign: 'center' },
   retryBtn:   { marginTop: 18, backgroundColor: '#1e40af', borderRadius: 10, paddingHorizontal: 24, paddingVertical: 10 },
   retryTxt:   { color: '#fff', fontWeight: '700', fontSize: 14 },
+  payBtn:     { marginTop: 14, backgroundColor: '#1e40af', borderRadius: 12, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  payTxt:     { color: '#fff', fontWeight: '800', fontSize: 15 },
+  payNote:    { marginTop: 6, fontSize: 11, color: '#64748b', textAlign: 'center' },
 
   // Banner
   banner: {

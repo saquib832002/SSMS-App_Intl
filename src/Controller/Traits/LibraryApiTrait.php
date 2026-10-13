@@ -590,7 +590,7 @@ trait LibraryApiTrait
         if (strtolower((string)$member['status']) !== 'active') {
             $blockedCode   = 'MEMBER_BLOCKED';
             $blockedReason = 'Membership is ' . strtolower((string)$member['status']) . '.';
-        } elseif (!empty($member['valid_to']) && strtotime((string)$member['valid_to']) < strtotime(date('Y-m-d'))) {
+        } elseif (!empty($member['valid_to']) && strtotime((string)$member['valid_to']) < strtotime(\App\Service\Locale::today($clientCode))) {
             $blockedCode   = 'MEMBER_EXPIRED';
             $blockedReason = 'Membership expired on ' . $member['valid_to'] . '.';
         } elseif ((int)$loans['out_count'] >= $maxBooks) {
@@ -598,8 +598,9 @@ trait LibraryApiTrait
             $blockedReason = 'Book limit reached (' . $maxBooks . ').';
         } elseif ($fineLimit !== null && (float)$fines['outstanding'] > (float)$fineLimit) {
             $blockedCode   = 'FINE_LIMIT';
-            $blockedReason = 'Outstanding fine of ' . ($settings['currency_symbol'] ?? '')
-                . number_format((float)$fines['outstanding'], 2) . ' must be cleared.';
+            $blockedReason = 'Outstanding fine of ' . (($settings['currency_symbol'] ?? '') !== ''
+                    ? $settings['currency_symbol'] . \App\Service\Locale::number($clientCode, (float)$fines['outstanding'])
+                    : \App\Service\Locale::money($clientCode, (float)$fines['outstanding'])) . ' must be cleared.';
         }
 
         return [

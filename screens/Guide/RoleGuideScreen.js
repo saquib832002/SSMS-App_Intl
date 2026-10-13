@@ -9,17 +9,18 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Role definitions ──────────────────────────────────────────────────────────
 const ROLES = [
   {
     id:          "owner",
-    label:       "Owner",
+    get label() { return _t("Owner"); },
     icon:        "star",
     accent:      "#5b21b6",
     tint:        "#ede9fe",
     assignedTo:  "School owner / principal — one per institution",
-    summary:     "Unrestricted access to every module, setting and report.",
+    get summary() { return _t("Unrestricted access to every module, setting and report."); },
     modules: [
       {
         name: "Dashboard",
@@ -66,12 +67,12 @@ const ROLES = [
 
   {
     id:          "admin",
-    label:       "Admin",
+    get label() { return _t("Admin"); },
     icon:        "shield",
     accent:      "#1d4ed8",
     tint:        "#dbeafe",
     assignedTo:  "Vice principal, registrar or senior office staff",
-    summary:     "Full operational access — all student, teacher, exam, hostel and transport functions. Cannot access fee collection or finance reports.",
+    get summary() { return _t("Full operational access — all student, teacher, exam, hostel and transport functions. Cannot access fee collection or finance reports."); },
     modules: [
       {
         name: "Dashboard",
@@ -97,13 +98,13 @@ const ROLES = [
         name: "Setup",
         icon: "settings",
         items: ["School settings, institute details, branches, sessions, classes, sections, users, staff categories, subjects, periods, timetable"],
-        note: "Cannot access Fee Management in Setup",
+        get note() { return _t("Cannot access Fee Management in Setup"); },
       },
       {
         name: "Hostel",
         icon: "home",
         items: ["Enrolled students", "Buildings → rooms → seats"],
-        note: "Cannot access Hostel Finance",
+        get note() { return _t("Cannot access Hostel Finance"); },
       },
       {
         name: "Transport",
@@ -116,12 +117,12 @@ const ROLES = [
 
   {
     id:          "accountant",
-    label:       "Accountant",
+    get label() { return _t("Accountant"); },
     icon:        "dollar-sign",
     accent:      "#92400e",
     tint:        "#fef3c7",
     assignedTo:  "Fee clerk, accounts staff or bursar",
-    summary:     "Finance-only access. Can view enrolled students and collect fees but cannot manage academic data.",
+    get summary() { return _t("Finance-only access. Can view enrolled students and collect fees but cannot manage academic data."); },
     modules: [
       {
         name: "School — Students (limited)",
@@ -154,12 +155,12 @@ const ROLES = [
 
   {
     id:          "user",
-    label:       "User (Teacher)",
+    get label() { return _t("User (Teacher)"); },
     icon:        "user",
     accent:      "#065f46",
     tint:        "#d1fae5",
     assignedTo:  "Class teacher or subject teacher",
-    summary:     "Academic operations — can register students, mark attendance, assign homework and manage exams. No access to teacher management, finance or admin settings.",
+    get summary() { return _t("Academic operations — can register students, mark attendance, assign homework and manage exams. No access to teacher management, finance or admin settings."); },
     modules: [
       {
         name: "Dashboard",
@@ -170,7 +171,7 @@ const ROLES = [
         name: "School — Students",
         icon: "users",
         items: ["New student registration", "Attendance marking & reports", "Homework assign & track"],
-        note: "Cannot see: Enrollment list, ID Cards, Portal Accounts",
+        get note() { return _t("Cannot see: Enrollment list, ID Cards, Portal Accounts"); },
       },
       {
         name: "School — Examinations",
@@ -181,7 +182,7 @@ const ROLES = [
         name: "Setup",
         icon: "settings",
         items: ["View school settings, classes, subjects, timetable, teacher schedule"],
-        note: "No access to user management or fee setup",
+        get note() { return _t("No access to user management or fee setup"); },
       },
       {
         name: "Transport",
@@ -194,12 +195,12 @@ const ROLES = [
 
   {
     id:          "student",
-    label:       "Student",
+    get label() { return _t("Student"); },
     icon:        "book-open",
     accent:      "#0891b2",
     tint:        "#cffafe",
     assignedTo:  "Enrolled student — login created via Portal Accounts screen",
-    summary:     "Student self-service portal. Can view their own academic and fee records only.",
+    get summary() { return _t("Student self-service portal. Can view their own academic and fee records only."); },
     modules: [
       {
         name: "Student Portal",
@@ -222,12 +223,12 @@ const ROLES = [
 
   {
     id:          "parent",
-    label:       "Parent",
+    get label() { return _t("Parent"); },
     icon:        "users",
     accent:      "#be185d",
     tint:        "#fce7f3",
     assignedTo:  "Parent or guardian — login linked to their child's enrollment",
-    summary:     "Parent portal — same view as the student, but accessed using the parent's own login. If a parent has multiple children, they can switch between them.",
+    get summary() { return _t("Parent portal — same view as the student, but accessed using the parent's own login. If a parent has multiple children, they can switch between them."); },
     modules: [
       {
         name: "Parent Portal",
@@ -266,8 +267,8 @@ function RoleCard({ role }) {
           <Feather name={role.icon} size={20} color={role.accent} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={gc.headLabel}>{role.label}</Text>
-          <Text style={gc.headAssigned}>{role.assignedTo}</Text>
+          <Text style={gc.headLabel}>{_tx(role.label)}</Text>
+          <Text style={gc.headAssigned}>{_tx(role.assignedTo)}</Text>
         </View>
         <Feather
           name={expanded ? "chevron-up" : "chevron-down"}
@@ -279,7 +280,7 @@ function RoleCard({ role }) {
       {/* Summary — always visible */}
       <View style={gc.summaryRow}>
         <Feather name="info" size={13} color={role.accent} style={{ marginTop: 1 }} />
-        <Text style={[gc.summaryTxt, { color: role.accent }]}>{role.summary}</Text>
+        <Text style={[gc.summaryTxt, { color: role.accent }]}>{_tx(role.summary)}</Text>
       </View>
 
       {/* Expanded detail */}
@@ -292,18 +293,18 @@ function RoleCard({ role }) {
                 <View style={[gc.modIconWrap, { backgroundColor: role.tint }]}>
                   <Feather name={mod.icon} size={12} color={role.accent} />
                 </View>
-                <Text style={[gc.modName, { color: role.accent }]}>{mod.name}</Text>
+                <Text style={[gc.modName, { color: role.accent }]}>{_tx(mod.name)}</Text>
               </View>
               {mod.items.map((item, ii) => (
                 <View key={ii} style={gc.modItem}>
                   <View style={[gc.dot, { backgroundColor: role.accent }]} />
-                  <Text style={gc.modItemTxt}>{item}</Text>
+                  <Text style={gc.modItemTxt}>{_tx(item)}</Text>
                 </View>
               ))}
               {mod.note && (
                 <View style={gc.noteRow}>
                   <Feather name="alert-circle" size={11} color="#f59e0b" />
-                  <Text style={gc.noteTxt}>{mod.note}</Text>
+                  <Text style={gc.noteTxt}>{_tx(mod.note)}</Text>
                 </View>
               )}
             </View>
@@ -314,12 +315,12 @@ function RoleCard({ role }) {
             <View style={gc.restrictBlock}>
               <View style={gc.restrictHeader}>
                 <Feather name="slash" size={12} color="#dc2626" />
-                <Text style={gc.restrictTitle}>No access to</Text>
+                <Text style={gc.restrictTitle}>{_t("No access to")}</Text>
               </View>
               {role.restricted.map((r, ri) => (
                 <View key={ri} style={gc.modItem}>
                   <View style={[gc.dot, { backgroundColor: "#dc2626" }]} />
-                  <Text style={[gc.modItemTxt, { color: "#dc2626" }]}>{r}</Text>
+                  <Text style={[gc.modItemTxt, { color: "#dc2626" }]}>{_tx(r)}</Text>
                 </View>
               ))}
             </View>
@@ -334,7 +335,7 @@ function RoleCard({ role }) {
         activeOpacity={0.7}
       >
         <Text style={[gc.expandTxt, { color: role.accent }]}>
-          {expanded ? "Show less" : `View ${role.modules.length} modules & permissions`}
+          {expanded ? _t("Show less") : _t("View {length} modules & permissions", { length: role.modules.length })}
         </Text>
         <Feather name={expanded ? "chevron-up" : "chevron-down"} size={13} color={role.accent} />
       </TouchableOpacity>
@@ -377,7 +378,7 @@ function QuickRefTable() {
     <View style={gc.tableWrap}>
       {/* Header row */}
       <View style={gc.tableHeadRow}>
-        <Text style={[gc.tableCell, gc.tableCellModule, gc.tableHeadTxt]}>Module</Text>
+        <Text style={[gc.tableCell, gc.tableCellModule, gc.tableHeadTxt]}>{_t("Module")}</Text>
         {COL_ROLES.map(r => (
           <View key={r} style={[gc.tableCell, gc.tableCellRole, { backgroundColor: COL_COLORS[r] + "18" }]}>
             <Text style={[gc.tableHeadTxt, { color: COL_COLORS[r], fontSize: 8 }]}>
@@ -389,7 +390,7 @@ function QuickRefTable() {
       {/* Data rows */}
       {QUICK_REF.map((row, ri) => (
         <View key={ri} style={[gc.tableRow, ri % 2 === 0 && gc.tableRowAlt]}>
-          <Text style={[gc.tableCell, gc.tableCellModule, gc.tableRowTxt]} numberOfLines={1}>{row.module}</Text>
+          <Text style={[gc.tableCell, gc.tableCellModule, gc.tableRowTxt]} numberOfLines={1}>{_tx(row.module)}</Text>
           {COL_ROLES.map(r => (
             <View key={r} style={[gc.tableCell, gc.tableCellRole, { alignItems: "center", justifyContent: "center" }]}>
               <AccessIcon val={row[r]} />
@@ -399,10 +400,10 @@ function QuickRefTable() {
       ))}
       {/* Legend */}
       <View style={gc.legend}>
-        <View style={gc.legendItem}><Feather name="check-circle" size={12} color="#16a34a" /><Text style={gc.legendTxt}>Full access</Text></View>
-        <View style={gc.legendItem}><Feather name="eye"          size={12} color="#0891b2" /><Text style={gc.legendTxt}>View own data</Text></View>
-        <View style={gc.legendItem}><Feather name="dollar-sign"  size={12} color="#92400e" /><Text style={gc.legendTxt}>Finance only</Text></View>
-        <View style={gc.legendItem}><Feather name="x-circle"     size={12} color="#dc2626" /><Text style={gc.legendTxt}>No access</Text></View>
+        <View style={gc.legendItem}><Feather name="check-circle" size={12} color="#16a34a" /><Text style={gc.legendTxt}>{_t("Full access")}</Text></View>
+        <View style={gc.legendItem}><Feather name="eye"          size={12} color="#0891b2" /><Text style={gc.legendTxt}>{_t("View own data")}</Text></View>
+        <View style={gc.legendItem}><Feather name="dollar-sign"  size={12} color="#92400e" /><Text style={gc.legendTxt}>{_t("Finance only")}</Text></View>
+        <View style={gc.legendItem}><Feather name="x-circle"     size={12} color="#dc2626" /><Text style={gc.legendTxt}>{_t("No access")}</Text></View>
       </View>
     </View>
   );
@@ -422,8 +423,8 @@ export default function RoleGuideScreen() {
           <Feather name="book-open" size={18} color="#5b21b6" />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={gc.screenHeadTitle}>User Role Guide</Text>
-          <Text style={gc.screenHeadSub}>6 roles · assign the right one to each user</Text>
+          <Text style={gc.screenHeadTitle}>{_t("User Role Guide")}</Text>
+          <Text style={gc.screenHeadSub}>{_t("6 roles · assign the right one to each user")}</Text>
         </View>
       </View>
 
@@ -435,7 +436,7 @@ export default function RoleGuideScreen() {
           activeOpacity={0.8}
         >
           <Feather name="users" size={13} color={tab === "roles" ? "#fff" : "#64748b"} />
-          <Text style={[gc.tabBtnTxt, tab === "roles" && gc.tabBtnTxtActive]}>Role Cards</Text>
+          <Text style={[gc.tabBtnTxt, tab === "roles" && gc.tabBtnTxtActive]}>{_t("Role Cards")}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[gc.tabBtn, tab === "table" && gc.tabBtnActive]}
@@ -443,7 +444,7 @@ export default function RoleGuideScreen() {
           activeOpacity={0.8}
         >
           <Feather name="grid" size={13} color={tab === "table" ? "#fff" : "#64748b"} />
-          <Text style={[gc.tabBtnTxt, tab === "table" && gc.tabBtnTxtActive]}>Quick Reference</Text>
+          <Text style={[gc.tabBtnTxt, tab === "table" && gc.tabBtnTxtActive]}>{_t("Quick Reference")}</Text>
         </TouchableOpacity>
       </View>
 

@@ -25,6 +25,9 @@ import { AuthContext } from "../context/AuthContext";
 import { AppStyles, Theme } from "../styles/AppStyles";
 
 import { BASE_URL, APP_VERSION_LABEL } from "../Environment/EnvironmentConfig";
+import { loginWithPassword, toUserData } from "../services/SecurityApi";
+import { _t, _tx } from "../services/i18n";
+import LanguageChip from "../components/LanguageChip";
 const { width } = Dimensions.get("window");
 const isTablet = width >= 768;
 
@@ -47,84 +50,33 @@ export default function LoginScreen({ navigation }) {
 
   const handleLogin = async () => {
     if (!username.trim()) {
-      Alert.alert("Validation", "Please enter username");
+      Alert.alert(_t("Validation"), _t("Please enter username"));
       return;
     }
 
     if (!password.trim()) {
-      Alert.alert("Validation", "Please enter password");
+      Alert.alert(_t("Validation"), _t("Please enter password"));
       return;
     }
-      const loginUrl = `${BASE_URL.replace(/\/+$/, "")}/UserServiceApi/login`;
-     // console.log("=== LOGIN URL ===", loginUrl);
 try {
       setLoading(true);
-      const response = await fetch(loginUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username,
-          password,
-        }),
-      });
-
-      // Safe parse — strip any PHP warnings prepended before the JSON body
-      const rawText = await response.text();
-      //console.log("=== RAW LOGIN RESPONSE ===", rawText.slice(0, 300));
-      let res;
-      try {
-        const jsonStart = rawText.indexOf('{');
-        if (jsonStart === -1) {
-          console.error("Server returned non-JSON (first 300 chars):", rawText.slice(0, 300));
-          throw new Error(`Server error ${response.status}: unexpected response`);
-        }
-        if (jsonStart > 0) {
-          console.warn("PHP warning stripped from response:", rawText.slice(0, jsonStart).trim());
-        }
-        res = JSON.parse(rawText.slice(jsonStart));
-      } catch (parseErr) {
-        console.error("Server response (first 300 chars):", rawText.slice(0, 300));
-        throw new Error(`Server error ${response.status}: ${parseErr.message}`);
-      }
-      //console.log("=== LOGIN RESPONSE ===", JSON.stringify(res.data));
-
-      // Backend wraps response in { status: true, data: { token, ssmsUserName, ... } }
+      // Password first; if the school needs two-step login the server asks for a code instead
+      const res  = await loginWithPassword(username.trim(), password);
       const data = res.data ?? res;
 
-      if (res.status) {
-        const userData = {
-          ssmsUserName:   data.ssmsUserName   ?? data.username    ?? '',
-          firstName:      data.firstName      ?? '',
-          lastName:       data.lastName       ?? '',
-          userEmail:      data.userEmail       ?? data.email       ?? '',
-          ssmsUserRole:   data.ssmsUserRole    ?? data.role        ?? '',
-          ssmsClientCode: data.ssmsClientCode  ?? data.client_code ?? '',
-          token:          data.token           ?? '',
-          expiresAt:      data.expiresAt       ?? null,
-          branchId:       data.branchId        ?? null,
-          enrollmentId:   data.enrollmentId    ?? data.enrollment_id ?? null,
-          staffId:        data.staffId         ?? null,
-          billingModel:   data.billingModel === 'subscription' ? 'subscription' : 'legacy',
-          // Product modules (school / finance / library …) – same as before
-          activeModules:  Array.isArray(data.activeModules) ? data.activeModules : ['school'],
-          // Plan features for subscription (international) schools
-          activeFeatures: Array.isArray(data.activeFeatures) ? data.activeFeatures : ['core'],
-        };
-       // console.log("=== STORING USER ===", JSON.stringify(userData));
-        login(userData);
-        // No manual navigation needed — AppNavigator's auth guard switches
-        // to the authenticated stack automatically when user becomes non-null.
-
+      if (res.status && data?.mfa_required) {
+        navigation.navigate("TwoStep", {
+          challenge: data.challenge, purpose: data.purpose, email: data.email ?? "", username: data.username ?? username.trim(),
+        });
+      } else if (res.status && data?.token) {
+        login(toUserData(data));
+        // AppNavigator switches to the signed-in screens automatically.
       } else {
-       Alert.alert("Login Failed", res.message || "Invalid username or password");
-       // Alert.alert("Login Attempt", `Username: ${username}\nPassword: ${password}\n\n(${BASE_URL}/UserServiceApi/login)`);    
-
+       Alert.alert(_t("Login Failed"), _tx(res.message) || _t("Invalid username or password"));
       }
     } catch (error) {
       console.error("Login error:", error);
-      Alert.alert("Error", "Unable to connect to server");
+      Alert.alert(_t("Error"), _t("Unable to connect to server"));
     //  Alert.alert("Login Attempt", `Username: ${username}\nPassword: ${password}\n\n(${BASE_URL}/UserServiceApi/login)`);    
 
     } finally {
@@ -144,6 +96,9 @@ try {
             showsVerticalScrollIndicator={false}
             bounces={false}
           >
+            {/* language before signing in (kept for the account afterwards) */}
+            <LanguageChip style={{ marginBottom: 4 }} />
+
             {/* ================= TOP SECTION ================= */}
             <View style={AppStyles.topSection}>
               <View style={AppStyles.logoOuter}>
@@ -155,25 +110,21 @@ try {
                 </LinearGradient>
               </View>
 
-              <Text style={AppStyles.appTitle}>School Management System</Text>
-              <Text style={AppStyles.appSubtitle}>
-                By ManagemyAcademy
-              </Text>
+              <Text style={AppStyles.appTitle}>{_t("School Management System")}</Text>
+              <Text style={AppStyles.appSubtitle}>{_t("By ManagemyAcademy")}</Text>
             </View>
 
             {/* ================= MIDDLE SECTION ================= */}
             <View style={AppStyles.middleSection}>
               <View style={AppStyles.loginCard}>
                 <View style={AppStyles.cardHeader}>
-                  <Text style={AppStyles.cardTitle}>Welcome Back</Text>
-                  <Text style={AppStyles.cardSubtitle}>
-                    Login to continue...
-                  </Text>
+                  <Text style={AppStyles.cardTitle}>{_t("Welcome Back")}</Text>
+                  <Text style={AppStyles.cardSubtitle}>{_t("Login to continue...")}</Text>
                 </View>
 
                 {/* Username */}
                 <View style={AppStyles.fieldBlock}>
-                  <Text style={AppStyles.fieldLabel}>Username</Text>
+                  <Text style={AppStyles.fieldLabel}>{_t("Username")}</Text>
                   <View style={AppStyles.inputWrapper}>
                     <Feather
                       name="user"
@@ -182,7 +133,7 @@ try {
                       style={AppStyles.inputIcon}
                     />
                     <TextInput
-                      placeholder="Enter your username"
+                      placeholder={_t("Enter your username")}
                       placeholderTextColor="#c72f5c"
                       style={AppStyles.input}
                       value={username}
@@ -194,7 +145,7 @@ try {
 
                 {/* Password */}
                 <View style={AppStyles.fieldBlock}>
-                  <Text style={AppStyles.fieldLabel}>Password</Text>
+                  <Text style={AppStyles.fieldLabel}>{_t("Password")}</Text>
                   <View style={AppStyles.inputWrapper}>
                     <Feather
                       name="lock"
@@ -203,7 +154,7 @@ try {
                       style={AppStyles.inputIcon}
                     />
                     <TextInput
-                      placeholder="Enter your password"
+                      placeholder={_t("Enter your password")}
                       placeholderTextColor="#c72f5c"
                       secureTextEntry={secureText}
                       style={AppStyles.input}
@@ -224,7 +175,7 @@ try {
                  <TouchableOpacity
                    onPress={() => navigation.navigate("ForgotPassword")}
                  >
-                   <Text style={AppStyles.forgotLink}>Forgot Password?</Text>
+                   <Text style={AppStyles.forgotLink}>{_t("Forgot Password?")}</Text>
                  </TouchableOpacity>
                 </View>
 
@@ -238,22 +189,22 @@ try {
                   ) : (
                     <>
                       <Feather name="log-in" size={18} color="#fff" />
-                      <Text style={AppStyles.loginButtonText}> Login</Text>
+                      <Text style={AppStyles.loginButtonText}>{" "}{_t("Login")}</Text>
                     </>
                   )}
                 </TouchableOpacity>
 
                 <View style={AppStyles.registerRow}>
-                  <Text style={AppStyles.registerText}>Don’t have an account? </Text>
+                  <Text style={AppStyles.registerText}>{_t("Don’t have an account?")}{" "}</Text>
                  </View>
                 <View style={AppStyles.registerRow}>
                   <TouchableOpacity onPress={() => navigation.navigate("TrialRegistrationScreen")}>
-                    <Text style={AppStyles.registerLink}>Register here for your institution account</Text>
+                    <Text style={AppStyles.registerLink}>{_t("Register here for your institution account")}</Text>
                   </TouchableOpacity>
                 </View>
                 <View style={[AppStyles.registerRow, { marginTop: 10 }]}>
                   <TouchableOpacity onPress={() => navigation.navigate("StudentParentRegistration")}>
-                    <Text style={AppStyles.registerLink}>Student / Parent? Register here</Text>
+                    <Text style={AppStyles.registerLink}>{_t("Student / Parent? Register here")}</Text>
                   </TouchableOpacity>
                 </View>
                 <View style={[AppStyles.registerRow, { marginTop: 10 }]}>
@@ -262,7 +213,7 @@ try {
                       navigation.navigate("TrialRegistrationScreen", { verifyMode: true })
                     }
                   >
-                    <Text style={AppStyles.registerLink}>Verify existing registration</Text>
+                    <Text style={AppStyles.registerLink}>{_t("Verify existing registration")}</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -276,7 +227,7 @@ try {
                     onPress={() => navigation.navigate("ContactScreen")}
                   >
                     <Feather name="headphones" size={15} color="#ea580c" />
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#ea580c' }}>Contact Admin / Support</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#ea580c' }}>{_t("Contact Admin / Support")}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -284,25 +235,21 @@ try {
 
             {/* ================= BOTTOM SECTION ================= */}
             <View style={AppStyles.bottomSection}>
-              <Text style={AppStyles.versionText}>{APP_VERSION_LABEL}</Text>
-              <Text style={AppStyles.bottomSubText}>
-                Built for efficient school administration with secure access,
-                responsive design, and enterprise-ready workflows across web,
-                Android, iOS, and tablets.
-              </Text>
+              <Text style={AppStyles.versionText}>{_tx(APP_VERSION_LABEL)}</Text>
+              <Text style={AppStyles.bottomSubText}>{_t("Built for efficient school administration with secure access, responsive design, and enterprise-ready workflows across web, Android, iOS, and tablets.")}</Text>
 
               <View style={AppStyles.featureRow}>
                 <View style={AppStyles.featureBadge}>
                   <Feather name="shield" size={14} color="#2563eb" />
-                  <Text style={AppStyles.featureText}> Secure</Text>
+                  <Text style={AppStyles.featureText}>{" "}{_t("Secure")}</Text>
                 </View>
                 <View style={AppStyles.featureBadge}>
                   <Feather name="monitor" size={14} color="#2563eb" />
-                  <Text style={AppStyles.featureText}> Web Ready</Text>
+                  <Text style={AppStyles.featureText}>{" "}{_t("Web Ready")}</Text>
                 </View>
                 <View style={AppStyles.featureBadge}>
                   <Feather name="smartphone" size={14} color="#2563eb" />
-                  <Text style={AppStyles.featureText}> Mobile Ready</Text>
+                  <Text style={AppStyles.featureText}>{" "}{_t("Mobile Ready")}</Text>
                 </View>
               </View>
             </View>

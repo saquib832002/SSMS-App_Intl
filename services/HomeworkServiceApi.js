@@ -1,6 +1,7 @@
 // services/HomeworkServiceApi.js
 import { BASE_URL } from "../Environment/EnvironmentConfig";
 import { safeFetch } from "./apiInterceptor";
+import { _t } from "./i18n";
 
 const buildHeaders = (user) => ({
   Accept:             "application/json",
@@ -22,7 +23,7 @@ export const createHomework = async (user, payload) => {
     body:    JSON.stringify(payload),
   });
   const json = await res.json().catch(() => null);
-  if (!res.ok || !json) throw new Error(json?.message ?? `HTTP ${res.status}`);
+  if (!res.ok || !json) throw new Error(json?.message ?? _t("HTTP {status}", { status: res.status }));
   return json;
 };
 
@@ -36,7 +37,7 @@ export const listHomework = async (user, params = {}) => {
     headers: buildHeaders(user),
   });
   const json = await res.json().catch(() => null);
-  if (!res.ok || !json) throw new Error(json?.message ?? `HTTP ${res.status}`);
+  if (!res.ok || !json) throw new Error(json?.message ?? _t("HTTP {status}", { status: res.status }));
   return json.data ?? [];
 };
 
@@ -48,7 +49,7 @@ export const getHomeworkDetail = async (user, homeworkId, sessionId) => {
     headers: buildHeaders(user),
   });
   const json = await res.json().catch(() => null);
-  if (!res.ok || !json) throw new Error(json?.message ?? `HTTP ${res.status}`);
+  if (!res.ok || !json) throw new Error(json?.message ?? _t("HTTP {status}", { status: res.status }));
   return json; // { homework, summary, students }
 };
 
@@ -60,7 +61,7 @@ export const markStudents = async (user, homeworkId, students, markedBy) => {
     body:    JSON.stringify({ homeworkId, markedBy, students }),
   });
   const json = await res.json().catch(() => null);
-  if (!res.ok || !json) throw new Error(json?.message ?? `HTTP ${res.status}`);
+  if (!res.ok || !json) throw new Error(json?.message ?? _t("HTTP {status}", { status: res.status }));
   return json;
 };
 
@@ -72,7 +73,7 @@ export const markStudent = async (user, payload) => {
     body:    JSON.stringify(payload),
   });
   const json = await res.json().catch(() => null);
-  if (!res.ok || !json) throw new Error(json?.message ?? `HTTP ${res.status}`);
+  if (!res.ok || !json) throw new Error(json?.message ?? _t("HTTP {status}", { status: res.status }));
   return json;
 };
 
@@ -87,7 +88,7 @@ export const getStudentHomework = async (user, enrollmentId, date) => {
     headers: buildHeaders(user),
   });
   const json = await res.json().catch(() => null);
-  if (!res.ok || !json) throw new Error(json?.message ?? `HTTP ${res.status}`);
+  if (!res.ok || !json) throw new Error(json?.message ?? _t("HTTP {status}", { status: res.status }));
   return json.data ?? [];
 };
 
@@ -98,6 +99,6 @@ export const deleteHomework = async (user, homeworkId) => {
     headers: buildHeaders(user),
   });
   const json = await res.json().catch(() => null);
-  if (!res.ok || !json) throw new Error(json?.message ?? `HTTP ${res.status}`);
+  if (!res.ok || !json) throw new Error(json?.message ?? _t("HTTP {status}", { status: res.status }));
   return json;
 };

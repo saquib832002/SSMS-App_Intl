@@ -13,16 +13,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
 import { fetchMyAttendance } from '../../services/StudentServiceApi';
+import { _t, _tx } from "../../services/i18n";
 
 const { width: W } = Dimensions.get('window');
 
 // ── Attendance status config ──────────────────────────────────────────────────
 const STATUS = {
-  P:    { bg: '#dcfce7', fg: '#15803d', border: '#86efac', label: 'P', full: 'Present' },
-  A:    { bg: '#fee2e2', fg: '#dc2626', border: '#fca5a5', label: 'A', full: 'Absent'  },
-  L:    { bg: '#fef9c3', fg: '#92400e', border: '#fde68a', label: 'L', full: 'Leave'   },
-  H:    { bg: '#e0f2fe', fg: '#0369a1', border: '#7dd3fc', label: 'H', full: 'Holiday' },
-  S:    { bg: '#f1f5f9', fg: '#94a3b8', border: '#cbd5e1', label: 'S', full: 'Sunday'  },
+  P:    { bg: '#dcfce7', fg: '#15803d', border: '#86efac', get label() { return _t("P"); }, full: 'Present' },
+  A:    { bg: '#fee2e2', fg: '#dc2626', border: '#fca5a5', get label() { return _t("A"); }, full: 'Absent'  },
+  L:    { bg: '#fef9c3', fg: '#92400e', border: '#fde68a', get label() { return _t("L"); }, full: 'Leave'   },
+  H:    { bg: '#e0f2fe', fg: '#0369a1', border: '#7dd3fc', get label() { return _t("H"); }, full: 'Holiday' },
+  S:    { bg: '#f1f5f9', fg: '#94a3b8', border: '#cbd5e1', get label() { return _t("S"); }, full: 'Sunday'  },
   null: { bg: '#f8fafc', fg: '#cbd5e1', border: '#e2e8f0', label: '·', full: 'No data' },
 };
 
@@ -32,8 +33,8 @@ const getStatus = (att) => STATUS[att] ?? STATUS[null];
 function SummaryPill({ label, count, color, bg }) {
   return (
     <View style={[sp.pill, { backgroundColor: bg }]}>
-      <Text style={[sp.count, { color }]}>{count}</Text>
-      <Text style={[sp.label, { color }]}>{label}</Text>
+      <Text style={[sp.count, { color }]}>{_tx(count)}</Text>
+      <Text style={[sp.label, { color }]}>{_tx(label)}</Text>
     </View>
   );
 }
@@ -49,9 +50,9 @@ function DayCell({ day }) {
   const isToday = day.date === new Date().toISOString().split('T')[0];
   return (
     <View style={[dc.cell, { backgroundColor: st.bg, borderColor: isToday ? '#2563eb' : st.border }]}>
-      <Text style={[dc.dayName, { color: st.fg }]}>{day.dayName}</Text>
-      <Text style={[dc.dateNum, { color: st.fg }]}>{day.label}</Text>
-      <Text style={[dc.attLabel, { color: st.fg }]}>{st.label}</Text>
+      <Text style={[dc.dayName, { color: st.fg }]}>{_tx(day.dayName)}</Text>
+      <Text style={[dc.dateNum, { color: st.fg }]}>{_tx(day.label)}</Text>
+      <Text style={[dc.attLabel, { color: st.fg }]}>{_tx(st.label)}</Text>
     </View>
   );
 }
@@ -69,7 +70,7 @@ function LegendItem({ code }) {
   return (
     <View style={lg.item}>
       <View style={[lg.dot, { backgroundColor: st.bg, borderColor: st.border }]} />
-      <Text style={lg.txt}>{code ?? '·'} — {st.full}</Text>
+      <Text style={lg.txt}>{_tx(code) ?? '·'} — {_tx(st.full)}</Text>
     </View>
   );
 }
@@ -98,9 +99,9 @@ export default function MyAttendanceScreen({ navigation }) {
     setError(null);
     try {
       const res = await fetchMyAttendance(effectiveUser);
-      setData(res);
+      setData({ ...res, days: Array.isArray(res?.days) ? res.days : [] });
     } catch (e) {
-      setError(e.message ?? 'Failed to load attendance');
+      setError(e.message ?? _t("Failed to load attendance"));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -146,9 +147,9 @@ export default function MyAttendanceScreen({ navigation }) {
           <Feather name="arrow-left" size={20} color="#1e40af" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={s.headerTitle}>My Attendance</Text>
+          <Text style={s.headerTitle}>{_t("My Attendance")}</Text>
           <Text style={s.headerSub}>
-            {data ? `${data.from}  –  ${data.to}` : 'Last 30 days'}
+            {data ? `${_tx(data.from)}  –  ${_tx(data.to)}` : _t("Last 30 days")}
           </Text>
         </View>
         <TouchableOpacity onPress={() => load()} style={s.refreshBtn}>
@@ -160,15 +161,15 @@ export default function MyAttendanceScreen({ navigation }) {
       {loading ? (
         <View style={s.centred}>
           <ActivityIndicator size="large" color="#1e40af" />
-          <Text style={s.loadingTxt}>Loading your attendance…</Text>
+          <Text style={s.loadingTxt}>{_t("Loading your attendance…")}</Text>
         </View>
       ) : error ? (
         <View style={s.centred}>
           <MaterialIcons name="error-outline" size={48} color="#fca5a5" />
-          <Text style={s.errorTitle}>Could not load data</Text>
-          <Text style={s.errorSub}>{error}</Text>
+          <Text style={s.errorTitle}>{_t("Could not load data")}</Text>
+          <Text style={s.errorSub}>{_tx(error)}</Text>
           <TouchableOpacity style={s.retryBtn} onPress={() => load()}>
-            <Text style={s.retryTxt}>Try again</Text>
+            <Text style={s.retryTxt}>{_t("Try again")}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -189,7 +190,7 @@ export default function MyAttendanceScreen({ navigation }) {
             </View>
             <View>
               <Text style={s.idName}>
-                {user?.ssmsUserName ?? '—'}
+                {_tx(user?.ssmsUserName) ?? '—'}
               </Text>
               <Text style={s.idRole}>
                 {(user?.ssmsUserRole ?? '').charAt(0).toUpperCase() +
@@ -200,10 +201,10 @@ export default function MyAttendanceScreen({ navigation }) {
 
           {/* ── Summary pills ─────────────────────────────────────────── */}
           <View style={s.summaryRow}>
-            <SummaryPill label="Present" count={presentDays}  color="#15803d" bg="#dcfce7" />
-            <SummaryPill label="Absent"  count={absentDays}   color="#dc2626" bg="#fee2e2" />
-            <SummaryPill label="Leave"   count={leaveDays}    color="#92400e" bg="#fef9c3" />
-            <SummaryPill label="Holiday" count={holidayDays}  color="#0369a1" bg="#e0f2fe" />
+            <SummaryPill label={_t("Present")} count={presentDays}  color="#15803d" bg="#dcfce7" />
+            <SummaryPill label={_t("Absent")}  count={absentDays}   color="#dc2626" bg="#fee2e2" />
+            <SummaryPill label={_t("Leave")}   count={leaveDays}    color="#92400e" bg="#fef9c3" />
+            <SummaryPill label={_t("Holiday")} count={holidayDays}  color="#0369a1" bg="#e0f2fe" />
           </View>
 
           {/* ── Attendance % bar ──────────────────────────────────────── */}
@@ -213,16 +214,16 @@ export default function MyAttendanceScreen({ navigation }) {
             return (
               <View style={s.pctCard}>
                 <View style={s.pctRow}>
-                  <Text style={s.pctLabel}>Attendance Rate</Text>
-                  <Text style={[s.pctValue, { color }]}>{attPct}%</Text>
+                  <Text style={s.pctLabel}>{_t("Attendance Rate")}</Text>
+                  <Text style={[s.pctValue, { color }]}>{_tx(attPct)}%</Text>
                 </View>
                 <View style={s.pctTrack}>
                   <View style={[s.pctFill, { width: `${attPct}%`, backgroundColor: color }]} />
                 </View>
                 <Text style={[s.pctNote, { color }]}>
-                  {attPct >= 75 ? 'Good attendance — keep it up!' :
-                   attPct >= 50 ? 'Average — try to attend more classes.' :
-                                  'Low attendance — please improve.'}
+                  {attPct >= 75 ? _t("Good attendance — keep it up!") :
+                   attPct >= 50 ? _t("Average — try to attend more classes.") :
+                                  _t("Low attendance — please improve.")}
                 </Text>
               </View>
             );
@@ -230,7 +231,7 @@ export default function MyAttendanceScreen({ navigation }) {
 
           {/* ── Calendar grid ─────────────────────────────────────────── */}
           <View style={s.card}>
-            <Text style={s.cardTitle}>Daily Record</Text>
+            <Text style={s.cardTitle}>{_t("Daily Record")}</Text>
             <View style={s.grid}>
               {weeks.map((week, wi) => (
                 <View key={wi} style={s.weekRow}>
@@ -250,7 +251,7 @@ export default function MyAttendanceScreen({ navigation }) {
 
           {/* ── Legend ────────────────────────────────────────────────── */}
           <View style={s.legendCard}>
-            <Text style={s.cardTitle}>Legend</Text>
+            <Text style={s.cardTitle}>{_t("Legend")}</Text>
             <View style={s.legendRow}>
               <LegendItem code="P" />
               <LegendItem code="A" />

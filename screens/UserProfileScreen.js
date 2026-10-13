@@ -10,6 +10,7 @@ import * as ImagePicker from "expo-image-picker";
 import { AuthContext } from "../context/AuthContext";
 import { HOST_NAME } from "../Environment/EnvironmentConfig";
 import { fetchUserProfile, updateUserPhoto } from "../services/UserServiceApi";
+import { _t, _tx } from "../services/i18n";
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const C = {
@@ -31,7 +32,7 @@ function fmtDate(str) {
   if (!str) return '—';
   const m = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!m) return str;
-  return `${String(m[3]).padStart(2,'0')} ${MONTH_SHORT[+m[2]-1]} ${m[1]}`;
+  return `${String(m[3]).padStart(2,'0')} ${_tx(MONTH_SHORT[+m[2]-1])} ${m[1]}`;
 }
 
 function daysUntil(str) {
@@ -54,7 +55,7 @@ function ExpiryBadge({ expiryDate, status }) {
     bg = '#fee2e2'; textColor = '#b91c1c'; dot = '#b91c1c'; caption = 'Expired';
   } else if (days <= 30) {
     bg = '#fef9c3'; textColor = '#b45309'; dot = '#b45309';
-    caption = `Expires in ${days}d`;
+    caption = _t("Expires in {days}d", { days });
   } else {
     bg = '#dcfce7'; textColor = '#15803d'; dot = '#15803d'; caption = 'Active';
   }
@@ -63,8 +64,8 @@ function ExpiryBadge({ expiryDate, status }) {
     <View style={[xb.wrap, { backgroundColor: bg }]}>
       <View style={[xb.dot, { backgroundColor: dot }]} />
       <View>
-        <Text style={[xb.date, { color: textColor }]}>{label}</Text>
-        {!!caption && <Text style={[xb.caption, { color: textColor }]}>{caption}</Text>}
+        <Text style={[xb.date, { color: textColor }]}>{_tx(label)}</Text>
+        {!!caption && <Text style={[xb.caption, { color: textColor }]}>{_tx(caption)}</Text>}
       </View>
     </View>
   );
@@ -85,8 +86,8 @@ function InfoRow({ icon, label, value, accent }) {
         <Feather name={icon} size={14} color={clr} />
       </View>
       <View style={ir.body}>
-        <Text style={ir.label}>{label}</Text>
-        <Text style={ir.value} numberOfLines={2}>{value || '—'}</Text>
+        <Text style={ir.label}>{_tx(label)}</Text>
+        <Text style={ir.value} numberOfLines={2}>{_tx(value) || '—'}</Text>
       </View>
     </View>
   );
@@ -106,7 +107,7 @@ function SectionHead({ label, icon, color }) {
       <View style={[sh.box, { backgroundColor: color }]}>
         <Feather name={icon} size={12} color="#fff" />
       </View>
-      <Text style={[sh.label, { color }]}>{label}</Text>
+      <Text style={[sh.label, { color }]}>{_tx(label)}</Text>
       <View style={[sh.line, { backgroundColor: color + '30' }]} />
     </View>
   );
@@ -131,7 +132,7 @@ function AvatarWithEdit({ firstName, lastName, photoUrl, size = 72, onEdit, uplo
           />
         ) : (
           <View style={[av.circle, { width: size, height: size, borderRadius: size / 2 }]}>
-            <Text style={[av.text, { fontSize: size * 0.36 }]}>{initials}</Text>
+            <Text style={[av.text, { fontSize: size * 0.36 }]}>{_tx(initials)}</Text>
           </View>
         )}
       </View>
@@ -164,13 +165,13 @@ export default function UserProfileScreen() {
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) { setLoading(false); return; }
     fetchUserProfile(user)
       .then(p => {
         setProfile(p);
         if (p?.userPhoto) setProfilePhoto(p.userPhoto);
       })
-      .catch(e => Alert.alert('Error', e.message || 'Failed to load profile'))
+      .catch(e => Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load profile")))
       .finally(() => setLoading(false));
   }, [user]);
 
@@ -182,7 +183,7 @@ export default function UserProfileScreen() {
   const handlePickPhoto = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please allow access to your photo library to update your profile picture.');
+      Alert.alert(_t("Permission Required"), _t("Please allow access to your photo library to update your profile picture."));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -198,7 +199,7 @@ export default function UserProfileScreen() {
       setProfile(prev => ({ ...prev, userPhoto: res.filename }));
       setProfilePhoto(res.filename);
     } catch (e) {
-      Alert.alert('Error', e.message || 'Failed to upload photo');
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to upload photo"));
     } finally {
       setUploading(false);
     }
@@ -216,7 +217,7 @@ export default function UserProfileScreen() {
     return (
       <View style={s.loaderWrap}>
         <ActivityIndicator size="large" color={C.primary} />
-        <Text style={s.loaderText}>Loading profile…</Text>
+        <Text style={s.loaderText}>{_t("Loading profile…")}</Text>
       </View>
     );
   }
@@ -236,15 +237,15 @@ export default function UserProfileScreen() {
             uploading={uploading}
           />
           <View style={s.heroInfo}>
-            <Text style={s.heroName} numberOfLines={2}>{fullName}</Text>
-            <Text style={s.heroUsername}>@{user?.ssmsUserName}</Text>
+            <Text style={s.heroName} numberOfLines={2}>{_tx(fullName)}</Text>
+            <Text style={s.heroUsername}>@{_tx(user?.ssmsUserName)}</Text>
             <View style={s.heroRoleRow}>
               <View style={s.rolePill}>
-                <Text style={s.roleText}>{roleLabel}</Text>
+                <Text style={s.roleText}>{_tx(roleLabel)}</Text>
               </View>
               {!!user?.ssmsClientCode && (
                 <View style={s.codePill}>
-                  <Text style={s.codeText}>{user.ssmsClientCode}</Text>
+                  <Text style={s.codeText}>{_tx(user.ssmsClientCode)}</Text>
                 </View>
               )}
             </View>
@@ -254,16 +255,16 @@ export default function UserProfileScreen() {
         <View style={s.content}>
 
           {/* ── CONTACT ──────────────────────────────────────────────────── */}
-          <SectionHead label="Contact" icon="user" color={C.primary} />
-          <InfoRow icon="mail"       label="Email"        value={profile?.emailAddress}  accent={C.primary} />
-          <InfoRow icon="phone"      label="Mobile"       value={profile?.mobileNumber}  accent={C.primary} />
-          <InfoRow icon="user"       label="Username"     value={user?.ssmsUserName}     accent={C.primary} />
+          <SectionHead label={_t("Contact")} icon="user" color={C.primary} />
+          <InfoRow icon="mail"       label={_t("Email")}        value={profile?.emailAddress}  accent={C.primary} />
+          <InfoRow icon="phone"      label={_t("Mobile")}       value={profile?.mobileNumber}  accent={C.primary} />
+          <InfoRow icon="user"       label={_t("Username")}     value={user?.ssmsUserName}     accent={C.primary} />
 
           {/* ── MEMBERSHIP ───────────────────────────────────────────────── */}
-          <SectionHead label="Membership" icon="shield" color="#7c3aed" />
+          <SectionHead label={_t("Membership")} icon="shield" color="#7c3aed" />
 
           {!!profile?.clientName && (
-            <InfoRow icon="home"    label="Institute"    value={profile.clientName}     accent="#7c3aed" />
+            <InfoRow icon="home"    label={_t("Institute")}    value={profile.clientName}     accent="#7c3aed" />
           )}
 
           <View style={ir.row}>
@@ -271,7 +272,7 @@ export default function UserProfileScreen() {
               <Feather name="calendar" size={14} color="#7c3aed" />
             </View>
             <View style={ir.body}>
-              <Text style={ir.label}>Membership Expiry</Text>
+              <Text style={ir.label}>{_t("Membership Expiry")}</Text>
               <ExpiryBadge
                 expiryDate={profile?.expiryDate}
                 status={profile?.clientStatus}
@@ -279,20 +280,20 @@ export default function UserProfileScreen() {
             </View>
           </View>
 
-          <InfoRow icon="tag"   label="Plan Status"  value={profile?.clientStatus ?? '—'}  accent="#7c3aed" />
+          <InfoRow icon="tag"   label={_t("Plan Status")}  value={profile?.clientStatus ?? '—'}  accent="#7c3aed" />
 
           {/* ── SIGN OUT ─────────────────────────────────────────────────── */}
           <TouchableOpacity
             style={s.logoutBtn}
             onPress={() =>
-              Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Sign Out', style: 'destructive', onPress: logout },
+              Alert.alert(_t("Sign Out"), _t("Are you sure you want to sign out?"), [
+                { text: _t("Cancel"), style: 'cancel' },
+                { text: _t("Sign Out"), style: 'destructive', onPress: logout },
               ])
             }
           >
             <Feather name="log-out" size={17} color="#dc2626" />
-            <Text style={s.logoutTxt}>Sign Out</Text>
+            <Text style={s.logoutTxt}>{_t("Sign Out")}</Text>
           </TouchableOpacity>
 
         </View>

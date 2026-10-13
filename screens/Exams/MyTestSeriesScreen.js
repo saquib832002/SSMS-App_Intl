@@ -13,6 +13,8 @@ import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
 import { getMySeriesList, getMyTests } from "../../services/TestSeriesServiceApi";
 
+import { fmtDateTime as fmtDT } from "../../services/Locale";
+import { _t, _tx } from "../../services/i18n";
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtDateTime(str) {
@@ -20,10 +22,7 @@ function fmtDateTime(str) {
   // MySQL returns "YYYY-MM-DD HH:MM:SS" — replace space with T so all JS engines parse it
   const d = new Date(String(str).replace(' ', 'T'));
   if (isNaN(d)) return String(str);
-  return d.toLocaleString("en-IN", {
-    day: "2-digit", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
+  return fmtDT(d);
 }
 
 /** Returns status object for a test given now. */
@@ -37,25 +36,25 @@ function getTestStatus(test) {
 
   // attempt_status and attempt_id come back as flat columns on the test row
   if (test.attempt_status === 'submitted') {
-    return { key: "COMPLETED", label: "Completed", color: "#2563eb", bgColor: "#eff6ff", icon: "check-circle" };
+    return { key: "COMPLETED", label: _t("Completed"), color: "#2563eb", bgColor: "#eff6ff", icon: "check-circle" };
   }
   if (test.attempt_status === 'in_progress') {
-    return { key: "IN_PROGRESS", label: "In Progress", color: "#d97706", bgColor: "#fffbeb", icon: "rotate-ccw" };
+    return { key: "IN_PROGRESS", label: _t("In Progress"), color: "#d97706", bgColor: "#fffbeb", icon: "rotate-ccw" };
   }
   if (start && now < start) {
-    return { key: "UPCOMING", label: "Upcoming", color: "#64748b", bgColor: "#f1f5f9", icon: "clock" };
+    return { key: "UPCOMING", label: _t("Upcoming"), color: "#64748b", bgColor: "#f1f5f9", icon: "clock" };
   }
   if (start && end && now >= start && now <= end) {
-    return { key: "LIVE", label: "Live Now", color: "#16a34a", bgColor: "#f0fdf4", icon: "zap" };
+    return { key: "LIVE", label: _t("Live Now"), color: "#16a34a", bgColor: "#f0fdf4", icon: "zap" };
   }
   if (!start && !end) {
     // No schedule set — always open (treat as live if attempt not started)
-    return { key: "LIVE", label: "Open", color: "#16a34a", bgColor: "#f0fdf4", icon: "zap" };
+    return { key: "LIVE", label: _t("Open"), color: "#16a34a", bgColor: "#f0fdf4", icon: "zap" };
   }
   if (end && now > end) {
-    return { key: "ENDED", label: "Ended", color: "#dc2626", bgColor: "#fef2f2", icon: "x-circle" };
+    return { key: "ENDED", label: _t("Ended"), color: "#dc2626", bgColor: "#fef2f2", icon: "x-circle" };
   }
-  return { key: "UPCOMING", label: "Upcoming", color: "#64748b", bgColor: "#f1f5f9", icon: "clock" };
+  return { key: "UPCOMING", label: _t("Upcoming"), color: "#64748b", bgColor: "#f1f5f9", icon: "clock" };
 }
 
 // ── Exam type badge colours ───────────────────────────────────────────────────
@@ -73,7 +72,7 @@ function ExamTypeBadge({ type }) {
   const { bg, fg } = TYPE_COLORS[upper] ?? TYPE_COLORS[type] ?? TYPE_COLORS.Other;
   return (
     <View style={[s.badge, { backgroundColor: bg }]}>
-      <Text style={[s.badgeTxt, { color: fg }]}>{upper}</Text>
+      <Text style={[s.badgeTxt, { color: fg }]}>{_tx(upper)}</Text>
     </View>
   );
 }
@@ -111,30 +110,30 @@ function TestCard({ test, onPress }) {
     >
       <View style={s.testCardLeft}>
         <View style={s.testCardHeader}>
-          <Text style={s.testTitle} numberOfLines={2}>{test.title ?? "Untitled Test"}</Text>
+          <Text style={s.testTitle} numberOfLines={2}>{_tx(test.title) ?? _t("Untitled Test")}</Text>
           <View style={[s.statusPill, { backgroundColor: status.bgColor }]}>
             {isLive && <LiveDot />}
             <Feather name={status.icon} size={10} color={status.color} />
-            <Text style={[s.statusTxt, { color: status.color }]}>{status.label}</Text>
+            <Text style={[s.statusTxt, { color: status.color }]}>{_tx(status.label)}</Text>
           </View>
         </View>
 
         <View style={s.testMeta}>
           <View style={s.metaItem}>
             <Feather name="clock" size={11} color="#94a3b8" />
-            <Text style={s.metaTxt}>{test.duration_minutes ?? "—"} min</Text>
+            <Text style={s.metaTxt}>{_t("{v} min", { v: test.duration_minutes ?? "—" })}</Text>
           </View>
           <View style={s.metaDivider} />
           <View style={s.metaItem}>
             <Feather name="award" size={11} color="#94a3b8" />
-            <Text style={s.metaTxt}>{test.total_marks ?? "—"} marks</Text>
+            <Text style={s.metaTxt}>{_t("{v} marks", { v: test.total_marks ?? "—" })}</Text>
           </View>
           {(test.question_count ?? test.total_questions) != null && (
             <>
               <View style={s.metaDivider} />
               <View style={s.metaItem}>
                 <Feather name="list" size={11} color="#94a3b8" />
-                <Text style={s.metaTxt}>{test.question_count ?? test.total_questions} Qs</Text>
+                <Text style={s.metaTxt}>{_t("{v} Qs", { v: test.question_count ?? test.total_questions })}</Text>
               </View>
             </>
           )}
@@ -161,7 +160,7 @@ function TestCard({ test, onPress }) {
           <Text style={[s.testActionTxt, {
             color: isCompleted ? "#2563eb" : isInProgress ? "#d97706" : "#16a34a"
           }]}>
-            {isCompleted ? "Result" : isInProgress ? "Resume" : "Start"}
+            {isCompleted ? _t("Result") : isInProgress ? _t("Resume") : _t("Start")}
           </Text>
         </View>
       )}
@@ -193,7 +192,7 @@ export default function MyTestSeriesScreen({ navigation }) {
       const res = await getMySeriesList(effectiveUser);
       setSeries(Array.isArray(res.data) ? res.data : Array.isArray(res) ? res : []);
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load test series");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load test series"));
     } finally {
       setLoading(false);
     }
@@ -211,7 +210,7 @@ export default function MyTestSeriesScreen({ navigation }) {
       const res = await getMyTests(effectiveUser, item.id ?? item.series_id);
       setTests(Array.isArray(res.data) ? res.data : Array.isArray(res) ? res : []);
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load tests");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load tests"));
     } finally {
       setTestsLoading(false);
     }
@@ -223,7 +222,7 @@ export default function MyTestSeriesScreen({ navigation }) {
       // attempt_id comes back as a flat column from the getMyTests query
       const attemptId = test.attempt_id ?? test.my_attempt?.attempt_id ?? test.my_attempt?.id;
       if (!attemptId) {
-        Alert.alert("No result", "Result data is not available yet.");
+        Alert.alert(_t("No result"), _t("Result data is not available yet."));
         return;
       }
       setSheetVisible(false);
@@ -240,17 +239,17 @@ export default function MyTestSeriesScreen({ navigation }) {
       <View style={s.seriesCardAccent} />
       <View style={s.seriesCardBody}>
         <View style={s.seriesRow}>
-          <Text style={s.seriesTitle} numberOfLines={1}>{item.name ?? item.title ?? "Series"}</Text>
+          <Text style={s.seriesTitle} numberOfLines={1}>{_tx(item.name) ?? _tx(item.title) ?? _t("Series")}</Text>
           <ExamTypeBadge type={item.exam_type} />
         </View>
         {!!item.description && (
-          <Text style={s.seriesDesc} numberOfLines={2}>{item.description}</Text>
+          <Text style={s.seriesDesc} numberOfLines={2}>{_tx(item.description)}</Text>
         )}
         <View style={s.seriesMeta}>
           {item.total_tests != null && (
             <View style={s.metaItem}>
               <Feather name="layers" size={11} color="#94a3b8" />
-              <Text style={s.metaTxt}>{item.total_tests} Tests</Text>
+              <Text style={s.metaTxt}>{_t("{total_tests} Tests", { total_tests: item.total_tests })}</Text>
             </View>
           )}
           {item.class_name && (
@@ -258,7 +257,7 @@ export default function MyTestSeriesScreen({ navigation }) {
               {item.total_tests != null && <View style={s.metaDivider} />}
               <View style={s.metaItem}>
                 <Feather name="users" size={11} color="#94a3b8" />
-                <Text style={s.metaTxt}>{item.class_name}</Text>
+                <Text style={s.metaTxt}>{_tx(item.class_name)}</Text>
               </View>
             </>
           )}
@@ -277,8 +276,8 @@ export default function MyTestSeriesScreen({ navigation }) {
           <Feather name="arrow-left" size={20} color="#2563eb" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={s.headerTitle}>My Test Series</Text>
-          <Text style={s.headerSub}>Tap a series to view its tests</Text>
+          <Text style={s.headerTitle}>{_t("My Test Series")}</Text>
+          <Text style={s.headerSub}>{_t("Tap a series to view its tests")}</Text>
         </View>
         <TouchableOpacity onPress={load} style={s.refreshBtn}>
           <Feather name="refresh-cw" size={16} color="#64748b" />
@@ -289,7 +288,7 @@ export default function MyTestSeriesScreen({ navigation }) {
       {loading ? (
         <View style={s.center}>
           <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={s.loadingTxt}>Loading series…</Text>
+          <Text style={s.loadingTxt}>{_t("Loading series…")}</Text>
         </View>
       ) : (
         <FlatList
@@ -301,8 +300,8 @@ export default function MyTestSeriesScreen({ navigation }) {
           ListEmptyComponent={
             <View style={s.empty}>
               <MaterialIcons name="library-books" size={48} color="#cbd5e1" />
-              <Text style={s.emptyTxt}>No test series assigned</Text>
-              <Text style={s.emptySub}>Your enrolled series will appear here</Text>
+              <Text style={s.emptyTxt}>{_t("No test series assigned")}</Text>
+              <Text style={s.emptySub}>{_t("Your enrolled series will appear here")}</Text>
             </View>
           }
         />
@@ -326,7 +325,7 @@ export default function MyTestSeriesScreen({ navigation }) {
           <View style={s.sheetHeader}>
             <View style={{ flex: 1 }}>
               <Text style={s.sheetTitle} numberOfLines={1}>
-                {activeSeries?.name ?? activeSeries?.title ?? "Tests"}
+                {_tx(activeSeries?.name) ?? _tx(activeSeries?.title) ?? _t("Tests")}
               </Text>
               {activeSeries?.exam_type && (
                 <ExamTypeBadge type={activeSeries.exam_type} />
@@ -344,12 +343,12 @@ export default function MyTestSeriesScreen({ navigation }) {
           {testsLoading ? (
             <View style={s.center}>
               <ActivityIndicator size="large" color="#2563eb" />
-              <Text style={s.loadingTxt}>Loading tests…</Text>
+              <Text style={s.loadingTxt}>{_t("Loading tests…")}</Text>
             </View>
           ) : tests.length === 0 ? (
             <View style={s.empty}>
               <Feather name="inbox" size={40} color="#cbd5e1" />
-              <Text style={s.emptyTxt}>No tests yet</Text>
+              <Text style={s.emptyTxt}>{_t("No tests yet")}</Text>
             </View>
           ) : (
             <ScrollView contentContainerStyle={s.sheetContent} showsVerticalScrollIndicator={false}>

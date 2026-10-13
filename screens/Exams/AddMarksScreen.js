@@ -24,6 +24,7 @@ import { fetchSections } from "../../services/StudentServiceApi";
 // Reusable Dropdown (same pattern across app)
 // ─────────────────────────────────────────────────────────────────────────────
 import { Modal, FlatList as FL } from "react-native";
+import { _t, _tx } from "../../services/i18n";
 function Dropdown({ label, value, options, onChange, disabled, loading, required }) {
   const [open, setOpen] = useState(false);
   const sel = options.find(o => String(o.value) === String(value));
@@ -35,7 +36,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading, required
         activeOpacity={0.75}
       >
         <Text style={[mk.ddTxt, !sel?.value && mk.ddPh]} numberOfLines={1}>
-          {loading ? "Loading…" : (sel?.label ?? label)}
+          {loading ? _t("Loading…") : (_tx(sel?.label) ?? _tx(label))}
         </Text>
         <Feather name={loading ? "loader" : "chevron-down"} size={13} color="#94a3b8" />
       </TouchableOpacity>
@@ -43,7 +44,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading, required
         <TouchableOpacity style={mk.ddOverlay} activeOpacity={1} onPress={() => setOpen(false)}>
           <View style={mk.ddSheet}>
             <View style={mk.ddSheetHead}>
-              <Text style={mk.ddSheetTitle}>{label}{required ? " *" : ""}</Text>
+              <Text style={mk.ddSheetTitle}>{_tx(label)}{required ? " *" : ""}</Text>
               <TouchableOpacity onPress={() => setOpen(false)} style={mk.ddClose}>
                 <Feather name="x" size={14} color="#64748b" />
               </TouchableOpacity>
@@ -57,7 +58,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading, required
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[mk.ddOptTxt, String(o.value) === String(value) && mk.ddOptTxtAct]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) &&
                     <Feather name="check" size={13} color="#1e40af" />}
@@ -77,7 +78,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading, required
 // ─────────────────────────────────────────────────────────────────────────────
 const FilterField = ({ label, required, children }) => (
   <View style={mk.filterField}>
-    <Text style={mk.filterLabel}>{label}{required && <Text style={{ color: "#ef4444" }}> *</Text>}</Text>
+    <Text style={mk.filterLabel}>{_tx(label)}{required && <Text style={{ color: "#ef4444" }}> *</Text>}</Text>
     {children}
   </View>
 );
@@ -93,7 +94,7 @@ const MarkCell = ({ value, onChangeText, maxVal, editable = true, isAbsent, onTo
       {isAbsent ? (
         // Absent mode: tappable "A" box — tap to undo
         <TouchableOpacity style={mk.absentBox} onPress={onToggleAbsent} activeOpacity={0.75}>
-          <Text style={mk.absentBoxTxt}>A</Text>
+          <Text style={mk.absentBoxTxt}>{_t("A")}</Text>
         </TouchableOpacity>
       ) : (
         <TextInput
@@ -116,7 +117,7 @@ const MarkCell = ({ value, onChangeText, maxVal, editable = true, isAbsent, onTo
           activeOpacity={0.75}
         >
           <Text style={[mk.absentPillTxt, isAbsent && mk.absentPillTxtOn]}>
-            {isAbsent ? "✕ abs" : "abs"}
+            {isAbsent ? _t("✕ abs") : "abs"}
           </Text>
         </TouchableOpacity>
       )}
@@ -182,14 +183,18 @@ export default function AddMarksScreen({ route }) {
           ? fetchTeacherAssignments(user, staffId).catch(() => [])
           : Promise.resolve(null);
 
-        const [branchData, examData, sessionData, assignments] = await Promise.all([
+        // allSettled: one forbidden call (403) must not blank the whole filter panel
+        const settled = await Promise.allSettled([
           ...basePromises, restrictedLoad,
         ]);
         if (cancelled) return;
+        const [branchData, examData, sessionData, assignments] = settled.map(r => r.status === "fulfilled" ? r.value : null);
+        const firstErr = settled.find(r => r.status === "rejected");
 
-        const brList = Array.isArray(branchData)  ? branchData  : branchData?.data  ?? [];
-        const exList = Array.isArray(examData)    ? examData    : examData?.data    ?? [];
-        const seList = Array.isArray(sessionData) ? sessionData : sessionData?.data ?? [];
+        const asArr = (d) => Array.isArray(d) ? d : Array.isArray(d?.data) ? d.data : [];
+        const brList = asArr(branchData);
+        const exList = asArr(examData);
+        const seList = asArr(sessionData);
         setBranches(brList);
         setExams(exList);
         setSessions(seList);
@@ -212,8 +217,8 @@ export default function AddMarksScreen({ route }) {
           clList = [];
         } else {
           // Admin/owner — fetch all classes
-          const classData = await fetchClasses(user);
-          clList = Array.isArray(classData) ? classData : classData?.data ?? [];
+          const classData = await fetchClasses(user).catch(() => null);
+          clList = asArr(classData);
         }
         setClasses(clList);
 
@@ -229,8 +234,9 @@ export default function AddMarksScreen({ route }) {
           if (brList.length) setFilter("branch_id",  String(brList[0].branch_id));
           if (seList.length) setFilter("session_id", String(seList[0].session_id));
         }
+        if (firstErr) Alert.alert(_t("Error"), _tx(firstErr.reason?.message) || _t("Failed to load filters"));
       } catch (e) {
-        Alert.alert("Error", e.message || "Failed to load filters");
+        Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load filters"));
       } finally {
         if (!cancelled) setLoadingFilters(false);
       }
@@ -294,10 +300,10 @@ export default function AddMarksScreen({ route }) {
 
   // ── Fetch students for marks ───────────────────────────────────────────────
   const handleProceed = async () => {
-    if (!filters.exam_id)    { Alert.alert("Required", "Please select an exam.");    return; }
-    if (!filters.class_id)   { Alert.alert("Required", "Please select a class.");   return; }
-    if (!filters.section_id) { Alert.alert("Required", "Please select a section."); return; }
-    if (!filters.subject_id) { Alert.alert("Required", "Please select a subject."); return; }
+    if (!filters.exam_id)    { Alert.alert(_t("Required"), _t("Please select an exam."));    return; }
+    if (!filters.class_id)   { Alert.alert(_t("Required"), _t("Please select a class."));   return; }
+    if (!filters.section_id) { Alert.alert(_t("Required"), _t("Please select a section.")); return; }
+    if (!filters.subject_id) { Alert.alert(_t("Required"), _t("Please select a subject.")); return; }
 
     try {
       setLoadingStudents(true);
@@ -309,8 +315,8 @@ export default function AddMarksScreen({ route }) {
         sectionId: filters.section_id,
         subjectId: filters.subject_id,
       });
-      if (!rows.length) {
-        Alert.alert("No Students", "No enrolled students found for the selected filters.");
+      if (!Array.isArray(rows) || !rows.length) {
+        Alert.alert(_t("No Students"), _t("No enrolled students found for the selected filters."));
         return;
       }
       // Build marksMap from existing marks
@@ -331,7 +337,7 @@ export default function AddMarksScreen({ route }) {
       setMarksMap(map);
       setStep(2);
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load students");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load students"));
     } finally {
       setLoadingStudents(false);
     }
@@ -384,17 +390,17 @@ export default function AddMarksScreen({ route }) {
     if (!row.internal_absent  && maxI != null && (row.internal_marks  === "" || row.internal_marks  == null)) missing.push("Internal");
     if (!row.practical_absent && maxP != null && (row.practical_marks === "" || row.practical_marks == null)) missing.push("Practical");
     if (missing.length > 0) {
-      Alert.alert("Marks Required", `Please enter ${missing.join(", ")} marks or mark them as absent.`);
+      Alert.alert(_t("Marks Required"), _t("Please enter {v} marks or mark them as absent.", { v: missing.join(", ") }));
       return;
     }
     if (!row.theory_absent    && maxT && parseFloat(row.theory_marks)    > maxT) {
-      Alert.alert("Validation", `Theory marks exceed max (${maxT})`); return;
+      Alert.alert(_t("Validation"), _t("Theory marks exceed max ({maxT})", { maxT })); return;
     }
     if (!row.internal_absent  && maxI && parseFloat(row.internal_marks)  > maxI) {
-      Alert.alert("Validation", `Internal marks exceed max (${maxI})`); return;
+      Alert.alert(_t("Validation"), _t("Internal marks exceed max ({maxI})", { maxI })); return;
     }
     if (!row.practical_absent && maxP && parseFloat(row.practical_marks) > maxP) {
-      Alert.alert("Validation", `Practical marks exceed max (${maxP})`); return;
+      Alert.alert(_t("Validation"), _t("Practical marks exceed max ({maxP})", { maxP })); return;
     }
 
     const t = row.theory_absent    ? 0 : (parseFloat(row.theory_marks)    || 0);
@@ -425,7 +431,7 @@ export default function AddMarksScreen({ route }) {
       // Reset saved indicator after 3 seconds
       setTimeout(() => setSavedMap(prev => ({ ...prev, [eid]: false })), 3000);
     } catch (e) {
-      Alert.alert("Security Restriction", e.message || "Failed to save marks");
+      Alert.alert(_t("Security Restriction"), _tx(e.message) || _t("Failed to save marks"));
     } finally {
       setSavingMap(prev => ({ ...prev, [eid]: false }));
     }
@@ -444,17 +450,17 @@ export default function AddMarksScreen({ route }) {
       if (!row.internal_absent  && maxI != null && (row.internal_marks  === "" || row.internal_marks  == null)) missing.push("Internal");
       if (!row.practical_absent && maxP != null && (row.practical_marks === "" || row.practical_marks == null)) missing.push("Practical");
       if (missing.length > 0) {
-        Alert.alert("Marks Required", `${s.student_name}: enter ${missing.join(", ")} or mark as absent.`);
+        Alert.alert(_t("Marks Required"), _t("{student_name}: enter {v} or mark as absent.", { student_name: s.student_name, v: missing.join(", ") }));
         return;
       }
       if (!row.theory_absent    && maxT && parseFloat(row.theory_marks)    > maxT) {
-        Alert.alert("Validation", `${s.student_name}: Theory marks exceed max (${maxT})`); return;
+        Alert.alert(_t("Validation"), _t("{student_name}: Theory marks exceed max ({maxT})", { student_name: s.student_name, maxT })); return;
       }
       if (!row.internal_absent  && maxI && parseFloat(row.internal_marks)  > maxI) {
-        Alert.alert("Validation", `${s.student_name}: Internal marks exceed max (${maxI})`); return;
+        Alert.alert(_t("Validation"), _t("{student_name}: Internal marks exceed max ({maxI})", { student_name: s.student_name, maxI })); return;
       }
       if (!row.practical_absent && maxP && parseFloat(row.practical_marks) > maxP) {
-        Alert.alert("Validation", `${s.student_name}: Practical marks exceed max (${maxP})`); return;
+        Alert.alert(_t("Validation"), _t("{student_name}: Practical marks exceed max ({maxP})", { student_name: s.student_name, maxP })); return;
       }
     }
 
@@ -485,9 +491,9 @@ export default function AddMarksScreen({ route }) {
       students.forEach(s => { allSaved[s.enrollment_id] = true; });
       setSavedMap(allSaved);
       setTimeout(() => setSavedMap({}), 3000);
-      Alert.alert("Saved", result.message ?? "All marks saved successfully.");
+      Alert.alert(_t("Saved"), _tx(result.message) ?? _t("All marks saved successfully."));
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to save marks");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to save marks"));
     } finally {
       setSavingMap({});
     }
@@ -502,9 +508,9 @@ export default function AddMarksScreen({ route }) {
     value: String(e.exam_id),
   }));
   const sessionOpts = sessions.map(s  => ({ label: s.session_name ?? s.session_year, value: String(s.session_id) }));
-  const classOpts   = [{ label: "Select Class",  value:""},  ...classes.map(c   => ({ label: c.class_name,    value: String(c.class_id)   }))];
+  const classOpts   = [{ label: _t("Select Class"),  value:""},  ...classes.map(c   => ({ label: c.class_name,    value: String(c.class_id)   }))];
   const sectionOpts = sections.map(s  => ({ label: s.section_name,  value: String(s.section_id) }));
-  const subjectOpts = [{ label: "Select Subject", value: "" }, ...subjects.map(s => ({
+  const subjectOpts = [{ label: _t("Select Subject"), value: "" }, ...subjects.map(s => ({
     label: s.subject_code ? `${s.subject_name} - ${s.subject_code}` : s.subject_name,
     value: String(s.subject_id),
   }))];
@@ -535,55 +541,55 @@ export default function AddMarksScreen({ route }) {
                 <Feather name="edit-3" size={20} color="#1e40af" />
               </View>
               <View>
-                <Text style={mk.pageTitle}>Add / Edit Marks</Text>
-                <Text style={mk.pageSub}>Select filters to load students</Text>
+                <Text style={mk.pageTitle}>{_t("Add / Edit Marks")}</Text>
+                <Text style={mk.pageSub}>{_t("Select filters to load students")}</Text>
               </View>
             </View>
 
             {/* Filter card */}
             <View style={mk.card}>
-              <Text style={mk.cardSectionTitle}>Step 1 — Select Filters</Text>
+              <Text style={mk.cardSectionTitle}>{_t("Step 1 — Select Filters")}</Text>
 
               <View style={mk.filterGrid}>
                 <View style={mk.filterHalf}>
-                  <FilterField label="Branch">
-                    <Dropdown label="All Branches" value={filters.branch_id}
+                  <FilterField label={_t("Branch")}>
+                    <Dropdown label={_t("All Branches")} value={filters.branch_id}
                       options={branchOpts} onChange={v => setFilter("branch_id", v)}
                       loading={loadingFilters} />
                   </FilterField>
                 </View>
                 <View style={mk.filterHalf}>
-                  <FilterField label="Exam" required>
-                    <Dropdown label="Select Exam" value={filters.exam_id}
+                  <FilterField label={_t("Exam")} required>
+                    <Dropdown label={_t("Select Exam")} value={filters.exam_id}
                       options={examOpts} onChange={v => setFilter("exam_id", v)}
                       loading={loadingFilters} required />
                   </FilterField>
                 </View>
                 <View style={mk.filterHalf}>
-                  <FilterField label="Session">
-                    <Dropdown label="Select Session" value={filters.session_id}
+                  <FilterField label={_t("Session")}>
+                    <Dropdown label={_t("Select Session")} value={filters.session_id}
                       options={sessionOpts} onChange={v => setFilter("session_id", v)}
                       loading={loadingFilters} />
                   </FilterField>
                 </View>
                 <View style={mk.filterHalf}>
-                  <FilterField label="Class" required>
-                    <Dropdown label="Select Class" value={filters.class_id}
+                  <FilterField label={_t("Class")} required>
+                    <Dropdown label={_t("Select Class")} value={filters.class_id}
                       options={classOpts}
                       onChange={v => { setFilter("class_id", v); setFilter("section_id", ""); setFilter("subject_id", ""); }}
                       loading={loadingFilters} required />
                   </FilterField>
                 </View>
                 <View style={mk.filterHalf}>
-                  <FilterField label="Section" required>
-                    <Dropdown label="Select Section" value={filters.section_id}
+                  <FilterField label={_t("Section")} required>
+                    <Dropdown label={_t("Select Section")} value={filters.section_id}
                       options={sectionOpts} onChange={v => setFilter("section_id", v)}
                       disabled={!filters.class_id} loading={loadingSections} required />
                   </FilterField>
                 </View>
                 <View style={mk.filterHalf}>
-                  <FilterField label="Subject" required>
-                    <Dropdown label="Select Subject" value={filters.subject_id}
+                  <FilterField label={_t("Subject")} required>
+                    <Dropdown label={_t("Select Subject")} value={filters.subject_id}
                       options={subjectOpts} onChange={v => setFilter("subject_id", v)}
                       disabled={!filters.class_id} loading={loadingSubjects} required />
                   </FilterField>
@@ -594,19 +600,12 @@ export default function AddMarksScreen({ route }) {
               {maxMarksData ? (
                 <View style={mk.maxMarksBanner}>
                   <Feather name="info" size={13} color="#1e40af" />
-                  <Text style={mk.maxMarksTxt}>
-                    Max — Theory: {maxMarksData.theory_max_marks ?? 0}  ·
-                    Internal: {maxMarksData.internal_max_marks ?? 0}  ·
-                    Practical: {maxMarksData.practical_max_marks ?? 0}  ·
-                    Total: {maxMarksData.max_marks ?? 0}
-                  </Text>
+                  <Text style={mk.maxMarksTxt}>{_t("Max — Theory: {v}  · Internal: {v2}  · Practical: {v3}  · Total: {v4}", { v: maxMarksData.theory_max_marks ?? 0, v2: maxMarksData.internal_max_marks ?? 0, v3: maxMarksData.practical_max_marks ?? 0, v4: maxMarksData.max_marks ?? 0 })}</Text>
                 </View>
               ) : (
                 <View style={mk.maxMarksWarnBanner}>
                   <Feather name="alert-triangle" size={13} color="#92400e" />
-                  <Text style={mk.maxMarksWarnTxt}>
-                    Max marks not set for this subject. Go to Setup → Max Marks to configure them, otherwise the marksheet will show 0% for all students.
-                  </Text>
+                  <Text style={mk.maxMarksWarnTxt}>{_t("Max marks not set for this subject. Go to Setup → Max Marks to configure them, otherwise the marksheet will show 0% for all students.")}</Text>
                 </View>
               )}
 
@@ -620,7 +619,7 @@ export default function AddMarksScreen({ route }) {
                 {loadingStudents
                   ? <ActivityIndicator color="#fff" size="small" />
                   : <>
-                      <Text style={mk.proceedBtnTxt}>Load Students</Text>
+                      <Text style={mk.proceedBtnTxt}>{_t("Load Students")}</Text>
                       <Feather name="arrow-right" size={16} color="#fff" />
                     </>}
               </TouchableOpacity>
@@ -651,17 +650,17 @@ export default function AddMarksScreen({ route }) {
           </TouchableOpacity>
           <View style={{ flex: 1, marginLeft: 10 }}>
             <Text style={mk.contextTitle} numberOfLines={1}>
-              {selSubject?.subject_name ?? "Subject"}
+              {_tx(selSubject?.subject_name) ?? _t("Subject")}
             </Text>
             <Text style={mk.contextSub} numberOfLines={1}>
-              {selClass?.class_name ?? "Class"}
-              {selSection ? ` · ${selSection.section_name}` : ""}
-              {selSession ? ` · ${selSession.session_name ?? selSession.session_year}` : ""}
+              {_tx(selClass?.class_name) ?? _t("Class")}
+              {selSection ? ` · ${_tx(selSection.section_name)}` : ""}
+              {selSession ? ` · ${_tx(selSession.session_name) ?? _tx(selSession.session_year)}` : ""}
             </Text>
           </View>
           <View style={mk.studentCountBadge}>
-            <Text style={mk.studentCountTxt}>{students.length}</Text>
-            <Text style={mk.studentCountLabel}>students</Text>
+            <Text style={mk.studentCountTxt}>{_tx(students.length)}</Text>
+            <Text style={mk.studentCountLabel}>{_t("students")}</Text>
           </View>
         </View>
 
@@ -669,17 +668,17 @@ export default function AddMarksScreen({ route }) {
         {selExam && (
           <View style={mk.examInfoStrip}>
             <View style={mk.examInfoField}>
-              <Text style={mk.examInfoLabel}>Exam</Text>
-              <Text style={mk.examInfoValue} numberOfLines={1}>{selExam.exam_name}</Text>
+              <Text style={mk.examInfoLabel}>{_t("Exam")}</Text>
+              <Text style={mk.examInfoValue} numberOfLines={1}>{_tx(selExam.exam_name)}</Text>
             </View>
             <View style={mk.examInfoDivider} />
             <View style={mk.examInfoField}>
-              <Text style={mk.examInfoLabel}>Category</Text>
+              <Text style={mk.examInfoLabel}>{_t("Category")}</Text>
               {(() => {
                 const { bg, fg } = CAT_COLORS[selExam.exam_category] ?? CAT_COLORS.Major;
                 return (
                   <View style={[mk.examCatBadge, { backgroundColor: bg }]}>
-                    <Text style={[mk.examCatTxt, { color: fg }]}>{selExam.exam_category ?? "Major"}</Text>
+                    <Text style={[mk.examCatTxt, { color: fg }]}>{_tx(selExam.exam_category) ?? _t("Major")}</Text>
                   </View>
                 );
               })()}
@@ -699,14 +698,14 @@ export default function AddMarksScreen({ route }) {
           {maxMarksData && (
             <View style={mk.maxStrip}>
               {[
-                { label: "Theory",    val: maxT },
-                { label: "Internal",  val: maxI },
-                { label: "Practical", val: maxP },
-                { label: "Total",     val: maxMarksData?.max_marks, highlight: true },
+                { label: _t("Theory"),    val: maxT },
+                { label: _t("Internal"),  val: maxI },
+                { label: _t("Practical"), val: maxP },
+                { label: _t("Total"),     val: maxMarksData?.max_marks, highlight: true },
               ].filter(x => x.val != null).map(x => (
                 <View key={x.label} style={[mk.maxChip, x.highlight && mk.maxChipHL]}>
-                  <Text style={[mk.maxChipLabel, x.highlight && { color: "#fff" }]}>{x.label}</Text>
-                  <Text style={[mk.maxChipVal,   x.highlight && { color: "#fff" }]}>{x.val}</Text>
+                  <Text style={[mk.maxChipLabel, x.highlight && { color: "#fff" }]}>{_tx(x.label)}</Text>
+                  <Text style={[mk.maxChipVal,   x.highlight && { color: "#fff" }]}>{_tx(x.val)}</Text>
                 </View>
               ))}
             </View>
@@ -714,13 +713,13 @@ export default function AddMarksScreen({ route }) {
 
           {/* Column headers */}
           <View style={mk.tableHeader}>
-            <Text style={[mk.thCell, mk.thRoll]}>Roll</Text>
-            <Text style={[mk.thCell, mk.thName]}>Name</Text>
-            <Text style={[mk.thCell, mk.thMark]}>THEO.{maxT ? `\n/${maxT}` : ""}</Text>
-            <Text style={[mk.thCell, mk.thMark]}>INT.{maxI ? `\n/${maxI}` : ""}</Text>
-            <Text style={[mk.thCell, mk.thMark]}>PRAC{maxP ? `\n/${maxP}` : ""}</Text>
-            <Text style={[mk.thCell, mk.thTotal]}>Total</Text>
-            <Text style={[mk.thCell, mk.thSave]}>Save</Text>
+            <Text style={[mk.thCell, mk.thRoll]}>{_t("Roll")}</Text>
+            <Text style={[mk.thCell, mk.thName]}>{_t("Name")}</Text>
+            <Text style={[mk.thCell, mk.thMark]}>{_t("THEO.{v}", { v: maxT ? `\n/${maxT}` : "" })}</Text>
+            <Text style={[mk.thCell, mk.thMark]}>{_t("INT.{v}", { v: maxI ? `\n/${maxI}` : "" })}</Text>
+            <Text style={[mk.thCell, mk.thMark]}>{_t("PRAC{v}", { v: maxP ? `\n/${maxP}` : "" })}</Text>
+            <Text style={[mk.thCell, mk.thTotal]}>{_t("Total")}</Text>
+            <Text style={[mk.thCell, mk.thSave]}>{_t("Save")}</Text>
           </View>
 
           {/* Student rows */}
@@ -745,13 +744,13 @@ export default function AddMarksScreen({ route }) {
               <View key={String(item.enrollment_id)}
                 style={[mk.studentRow, isEven && mk.studentRowAlt, locked && !anyAbsent && mk.studentRowLocked, anyAbsent && mk.studentRowAbsent]}>
                 <View style={mk.cellRoll}>
-                  <Text style={mk.rollTxt}>{item.roll_number ?? index + 1}</Text>
+                  <Text style={mk.rollTxt}>{_tx(item.roll_number) ?? index + 1}</Text>
                 </View>
                 <View style={mk.cellName}>
-                  <Text style={mk.nameTxt} numberOfLines={2}>{item.student_name}</Text>
-                  <Text style={mk.regTxt}>{item.enrollment_id ?? ""}</Text>
-                  {locked && !anyAbsent && <Text style={mk.lockedTxt}>Submitted</Text>}
-                  {allAbsent && <Text style={mk.absentBadge}>ABSENT</Text>}
+                  <Text style={mk.nameTxt} numberOfLines={2}>{_tx(item.student_name)}</Text>
+                  <Text style={mk.regTxt}>{_tx(item.enrollment_id) ?? ""}</Text>
+                  {locked && !anyAbsent && <Text style={mk.lockedTxt}>{_t("Submitted")}</Text>}
+                  {allAbsent && <Text style={mk.absentBadge}>{_t("ABSENT")}</Text>}
                 </View>
                 <View style={mk.cellMark}>
                   <MarkCell
@@ -785,8 +784,8 @@ export default function AddMarksScreen({ route }) {
                 </View>
                 <View style={mk.cellTotal}>
                   {allAbsent
-                    ? <Text style={[mk.totalTxt, { color: "#ef4444" }]}>A</Text>
-                    : <Text style={mk.totalTxt}>{total > 0 ? total : "—"}</Text>}
+                    ? <Text style={[mk.totalTxt, { color: "#ef4444" }]}>{_t("A")}</Text>
+                    : <Text style={mk.totalTxt}>{total > 0 ? _tx(total) : "—"}</Text>}
                 </View>
                 <View style={mk.cellSave}>
                   {locked && !anyAbsent
@@ -806,8 +805,8 @@ export default function AddMarksScreen({ route }) {
           {/* Save All button — inside scroll at the bottom */}
           <View style={mk.saveBarInline}>
             <View>
-              <Text style={mk.saveBarCount}>{students.length} students</Text>
-              <Text style={mk.saveBarSub}>Tap to save all at once</Text>
+              <Text style={mk.saveBarCount}>{_t("{length} students", { length: students.length })}</Text>
+              <Text style={mk.saveBarSub}>{_t("Tap to save all at once")}</Text>
             </View>
             <TouchableOpacity
               style={[mk.saveBtn, savingMap?.all && { opacity: 0.6 }]}
@@ -819,7 +818,7 @@ export default function AddMarksScreen({ route }) {
                 ? <ActivityIndicator color="#fff" size="small" />
                 : <>
                     <Feather name="check" size={16} color="#fff" />
-                    <Text style={mk.saveBtnTxt}>Save All</Text>
+                    <Text style={mk.saveBtnTxt}>{_t("Save All")}</Text>
                   </>}
             </TouchableOpacity>
           </View>

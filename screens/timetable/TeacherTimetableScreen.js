@@ -12,14 +12,15 @@ import { AuthContext } from "../../context/AuthContext";
 import { fetchTeacherTimetable, fetchPeriods } from "../../services/TimeTableServiceApi";
 import { fetchSessions } from "../../services/SetupServiceApi";
 import { fetchStaff } from "../../services/StaffServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 const DAYS = [
-  { label: "Monday",    short: "Mon", value: 1 },
-  { label: "Tuesday",   short: "Tue", value: 2 },
-  { label: "Wednesday", short: "Wed", value: 3 },
-  { label: "Thursday",  short: "Thu", value: 4 },
-  { label: "Friday",    short: "Fri", value: 5 },
-  { label: "Saturday",  short: "Sat", value: 6 },
+  { get label() { return _t("Monday"); },    short: "Mon", value: 1 },
+  { get label() { return _t("Tuesday"); },   short: "Tue", value: 2 },
+  { get label() { return _t("Wednesday"); }, short: "Wed", value: 3 },
+  { get label() { return _t("Thursday"); },  short: "Thu", value: 4 },
+  { get label() { return _t("Friday"); },    short: "Fri", value: 5 },
+  { get label() { return _t("Saturday"); },  short: "Sat", value: 6 },
 ];
 
 // ── Dropdown ──────────────────────────────────────────────────────────────────
@@ -34,14 +35,14 @@ function Dropdown({ label, value, options, onChange, disabled, loading: isLoadin
         activeOpacity={0.75}
       >
         <Text style={[tv.ddTxt, !selected?.value && tv.ddPh]} numberOfLines={1}>
-          {isLoading ? "Loading…" : (selected?.label ?? label)}
+          {isLoading ? _t("Loading…") : (_tx(selected?.label) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={13} color="#94a3b8" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={tv.ddOverlay} activeOpacity={1} onPress={() => setOpen(false)}>
           <View style={tv.ddSheet}>
-            <Text style={tv.ddTitle}>{label}</Text>
+            <Text style={tv.ddTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={(o, i) => `${i}_${String(o.value)}`}
@@ -51,7 +52,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading: isLoadin
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[tv.ddOptTxt, String(o.value) === String(value) && tv.ddOptTxtAct]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) && <Feather name="check" size={13} color="#6b21a8" />}
                 </TouchableOpacity>
@@ -82,16 +83,21 @@ export default function TeacherTimetableScreen() {
     (async () => {
       try {
         setLoading(true);
-        const [stf, sess, per] = await Promise.all([
+        // allSettled: a 403 on one list (e.g. staff) must not blank the others
+        const results = await Promise.allSettled([
           fetchStaff(user),
           fetchSessions(user),
           fetchPeriods(user),
         ]);
-        setStaff(Array.isArray(stf)   ? stf   : stf?.data   ?? []);
-        setSessions(Array.isArray(sess) ? sess : sess?.data  ?? []);
-        setPeriods(Array.isArray(per)  ? per   : per?.data   ?? []);
+        const [stf, sess, per] = results.map(r => (r.status === "fulfilled" ? r.value : null));
+        const toArr = (v) => (Array.isArray(v) ? v : Array.isArray(v?.data) ? v.data : []);
+        setStaff(toArr(stf));
+        setSessions(toArr(sess));
+        setPeriods(toArr(per));
+        const failMsg = results.map(r => (r.status === "rejected" ? r.reason?.message : r.value?.status === false ? r.value?.message : null)).find(Boolean);
+        if (failMsg) Alert.alert(_t("Error"), _tx(failMsg));
       } catch (e) {
-        Alert.alert("Error", e.message || "Failed to load data");
+        Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load data"));
       } finally {
         setLoading(false);
       }
@@ -106,7 +112,7 @@ export default function TeacherTimetableScreen() {
     setSlots([]);
     fetchTeacherTimetable(user, { staffId, sessionId })
       .then(d => { if (!cancelled) setSlots(Array.isArray(d) ? d : []); })
-      .catch(e => Alert.alert("Error", e.message || "Failed to load timetable"))
+      .catch(e => { if (!cancelled) Alert.alert(_t("Error"), _tx(e?.message) || _t("Failed to load timetable")); })
       .finally(() => { if (!cancelled) setLoadingGrid(false); });
     return () => { cancelled = true; };
   }, [staffId, sessionId]);
@@ -123,11 +129,11 @@ export default function TeacherTimetableScreen() {
   const uniqueClasses = [...new Set(slots.map(s => s.class_name))].length;
 
   // ── Options ───────────────────────────────────────────────────────────────
-  const staffOpts   = [{ label: "Select Teacher", value: "" }, ...staff.map(s => ({
-    label: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.display_name || `Staff #${s.staff_id}`,
+  const staffOpts   = [{ label: _t("Select Teacher"), value: "" }, ...staff.map(s => ({
+    label: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.display_name || _t("Staff #{staff_id}", { staff_id: s.staff_id }),
     value: String(s.staff_id),
   }))];
-  const sessionOpts = [{ label: "All Sessions", value: "" }, ...sessions.map(s => ({
+  const sessionOpts = [{ label: _t("All Sessions"), value: "" }, ...sessions.map(s => ({
     label: s.session_name ?? s.session_year, value: String(s.session_id),
   }))];
 
@@ -142,14 +148,14 @@ export default function TeacherTimetableScreen() {
       {/* Filter bar */}
       <View style={tv.filterBar}>
         <View style={{ flex: 2 }}>
-          <Text style={tv.filterLabel}>Teacher *</Text>
-          <Dropdown label="Select Teacher" value={staffId} options={staffOpts}
+          <Text style={tv.filterLabel}>{_t("Teacher *")}</Text>
+          <Dropdown label={_t("Select Teacher")} value={staffId} options={staffOpts}
             onChange={setStaffId} loading={loading} />
         </View>
         <View style={{ width: 10 }} />
         <View style={{ flex: 1 }}>
-          <Text style={tv.filterLabel}>Session</Text>
-          <Dropdown label="All" value={sessionId} options={sessionOpts}
+          <Text style={tv.filterLabel}>{_t("Session")}</Text>
+          <Dropdown label={_t("All")} value={sessionId} options={sessionOpts}
             onChange={setSessionId} loading={loading} />
         </View>
       </View>
@@ -158,12 +164,12 @@ export default function TeacherTimetableScreen() {
       {staffId && !loadingGrid && (
         <View style={tv.summaryBar}>
           <Feather name="user" size={13} color="#6b21a8" />
-          <Text style={tv.summaryName} numberOfLines={1}>{selTeacherName}</Text>
+          <Text style={tv.summaryName} numberOfLines={1}>{_tx(selTeacherName)}</Text>
           <View style={tv.summaryChip}>
-            <Text style={tv.summaryChipTxt}>{totalPeriods} periods</Text>
+            <Text style={tv.summaryChipTxt}>{_t("{totalPeriods} periods", { totalPeriods })}</Text>
           </View>
           <View style={tv.summaryChip}>
-            <Text style={tv.summaryChipTxt}>{uniqueClasses} classes</Text>
+            <Text style={tv.summaryChipTxt}>{_t("{uniqueClasses} classes", { uniqueClasses })}</Text>
           </View>
           {loadingGrid && <ActivityIndicator size="small" color="#6b21a8" style={{ marginLeft: 6 }} />}
         </View>
@@ -173,12 +179,12 @@ export default function TeacherTimetableScreen() {
       {!staffId ? (
         <View style={tv.noSelect}>
           <Feather name="user" size={40} color="#cbd5e1" />
-          <Text style={tv.noSelectTxt}>Select a teacher to view their schedule</Text>
+          <Text style={tv.noSelectTxt}>{_t("Select a teacher to view their schedule")}</Text>
         </View>
       ) : loadingGrid ? (
         <View style={tv.noSelect}>
           <ActivityIndicator size="large" color="#6b21a8" />
-          <Text style={tv.noSelectTxt}>Loading schedule…</Text>
+          <Text style={tv.noSelectTxt}>{_t("Loading schedule…")}</Text>
         </View>
       ) : (
         /* Grid */
@@ -190,7 +196,7 @@ export default function TeacherTimetableScreen() {
               <View style={tv.periodCol} />
               {DAYS.map(d => (
                 <View key={d.value} style={tv.dayCol}>
-                  <Text style={tv.dayTxt}>{d.short}</Text>
+                  <Text style={tv.dayTxt}>{_tx(d.short)}</Text>
                 </View>
               ))}
             </View>
@@ -201,9 +207,9 @@ export default function TeacherTimetableScreen() {
 
                 {/* Period label */}
                 <View style={[tv.periodCol, period.is_break == 1 && tv.periodColBreak]}>
-                  <Text style={tv.periodNum}>{period.period_number}</Text>
-                  <Text style={tv.periodNameTxt} numberOfLines={1}>{period.period_name}</Text>
-                  <Text style={tv.periodTime}>{period.start_time}</Text>
+                  <Text style={tv.periodNum}>{_tx(period.period_number)}</Text>
+                  <Text style={tv.periodNameTxt} numberOfLines={1}>{_tx(period.period_name)}</Text>
+                  <Text style={tv.periodTime}>{_tx(period.start_time)}</Text>
                 </View>
 
                 {/* Day cells */}
@@ -218,22 +224,22 @@ export default function TeacherTimetableScreen() {
                       style={[tv.dayCol, tv.cell, isBreak && tv.cellBreak, !!slot && tv.cellFilled]}
                     >
                       {isBreak ? (
-                        <Text style={tv.breakTxt}>BREAK</Text>
+                        <Text style={tv.breakTxt}>{_t("BREAK")}</Text>
                       ) : slot ? (
                         <View style={tv.slotContent}>
                           <Text style={tv.slotSubject} numberOfLines={2}>
-                            {slot.subject_name}
-                            {slot.subject_code ? `\n${slot.subject_code}` : ""}
+                            {_tx(slot.subject_name)}
+                            {slot.subject_code ? `\n${_tx(slot.subject_code)}` : ""}
                           </Text>
                           <View style={tv.classBadge}>
                             <Text style={tv.classBadgeTxt}>
-                              {slot.class_name}
-                              {slot.section_name ? ` · ${slot.section_name}` : ""}
+                              {_tx(slot.class_name)}
+                              {slot.section_name ? ` · ${_tx(slot.section_name)}` : ""}
                             </Text>
                           </View>
                           {!!slot.room && (
                             <Text style={tv.roomTxt} numberOfLines={1}>
-                              <Feather name="map-pin" size={8} /> {slot.room}
+                              <Feather name="map-pin" size={8} /> {_tx(slot.room)}
                             </Text>
                           )}
                         </View>

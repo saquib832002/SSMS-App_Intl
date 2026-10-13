@@ -15,6 +15,7 @@ import {
   fetchQuestions,
 } from "../../services/QuestionPaperServiceApi";
 import { fetchSubjects } from "../../services/SubjectServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 const TYPE_COLORS = {
   fill_blank: "#7c3aed", mcq: "#2563eb", true_false: "#0891b2",
@@ -92,17 +93,18 @@ export default function PaperBuilderScreen({ navigation, route }) {
 
   // ── Load paper detail ─────────────────────────────────────────────────────
   const load = useCallback(async () => {
-    if (!paper?.id) return;
+    if (!paper?.id) { setLoading(false); return; }
     setLoading(true);
     try {
       const data = await fetchPaperDetail(user, paper.id);
       setPaperData(data);
-      setQuestions(Array.isArray(data.questions) ? data.questions : []);
+      setQuestions(Array.isArray(data?.questions) ? data.questions : []);
       await resolvePickerSubjects(data);
     } catch (e) {
       setPaperData(paper);
       setQuestions([]);
-      await resolvePickerSubjects(null); // will fall back to paper.subjects / paper.subject_ids
+      Alert.alert(_t("Error"), _tx(e?.message) || _t("Failed to load paper"));
+      await resolvePickerSubjects(null).catch(() => {}); // will fall back to paper.subjects / paper.subject_ids
     } finally {
       setLoading(false);
     }
@@ -112,16 +114,16 @@ export default function PaperBuilderScreen({ navigation, route }) {
 
   // ── Remove question ───────────────────────────────────────────────────────
   const handleRemove = (pqId, questionText) => {
-    Alert.alert("Remove", `Remove this question from the paper?`, [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(_t("Remove"), _t("Remove this question from the paper?"), [
+      { text: _t("Cancel"), style: "cancel" },
       {
-        text: "Remove", style: "destructive",
+        text: _t("Remove"), style: "destructive",
         onPress: async () => {
           try {
             await removeQuestionFromPaper(user, paper.id, pqId);
             load();
           } catch (e) {
-            Alert.alert("Error", e.message);
+            Alert.alert(_t("Error"), _tx(e.message));
           }
         },
       },
@@ -191,14 +193,14 @@ export default function PaperBuilderScreen({ navigation, route }) {
     return (
       <View style={st.qRow}>
         <View style={st.qNumWrap}>
-          <Text style={st.qNum}>{item._qNum ?? "?"}</Text>
+          <Text style={st.qNum}>{_tx(item._qNum) ?? "?"}</Text>
         </View>
         <View style={st.qBody}>
           <View style={st.qTop}>
             <View style={[st.typeBadge, { backgroundColor: tc }]}>
-              <Text style={st.typeTxt}>{TYPE_LABELS[item.type] ?? item.type}</Text>
+              <Text style={st.typeTxt}>{_tx(TYPE_LABELS[item.type]) ?? _tx(item.type)}</Text>
             </View>
-            <Text style={st.qPreview} numberOfLines={1}>{item.question_text ?? ""}</Text>
+            <Text style={st.qPreview} numberOfLines={1}>{_tx(item.question_text) ?? ""}</Text>
           </View>
           {/* Marks inline editor */}
           <View style={st.qBot}>
@@ -217,7 +219,7 @@ export default function PaperBuilderScreen({ navigation, route }) {
               </View>
             ) : (
               <TouchableOpacity style={st.marksTap} onPress={() => openMarksEdit(item)}>
-                <Text style={st.marksTxt}>{item.marks ?? 0} mk</Text>
+                <Text style={st.marksTxt}>{_t("{v} mk", { v: item.marks ?? 0 })}</Text>
                 <Feather name="edit-2" size={10} color="#6b7280" />
               </TouchableOpacity>
             )}
@@ -236,13 +238,13 @@ export default function PaperBuilderScreen({ navigation, route }) {
       return (
         <View style={st.subjHeader}>
           <Feather name="book-open" size={13} color="#fff" />
-          <Text style={st.subjHeaderTxt}>{item.label}</Text>
-          <Text style={st.subjHeaderCount}>{item.count} Q</Text>
+          <Text style={st.subjHeaderTxt}>{_tx(item.label)}</Text>
+          <Text style={st.subjHeaderCount}>{_t("{count} Q", { count: item.count })}</Text>
         </View>
       );
     }
     if (item._hdr === "type") {
-      return <View style={st.typeHeader}><Text style={st.typeHeaderTxt}>{item.label}</Text></View>;
+      return <View style={st.typeHeader}><Text style={st.typeHeaderTxt}>{_tx(item.label)}</Text></View>;
     }
     return renderRow({ item });
   };
@@ -251,29 +253,27 @@ export default function PaperBuilderScreen({ navigation, route }) {
     <View style={st.root}>
       {/* Header summary */}
       <View style={st.header}>
-        <Text style={st.headerTitle} numberOfLines={1}>{paperData?.title ?? paper?.title ?? "Building Paper"}</Text>
-        <Text style={st.headerSub}>
-          {questions.length} question{questions.length !== 1 ? "s" : ""}  ·  {totalMarks} marks
-        </Text>
+        <Text style={st.headerTitle} numberOfLines={1}>{_tx(paperData?.title) ?? _tx(paper?.title) ?? _t("Building Paper")}</Text>
+        <Text style={st.headerSub}>{_t("{length} question{pl}  ·  {totalMarks} marks", { length: questions.length, pl: questions.length !== 1 ? "s" : "", totalMarks })}</Text>
       </View>
 
       {/* Action bar */}
       <View style={st.actionBar}>
         <TouchableOpacity style={[st.actionBtn, { backgroundColor: "#475569" }]} onPress={() => navigation.navigate("PaperHeader", { paper: paperData ?? paper })}>
           <Feather name="edit-3" size={15} color="#fff" />
-          <Text style={st.actionTxt}>Edit Header</Text>
+          <Text style={st.actionTxt}>{_t("Edit Header")}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={st.actionBtn} onPress={() => setPickerOpen(true)}>
           <Feather name="database" size={15} color="#fff" />
-          <Text style={st.actionTxt}>Add from Bank</Text>
+          <Text style={st.actionTxt}>{_t("Add from Bank")}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[st.actionBtn, { backgroundColor: "#059669" }]} onPress={() => navigation.navigate("AddEditQuestion", { _forPaper: paper?.id })}>
           <Feather name="plus" size={15} color="#fff" />
-          <Text style={st.actionTxt}>New Question</Text>
+          <Text style={st.actionTxt}>{_t("New Question")}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[st.actionBtn, { backgroundColor: "#7c3aed" }]} onPress={() => navigation.navigate("PaperPreview", { paper: paperData ?? paper, questions })}>
           <Feather name="eye" size={15} color="#fff" />
-          <Text style={st.actionTxt}>Preview</Text>
+          <Text style={st.actionTxt}>{_t("Preview")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -288,7 +288,7 @@ export default function PaperBuilderScreen({ navigation, route }) {
           ListEmptyComponent={
             <View style={st.emptyWrap}>
               <Feather name="inbox" size={40} color="#d1d5db" />
-              <Text style={st.empty}>No questions added yet.{"\n"}Use "Add from Bank" or "New Question".</Text>
+              <Text style={st.empty}>{_t("No questions added yet.\nUse \"Add from Bank\" or \"New Question\".")}</Text>
             </View>
           }
         />
@@ -296,10 +296,10 @@ export default function PaperBuilderScreen({ navigation, route }) {
 
       {/* Bottom total bar */}
       <View style={st.totalBar}>
-        <Text style={st.totalTxt}>Total: <Text style={st.totalNum}>{totalMarks} marks</Text></Text>
+        <Text style={st.totalTxt}>{_t("Total:")}{" "}<Text style={st.totalNum}>{_t("{totalMarks} marks", { totalMarks })}</Text></Text>
         <TouchableOpacity style={st.previewBtn} onPress={() => navigation.navigate("PaperPreview", { paper: paperData ?? paper, questions })}>
           <Feather name="file-text" size={15} color="#fff" />
-          <Text style={st.previewTxt}>Preview & Export</Text>
+          <Text style={st.previewTxt}>{_t("Preview & Export")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -348,7 +348,7 @@ function QuestionPickerModal({ visible, onClose, user, paperId, classId, subject
         if (activeSubject?.subject_id)  filters.subject_id = activeSubject.subject_id;
         const qs = await fetchQuestions(user, filters);
         setBankQuestions(Array.isArray(qs) ? qs : []);
-      } catch {}
+      } catch { setBankQuestions([]); }
       finally { setLoading(false); }
     };
     load();
@@ -367,7 +367,7 @@ function QuestionPickerModal({ visible, onClose, user, paperId, classId, subject
 
   const handleAdd = async () => {
     const entries = Object.entries(selected);
-    if (!entries.length) { Alert.alert("Select questions", "Choose at least one question."); return; }
+    if (!entries.length) { Alert.alert(_t("Select questions"), _t("Choose at least one question.")); return; }
     setSaving(true);
     try {
       for (let i = 0; i < entries.length; i++) {
@@ -381,7 +381,7 @@ function QuestionPickerModal({ visible, onClose, user, paperId, classId, subject
       }
       onAdded();
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     } finally {
       setSaving(false);
     }
@@ -402,9 +402,9 @@ function QuestionPickerModal({ visible, onClose, user, paperId, classId, subject
         <View style={pm.handle} />
         <View style={pm.sheetHeader}>
           <View style={{ flex: 1 }}>
-            <Text style={pm.sheetTitle}>Add from Question Bank</Text>
+            <Text style={pm.sheetTitle}>{_t("Add from Question Bank")}</Text>
             {selectedCount > 0 && (
-              <Text style={pm.selCountTxt}>{selectedCount} question{selectedCount > 1 ? "s" : ""} selected</Text>
+              <Text style={pm.selCountTxt}>{_t("{selectedCount} question{pl} selected", { selectedCount, pl: selectedCount > 1 ? "s" : "" })}</Text>
             )}
           </View>
           <TouchableOpacity onPress={onClose}><Feather name="x" size={20} color="#374151" /></TouchableOpacity>
@@ -428,9 +428,9 @@ function QuestionPickerModal({ visible, onClose, user, paperId, classId, subject
                   style={[pm.tab, isActive && pm.tabActive]}
                   onPress={() => setActiveIdx(idx)}
                 >
-                  <Text style={[pm.tabTxt, isActive && pm.tabTxtActive]}>{subj.subject_name}</Text>
+                  <Text style={[pm.tabTxt, isActive && pm.tabTxtActive]}>{_tx(subj.subject_name)}</Text>
                   {countForSubj > 0 && (
-                    <View style={pm.tabBadge}><Text style={pm.tabBadgeTxt}>{countForSubj}</Text></View>
+                    <View style={pm.tabBadge}><Text style={pm.tabBadgeTxt}>{_tx(countForSubj)}</Text></View>
                   )}
                 </TouchableOpacity>
               );
@@ -443,7 +443,7 @@ function QuestionPickerModal({ visible, onClose, user, paperId, classId, subject
           <View style={pm.filterBadgeRow}>
             <View style={pm.filterBadge}>
               <Feather name="book" size={10} color="#1d4ed8" />
-              <Text style={pm.filterBadgeTxt}>{currentSubjectName}</Text>
+              <Text style={pm.filterBadgeTxt}>{_tx(currentSubjectName)}</Text>
             </View>
           </View>
         ) : null}
@@ -451,7 +451,7 @@ function QuestionPickerModal({ visible, onClose, user, paperId, classId, subject
         {/* Search */}
         <View style={pm.searchRow}>
           <Feather name="search" size={15} color="#9ca3af" />
-          <TextInput style={pm.searchInput} placeholder="Search questions…" placeholderTextColor="#9ca3af" value={search} onChangeText={setSearch} />
+          <TextInput style={pm.searchInput} placeholder={_t("Search questions…")} placeholderTextColor="#9ca3af" value={search} onChangeText={setSearch} />
         </View>
 
         {loading ? <ActivityIndicator color="#2563eb" style={{ marginTop: 30 }} /> : (
@@ -472,13 +472,13 @@ function QuestionPickerModal({ visible, onClose, user, paperId, classId, subject
                   <View style={pm.qInfo}>
                     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
                       <View style={[pm.typeBadge, { backgroundColor: tc }]}>
-                        <Text style={pm.typeTxt}>{TYPE_LABELS[item.type] ?? item.type}</Text>
+                        <Text style={pm.typeTxt}>{_tx(TYPE_LABELS[item.type]) ?? _tx(item.type)}</Text>
                       </View>
                     </View>
-                    <Text style={pm.qText} numberOfLines={2}>{item.question_text ?? ""}</Text>
+                    <Text style={pm.qText} numberOfLines={2}>{_tx(item.question_text) ?? ""}</Text>
                     {isSel && (
                       <View style={pm.marksRow}>
-                        <Text style={pm.marksLabel}>Marks:</Text>
+                        <Text style={pm.marksLabel}>{_t("Marks:")}</Text>
                         <TextInput
                           style={pm.marksIn}
                           keyboardType="numeric"
@@ -495,8 +495,8 @@ function QuestionPickerModal({ visible, onClose, user, paperId, classId, subject
             ListEmptyComponent={
               <Text style={pm.empty}>
                 {currentSubjectName
-                  ? `No questions found for ${currentSubjectName}.\nAdd questions to the bank for this subject first.`
-                  : "No questions in bank yet."}
+                  ? _t("No questions found for {currentSubjectName}.\nAdd questions to the bank for this subject first.", { currentSubjectName })
+                  : _t("No questions in bank yet.")}
               </Text>
             }
           />
@@ -504,7 +504,7 @@ function QuestionPickerModal({ visible, onClose, user, paperId, classId, subject
         <View style={pm.footer}>
           <TouchableOpacity style={[pm.addBtn, !selectedCount && { opacity: 0.5 }]} onPress={handleAdd} disabled={saving || !selectedCount}>
             {saving ? <ActivityIndicator color="#fff" /> : (
-              <Text style={pm.addTxt}>Add {selectedCount > 0 ? `${selectedCount} Question${selectedCount > 1 ? "s" : ""}` : "Selected Questions"}</Text>
+              <Text style={pm.addTxt}>{_t("Add {v}", { v: selectedCount > 0 ? _t("{selectedCount} Question{pl}", { selectedCount, pl: selectedCount > 1 ? "s" : "" }) : _t("Selected Questions") })}</Text>
             )}
           </TouchableOpacity>
         </View>

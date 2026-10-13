@@ -16,11 +16,12 @@ import { fetchBranches, fetchClasses, fetchSections } from "../../services/Setup
 import { fetchSubjectTeachers, createSubjectTeacher,
   updateSubjectTeacher, deleteSubjectTeacher, fetchSubjects } from "../../services/SubjectServiceApi";
 import { fetchStaff } from "../../services/StaffServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Custom Dropdown ────────────────────────────────────────────────────────────
 function Dropdown({ label, value, options, onChange, disabled, loading }) {
   const [open, setOpen] = useState(false);
-  const selected = options.find(o => String(o.value) === String(value));
+  const selected = (Array.isArray(options) ? options : []).find(o => String(o.value) === String(value));
   return (
     <>
       <TouchableOpacity
@@ -29,14 +30,14 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
         activeOpacity={0.7}
       >
         <Text style={[sc.dropTxt, !selected?.value && sc.dropPh]} numberOfLines={1}>
-          {loading ? "Loading…" : (selected?.label ?? label)}
+          {loading ? _t("Loading…") : (_tx(selected?.label) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={14} color="#64748b" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={sc.dropOverlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={sc.dropSheet}>
-            <Text style={sc.dropTitle}>{label}</Text>
+            <Text style={sc.dropTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={(o, i) => String(o.value) + i}
@@ -46,7 +47,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[sc.dropOptionTxt, String(o.value) === String(value) && sc.dropOptionTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) &&
                     <Feather name="check" size={13} color="#1e40af" />}
@@ -65,7 +66,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
 const Field = ({ label, required, children }) => (
   <View style={sc.field}>
     <Text style={sc.fieldLabel}>
-      {label}{required && <Text style={{ color: "#ef4444" }}> *</Text>}
+      {_tx(label)}{required && <Text style={{ color: "#ef4444" }}> *</Text>}
     </Text>
     {children}
   </View>
@@ -108,18 +109,25 @@ export default function SubjectTeacherScreen() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const [assignData, branchData, classData, staffData] = await Promise.all([
+      // allSettled: a denied lookup must not blank the whole screen
+      const results = await Promise.allSettled([
         fetchSubjectTeachers(user),
         fetchBranches(user),
         fetchClasses(user),
         fetchStaff(user),
       ]);
-      setAssignments(Array.isArray(assignData) ? assignData : []);
-      setBranches(Array.isArray(branchData) ? branchData : branchData?.data ?? []);
-      setClasses(Array.isArray(classData)   ? classData  : classData?.data  ?? []);
-      setStaffList(Array.isArray(staffData) ? staffData  : staffData?.data  ?? []);
+      const [assignData, branchData, classData, staffData] = results.map(r => r.status === "fulfilled" ? r.value : null);
+      const arr = (d) => Array.isArray(d) ? d : Array.isArray(d?.data) ? d.data : [];
+      setAssignments(arr(assignData));
+      setBranches(arr(branchData));
+      setClasses(arr(classData));
+      setStaffList(arr(staffData));
+      const failed = results.find(r => r.status === "rejected");
+      const deniedMsg = failed ? (failed.reason?.message || "Failed to load data")
+        : (branchData?.status === false ? branchData.message : null);
+      if (deniedMsg) Alert.alert(_t("Error"), _tx(deniedMsg));
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load data");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load data"));
     } finally {
       setLoading(false);
     }
@@ -136,7 +144,7 @@ export default function SubjectTeacherScreen() {
     fetchSections(user, form.class_id)
       .then(d => {
         if (cancelled) return;
-        setSections(Array.isArray(d) ? d : d?.data ?? []);
+        setSections(Array.isArray(d) ? d : Array.isArray(d?.data) ? d.data : []);
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoadingSections(false); });
@@ -152,7 +160,7 @@ export default function SubjectTeacherScreen() {
     fetchSubjects(user, form.class_id)
       .then(d => {
         if (cancelled) return;
-        setSubjects(Array.isArray(d) ? d : d?.data ?? []);
+        setSubjects(Array.isArray(d) ? d : Array.isArray(d?.data) ? d.data : []);
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoadingSubjects(false); });
@@ -180,9 +188,9 @@ export default function SubjectTeacherScreen() {
 
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!form.class_id)   { Alert.alert("Validation", "Please select a class.");   return; }
-    if (!form.subject_id) { Alert.alert("Validation", "Please select a subject."); return; }
-    if (!form.staff_id)   { Alert.alert("Validation", "Please select a staff.");   return; }
+    if (!form.class_id)   { Alert.alert(_t("Validation"), _t("Please select a class."));   return; }
+    if (!form.subject_id) { Alert.alert(_t("Validation"), _t("Please select a subject.")); return; }
+    if (!form.staff_id)   { Alert.alert(_t("Validation"), _t("Please select a staff."));   return; }
     try {
       setSaving(true);
       if (editing) {
@@ -192,9 +200,9 @@ export default function SubjectTeacherScreen() {
       }
       setModalVisible(false);
       load();
-      Alert.alert("Success", editing ? "Assignment updated." : "Assignment created.");
+      Alert.alert(_t("Success"), editing ? _t("Assignment updated.") : _t("Assignment created."));
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to save");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to save"));
     } finally {
       setSaving(false);
     }
@@ -203,18 +211,18 @@ export default function SubjectTeacherScreen() {
   // ── Delete ────────────────────────────────────────────────────────────────
   const handleDelete = (item) => {
     Alert.alert(
-      "Delete Assignment",
-      `Remove ${item.staff_name?.trim()} from "${item.subject_name}"?`,
+      _t("Delete Assignment"),
+      _t("Remove {v} from \"{subject_name}\"?", { v: item.staff_name?.trim(), subject_name: item.subject_name }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Delete", style: "destructive",
+          text: _t("Delete"), style: "destructive",
           onPress: async () => {
             try {
               await deleteSubjectTeacher(user, item.id);
               load();
             } catch (e) {
-              Alert.alert("Error", e.message || "Failed to delete");
+              Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to delete"));
             }
           },
         },
@@ -223,11 +231,11 @@ export default function SubjectTeacherScreen() {
   };
 
   // ── Options ───────────────────────────────────────────────────────────────
-  const branchOptions  = [{ label: "Select Branch",  value: "" }, ...branches.map(b  => ({ label: b.branch_name,   value: String(b.branch_id)   }))];
-  const classOptions   = [{ label: "Select Class",   value: "" }, ...classes.map(c   => ({ label: c.class_name,    value: String(c.class_id)    }))];
-  const sectionOptions = [{ label: "Select Section", value: "" }, ...sections.map(s  => ({ label: s.section_name,  value: String(s.section_id)  }))];
-  const subjectOptions = [{ label: "Select Subject", value: "" }, ...subjects.map(s  => ({ label: s.subject_name,  value: String(s.subject_id)  }))];
-  const staffOptions   = [{ label: "Select Staff",   value: "" }, ...staffList.map(s => ({ label: s.display_name ?? `${s.first_name} ${s.last_name}`, value: String(s.staff_id) }))];
+  const branchOptions  = [{ label: _t("Select Branch"),  value: "" }, ...branches.map(b  => ({ label: b.branch_name,   value: String(b.branch_id)   }))];
+  const classOptions   = [{ label: _t("Select Class"),   value: "" }, ...classes.map(c   => ({ label: c.class_name,    value: String(c.class_id)    }))];
+  const sectionOptions = [{ label: _t("Select Section"), value: "" }, ...sections.map(s  => ({ label: s.section_name,  value: String(s.section_id)  }))];
+  const subjectOptions = [{ label: _t("Select Subject"), value: "" }, ...subjects.map(s  => ({ label: s.subject_name,  value: String(s.subject_id)  }))];
+  const staffOptions   = [{ label: _t("Select Staff"),   value: "" }, ...staffList.map(s => ({ label: s.display_name ?? `${s.first_name} ${s.last_name}`, value: String(s.staff_id) }))];
 
   // ── Filter list ───────────────────────────────────────────────────────────
   const filtered = assignments.filter(a => {
@@ -246,23 +254,23 @@ export default function SubjectTeacherScreen() {
         {/* Subject + code */}
         <View style={sc.cardTopRow}>
           <View style={sc.subjectBadge}>
-            <Text style={sc.subjectBadgeTxt} numberOfLines={1}>{item.subject_code || "—"}</Text>
+            <Text style={sc.subjectBadgeTxt} numberOfLines={1}>{_tx(item.subject_code) || "—"}</Text>
           </View>
-          <Text style={sc.subjectName} numberOfLines={1}>{item.subject_name}</Text>
+          <Text style={sc.subjectName} numberOfLines={1}>{_tx(item.subject_name)}</Text>
         </View>
         {/* Meta */}
         <View style={sc.metaRow}>
           <View style={sc.metaItem}>
             <Feather name="book-open" size={10} color="#94a3b8" />
-            <Text style={sc.metaTxt}>{item.class_name ?? "—"}</Text>
+            <Text style={sc.metaTxt}>{_tx(item.class_name) ?? "—"}</Text>
           </View>
           <View style={sc.metaItem}>
             <Feather name="layers" size={10} color="#94a3b8" />
-            <Text style={sc.metaTxt}>{item.section_name ?? "All Sections"}</Text>
+            <Text style={sc.metaTxt}>{_tx(item.section_name) ?? _t("All Sections")}</Text>
           </View>
           <View style={sc.metaItem}>
             <Feather name="home" size={10} color="#94a3b8" />
-            <Text style={sc.metaTxt}>{item.branch_name ?? "—"}</Text>
+            <Text style={sc.metaTxt}>{_tx(item.branch_name) ?? "—"}</Text>
           </View>
         </View>
         {/* Staff */}
@@ -293,11 +301,11 @@ export default function SubjectTeacherScreen() {
 
       {/* Header */}
       <View style={sc.headerBlock}>
-        <Text style={sc.title}>Subject Teachers</Text>
-        <Text style={sc.subtitle}>{filtered.length} assignment{filtered.length !== 1 ? "s" : ""}</Text>
+        <Text style={sc.title}>{_t("Subject Teachers")}</Text>
+        <Text style={sc.subtitle}>{_t("{length} assignment{pl}", { length: filtered.length, pl: filtered.length !== 1 ? "s" : "" })}</Text>
         <TouchableOpacity style={sc.addBtn} onPress={openAdd}>
           <Feather name="plus" size={16} color="#fff" />
-          <Text style={sc.addBtnTxt}>Add Assignment</Text>
+          <Text style={sc.addBtnTxt}>{_t("Add Assignment")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -306,7 +314,7 @@ export default function SubjectTeacherScreen() {
         <Feather name="search" size={13} color="#94a3b8" style={{ marginRight: 8 }} />
         <TextInput
           style={sc.searchInput}
-          placeholder="Search subject, teacher, class…"
+          placeholder={_t("Search subject, teacher, class…")}
           placeholderTextColor="#94a3b8"
           value={search}
           onChangeText={setSearch}
@@ -322,7 +330,7 @@ export default function SubjectTeacherScreen() {
       {loading
         ? <View style={sc.loader}>
             <ActivityIndicator size="large" color="#1e40af" />
-            <Text style={sc.loaderTxt}>Loading…</Text>
+            <Text style={sc.loaderTxt}>{_t("Loading…")}</Text>
           </View>
         : <FlatList
             data={filtered}
@@ -333,8 +341,8 @@ export default function SubjectTeacherScreen() {
             ListEmptyComponent={
               <View style={sc.empty}>
                 <Feather name="book" size={38} color="#cbd5e1" />
-                <Text style={sc.emptyTxt}>No assignments found</Text>
-                <Text style={sc.emptySubTxt}>Tap "Add Assignment" to create one</Text>
+                <Text style={sc.emptyTxt}>{_t("No assignments found")}</Text>
+                <Text style={sc.emptySubTxt}>{_t("Tap \"Add Assignment\" to create one")}</Text>
               </View>
             }
           />}
@@ -346,7 +354,7 @@ export default function SubjectTeacherScreen() {
 
             <View style={sc.modalHeader}>
               <Text style={sc.modalTitle}>
-                {editing ? "Edit Assignment" : "Add Assignment"}
+                {editing ? _t("Edit Assignment") : _t("Add Assignment")}
               </Text>
               <TouchableOpacity style={sc.modalClose} onPress={() => setModalVisible(false)} disabled={saving}>
                 <Feather name="x" size={15} color="#64748b" />
@@ -354,47 +362,47 @@ export default function SubjectTeacherScreen() {
             </View>
 
             {/* Branch */}
-            <Field label="Branch">
-              <Dropdown label="Select Branch" value={form.branch_id}
+            <Field label={_t("Branch")}>
+              <Dropdown label={_t("Select Branch")} value={form.branch_id}
                 options={branchOptions} onChange={v => setField("branch_id", v)} disabled={saving} />
             </Field>
 
             {/* Class — triggers section + subject load */}
-            <Field label="Class" required>
-              <Dropdown label="Select Class" value={form.class_id}
+            <Field label={_t("Class")} required>
+              <Dropdown label={_t("Select Class")} value={form.class_id}
                 options={classOptions}
                 onChange={v => { setField("class_id", v); setField("section_id", ""); setField("subject_id", ""); }}
                 disabled={saving} />
             </Field>
 
             {/* Section — loads after class */}
-            <Field label="Section">
-              <Dropdown label="Select Section" value={form.section_id}
+            <Field label={_t("Section")}>
+              <Dropdown label={_t("Select Section")} value={form.section_id}
                 options={sectionOptions} onChange={v => setField("section_id", v)}
                 disabled={saving || !form.class_id} loading={loadingSections} />
             </Field>
 
             {/* Subject — loads after class */}
-            <Field label="Subject" required>
-              <Dropdown label="Select Subject" value={form.subject_id}
+            <Field label={_t("Subject")} required>
+              <Dropdown label={_t("Select Subject")} value={form.subject_id}
                 options={subjectOptions} onChange={v => setField("subject_id", v)}
                 disabled={saving || !form.class_id} loading={loadingSubjects} />
             </Field>
 
             {/* Staff */}
-            <Field label="Staff (Teacher)" required>
-              <Dropdown label="Select Staff" value={form.staff_id}
+            <Field label={_t("Staff (Teacher)")} required>
+              <Dropdown label={_t("Select Staff")} value={form.staff_id}
                 options={staffOptions} onChange={v => setField("staff_id", v)} disabled={saving} />
             </Field>
 
             <View style={sc.modalBtns}>
               <TouchableOpacity style={sc.cancelBtn} onPress={() => setModalVisible(false)} disabled={saving}>
-                <Text style={sc.cancelBtnTxt}>Cancel</Text>
+                <Text style={sc.cancelBtnTxt}>{_t("Cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[sc.saveBtn, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>
                 {saving
                   ? <ActivityIndicator color="#fff" size="small" />
-                  : <><Feather name="check" size={14} color="#fff" /><Text style={sc.saveBtnTxt}>{editing ? "Update" : "Save"}</Text></>}
+                  : <><Feather name="check" size={14} color="#fff" /><Text style={sc.saveBtnTxt}>{editing ? _t("Update") : _t("Save")}</Text></>}
               </TouchableOpacity>
             </View>
 

@@ -696,7 +696,7 @@ public function createSection()
                 'data' => [
                     'section_id' => $entity->section_id,
                     'section_name' => $entity->section_name,
-                    'capacity' => $entity->Section_description,
+                    'capacity' => $entity->capacity,
                 ],
             ]));
     } catch (\Throwable $e) {
@@ -745,9 +745,15 @@ public function updateSection($SectionId = null)
             ]));
     }
 
+    // Same section name is fine in different classes – only check this class.
+    $newName = trim((string)($data['section_name'] ?? ''));
+    if ($newName === '') {
+        $newName = (string)$Section->section_name;
+    }
     $duplicate = $SectionTable->find()
         ->where([
-            'section_name' => trim((string)($data['section_name'] ?? '')),
+            'section_name' => $newName,
+            'class_id' => $Section->class_id,
             'ssms_client_code' => $clientCode,
             'section_id !=' => $SectionId,
         ])
@@ -759,12 +765,12 @@ public function updateSection($SectionId = null)
             ->withStatus(409)
             ->withStringBody(json_encode([
                 'status' => false,
-                'message' => 'Another Section with same name already exists',
+                'message' => 'Another section with the same name already exists in this class',
             ]));
     }
 
     $Section = $SectionTable->patchEntity($Section, [
-        'section_name' => trim((string)($data['section_name'] ?? $Section->section_name)),
+        'section_name' => $newName,
         'capacity' => trim((string)($data['capacity'] ?? $Section->capacity)),
         'staff_id' => trim((string)($data['staff_id'] ?? $Section->staff_id)),
 

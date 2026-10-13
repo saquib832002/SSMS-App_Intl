@@ -1,3 +1,4 @@
+import { _t } from "./i18n";
 /**
  * services/apiInterceptor.js
  *
@@ -87,11 +88,11 @@ export async function safeFetch(url, options = {}) {
   if (_isLoggedOut) {
     // User has already logged out — abort the call silently.
     // Screens' catch blocks will receive this but should not show it as an error.
-    const err = new Error('User logged out');
+    const err = new Error(_t("User logged out"));
     err.name  = 'LoggedOutError';
     throw err;
   }
-  const res = await fetch(url, options);
+  const res = await sendRequest(url, options);
   checkExpired(res);
   checkLocked(res);
   return res;
@@ -103,7 +104,67 @@ export async function safeFetch(url, options = {}) {
  * feature always shows the "Upgrade required" prompt with "View plans".
  */
 export async function fetchWithLockCheck(url, options = {}) {
-  const res = await fetch(url, options);
+  const res = await sendRequest(url, options);
   checkLocked(res);
+  return res;
+}
+
+/**
+ * Uploads (FormData bodies) go through XMLHttpRequest.
+ * Since Expo SDK 52 the global fetch is expo/fetch, which can't send React Native file
+ * parts ({ uri, name, type }) and fails with "Unsupported FormDataPart implementation".
+ * XMLHttpRequest still uses React Native's own networking, which reads the file from
+ * its uri. Everything else keeps using fetch.
+ */
+function sendRequest(url, options = {}) {
+  const body = options?.body;
+  const isForm = body && typeof FormData !== 'undefined' && body instanceof FormData;
+  return isForm ? xhrRequest(url, options) : fetch(url, options);
+}
+
+function xhrRequest(url, options = {}) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(options.method || 'POST', url);
+    const h = options.headers || {};
+    const entries = typeof Headers !== 'undefined' && h instanceof Headers
+      ? (() => { const out = []; h.forEach((v, k) => out.push([k, v])); return out; })()
+      : Object.entries(h);
+    entries.forEach(([k, v]) => {
+      // the multipart boundary must come from XHR itself
+      if (v !== undefined && v !== null && v !== '' && String(k).toLowerCase() !== 'content-type') xhr.setRequestHeader(k, String(v));
+    });
+    xhr.timeout = 180000;
+    xhr.onload = () => resolve(makeResponse(xhr));
+    xhr.onerror = () => reject(new TypeError('Network request failed'));
+    xhr.ontimeout = () => reject(new TypeError('The upload took too long. Check your connection and try again.'));
+    if (options.signal) {
+      if (options.signal.aborted) { xhr.abort(); }
+      else options.signal.addEventListener?.('abort', () => xhr.abort());
+      xhr.onabort = () => { const e = new Error(_t("Aborted")); e.name = 'AbortError'; reject(e); };
+    }
+    xhr.send(options.body);
+  });
+}
+
+/** Just enough of the fetch Response for the service files (ok, status, json, text, clone, headers.get). */
+function makeResponse(xhr) {
+  const text = xhr.responseText ?? '';
+  const raw = xhr.getAllResponseHeaders?.() || '';
+  const headers = {};
+  raw.trim().split(/[\r\n]+/).forEach((line) => {
+    const i = line.indexOf(':');
+    if (i > 0) headers[line.slice(0, i).trim().toLowerCase()] = line.slice(i + 1).trim();
+  });
+  const res = {
+    ok: xhr.status >= 200 && xhr.status < 300,
+    status: xhr.status,
+    statusText: xhr.statusText || '',
+    url: xhr.responseURL || '',
+    headers: { get: (k) => headers[String(k).toLowerCase()] ?? null, has: (k) => String(k).toLowerCase() in headers },
+    text: async () => text,
+    json: async () => JSON.parse(text),
+  };
+  res.clone = () => ({ ...res });
   return res;
 }

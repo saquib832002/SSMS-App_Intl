@@ -12,7 +12,7 @@ import React, {
   useCallback, useContext, useEffect, useRef, useState,
 } from 'react';
 import {
-  ActivityIndicator, FlatList, KeyboardAvoidingView,
+  ActivityIndicator, Alert, FlatList, KeyboardAvoidingView,
   Platform, StyleSheet, Text,
   TextInput, TouchableOpacity, View,
 } from 'react-native';
@@ -21,6 +21,8 @@ import { Feather } from '@expo/vector-icons';
 import { AuthContext }           from '../../context/AuthContext';
 import { fetchMessages, sendChatMessage } from '../../services/ChatServiceApi';
 
+import { fmtDate, fmtTime as fmtClock } from "../../services/Locale";
+import { _t, _tx } from "../../services/i18n";
 // ── Colours ───────────────────────────────────────────────────────────────────
 const C = {
   bg:        '#f0f4f8',
@@ -44,13 +46,13 @@ function fmtTime(iso) {
   if (isNaN(d)) return '';
   const now  = new Date();
   const sameDay = d.toDateString() === now.toDateString();
-  const hhmm = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const hhmm = fmtClock(d);
   if (sameDay) return hhmm;
-  return `${d.toLocaleDateString([], { day: '2-digit', month: 'short' })} ${hhmm}`;
+  return `${fmtDate(d, 'dayMonth')} ${hhmm}`;
 }
 
 function initials(name = '') {
-  return name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+  return (name ?? '').split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
 }
 
 // ── Message bubble ────────────────────────────────────────────────────────────
@@ -64,7 +66,7 @@ function Bubble({ msg, isMine, otherName }) {
       )}
       <View style={[S.bubble, isMine ? S.bubbleSent : S.bubbleRecv]}>
         <Text style={[S.bubbleTxt, { color: isMine ? C.sentTxt : C.recvTxt }]}>
-          {msg.body}
+          {_tx(msg.body)}
         </Text>
         <View style={S.bubbleMeta}>
           <Text style={[S.bubbleTime, { color: isMine ? 'rgba(255,255,255,0.65)' : C.timeTxt }]}>
@@ -89,7 +91,7 @@ function DateDivider({ dateStr }) {
   return (
     <View style={S.dateDivWrap}>
       <View style={S.dateLine} />
-      <Text style={S.dateTxt}>{dateStr}</Text>
+      <Text style={S.dateTxt}>{_tx(dateStr)}</Text>
       <View style={S.dateLine} />
     </View>
   );
@@ -110,17 +112,21 @@ export default function ChatScreen({ route, navigation }) {
   const listRef      = useRef(null);
   const lastTsRef    = useRef(null);   // ISO timestamp of most-recent message we have
   const pollTimer    = useRef(null);
+  const loadFailed   = useRef(false);  // stop background polling after a denied/failed load
 
   // ── Load initial messages ────────────────────────────────────────────────
   const loadInitial = useCallback(async () => {
     setLoading(true);
     try {
-      const { messages: msgs } = await fetchMessages(user, otherUsername, null, 60);
+      const res  = await fetchMessages(user, otherUsername, null, 60);
+      const msgs = Array.isArray(res?.messages) ? res.messages : [];
       setMessages(msgs);
       if (msgs.length) {
         lastTsRef.current = msgs[msgs.length - 1].created_at;
       }
+      loadFailed.current = false;
     } catch (e) {
+      loadFailed.current = true;
       console.warn('[Chat] load error', e.message);
     } finally {
       setLoading(false);
@@ -129,10 +135,12 @@ export default function ChatScreen({ route, navigation }) {
 
   // ── Poll for new messages ────────────────────────────────────────────────
   const poll = useCallback(async () => {
+    if (loadFailed.current) return;
     try {
-      const { messages: newMsgs } = await fetchMessages(
+      const res = await fetchMessages(
         user, otherUsername, lastTsRef.current, 50
       );
+      const newMsgs = Array.isArray(res?.messages) ? res.messages : [];
       if (newMsgs.length) {
         setMessages(prev => {
           // Deduplicate by id
@@ -186,6 +194,7 @@ export default function ChatScreen({ route, navigation }) {
       // Remove optimistic on failure
       setMessages(prev => prev.filter(m => m.id !== optimistic.id));
       console.warn('[Chat] send error', e.message);
+      Alert.alert(_t("Message not sent"), _tx(e.message) || _t("Please try again."));
     } finally {
       setSending(false);
     }
@@ -204,7 +213,7 @@ export default function ChatScreen({ route, navigation }) {
       const yesterday = new Date(Date.now() - 86400000).toDateString();
       const label = dStr === today     ? 'Today'
                   : dStr === yesterday ? 'Yesterday'
-                  : d.toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' });
+                  : fmtDate(d, 'medium');
       listItems.push({ type: 'divider', key: `div-${dStr}`, label });
       lastDate = dStr;
     }
@@ -214,7 +223,7 @@ export default function ChatScreen({ route, navigation }) {
   const renderItem = ({ item }) => {
     if (item.type === 'divider') return <DateDivider dateStr={item.label} />;
     const isMine = item.msg.sender === myUsername;
-    return <Bubble msg={item.msg} isMine={isMine} otherName={otherName} />;
+    return <Bubble msg={_tx(item.msg)} isMine={isMine} otherName={otherName} />;
   };
 
   return (
@@ -228,10 +237,10 @@ export default function ChatScreen({ route, navigation }) {
           <Text style={S.headerAvatarTxt}>{initials(otherName)}</Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={S.headerName} numberOfLines={1}>{otherName}</Text>
+          <Text style={S.headerName} numberOfLines={1}>{_tx(otherName)}</Text>
           <View style={S.headerSubRow}>
             <View style={[S.onlineDot, { backgroundColor: isOnline ? C.online : C.offline }]} />
-            <Text style={S.headerSub}>{isOnline ? 'Online' : 'Offline'}</Text>
+            <Text style={S.headerSub}>{isOnline ? _t("Online") : _t("Offline")}</Text>
           </View>
         </View>
       </View>
@@ -249,8 +258,8 @@ export default function ChatScreen({ route, navigation }) {
         ) : listItems.length === 0 ? (
           <View style={S.center}>
             <Feather name="message-circle" size={52} color={C.border} />
-            <Text style={S.emptyTxt}>No messages yet</Text>
-            <Text style={S.emptySub}>Say hello to {otherName} 👋</Text>
+            <Text style={S.emptyTxt}>{_t("No messages yet")}</Text>
+            <Text style={S.emptySub}>{_t("Say hello to {otherName} 👋", { otherName })}</Text>
           </View>
         ) : (
           <FlatList
@@ -270,7 +279,7 @@ export default function ChatScreen({ route, navigation }) {
             style={S.input}
             value={inputText}
             onChangeText={setInputText}
-            placeholder={`Message ${otherName}…`}
+            placeholder={_t("Message {otherName}…", { otherName })}
             placeholderTextColor={C.timeTxt}
             multiline
             maxLength={2000}

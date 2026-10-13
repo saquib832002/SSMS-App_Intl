@@ -14,6 +14,8 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
 import { fetchDueFees, collectStudentFee } from "../../services/FeeServiceApi";
 
+import { fmtMoney } from "../../services/Locale";
+import { _t, _tx } from "../../services/i18n";
 export default function FeeCollectionScreen({ route, navigation }) {
   const { user } = useContext(AuthContext);
   const { enrollmentId, registrationNo, studentName } = route.params || {};
@@ -27,7 +29,7 @@ export default function FeeCollectionScreen({ route, navigation }) {
   const [paymentMode, setPaymentMode] = useState("Cash");
 
   const loadFees = useCallback(async () => {
-    if (!user) return;
+    if (!user) { setLoading(false); return; }
     try {
       setLoading(true);
       const response = await fetchDueFees(enrollmentId, user);
@@ -35,9 +37,9 @@ export default function FeeCollectionScreen({ route, navigation }) {
         ? response
         : response?.data || [];
 
-      setFees(dueFees);
+      setFees(Array.isArray(dueFees) ? dueFees : []);
     } catch (error) {
-      Alert.alert("Error", error.message || "Failed to load due fees");
+      Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to load due fees"));
     } finally {
       setLoading(false);
     }
@@ -77,7 +79,7 @@ export default function FeeCollectionScreen({ route, navigation }) {
 
   const handleCollectPayment = async () => {
     if (selectedFees.length === 0) {
-      Alert.alert("Validation", "Please select at least one fee item");
+      Alert.alert(_t("Validation"), _t("Please select at least one fee item"));
       return;
     }
 
@@ -96,14 +98,14 @@ export default function FeeCollectionScreen({ route, navigation }) {
         user
       );
 
-      Alert.alert("Success", "Fee collected successfully", [
+      Alert.alert(_t("Success"), _t("Fee collected successfully"), [
         {
-          text: "OK",
+          text: _t("OK"),
           onPress: () => navigation.goBack(),
         },
       ]);
     } catch (error) {
-      Alert.alert("Error", error.message || "Failed to collect fee");
+      Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to collect fee"));
     } finally {
       setSaving(false);
     }
@@ -122,10 +124,8 @@ export default function FeeCollectionScreen({ route, navigation }) {
       >
         <View style={styles.cardHeader}>
           <View>
-            <Text style={styles.feeName}>{item.fee_item_name}</Text>
-            <Text style={styles.feeMeta}>
-              {item.month_no || "One Time"} • Due: {item.due_date}
-            </Text>
+            <Text style={styles.feeName}>{_tx(item.fee_item_name)}</Text>
+            <Text style={styles.feeMeta}>{_t("{v} • Due: {due_date}", { v: item.month_no || _t("One Time"), due_date: item.due_date })}</Text>
           </View>
 
           <View
@@ -141,8 +141,8 @@ export default function FeeCollectionScreen({ route, navigation }) {
         </View>
 
         <View style={styles.amountRow}>
-          <Text style={styles.amountLabel}>Balance Amount</Text>
-          <Text style={styles.amountValue}>₹ {item.balance_amount}</Text>
+          <Text style={styles.amountLabel}>{_t("Balance Amount")}</Text>
+          <Text style={styles.amountValue}>{fmtMoney(item.balance_amount)}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -152,7 +152,7 @@ export default function FeeCollectionScreen({ route, navigation }) {
     return (
       <View style={styles.loaderWrap}>
         <ActivityIndicator size="large" color="#2563eb" />
-        <Text style={styles.loaderText}>Loading due fees...</Text>
+        <Text style={styles.loaderText}>{_t("Loading due fees...")}</Text>
       </View>
     );
   }
@@ -168,25 +168,21 @@ export default function FeeCollectionScreen({ route, navigation }) {
         ListHeaderComponent={
           <>
             <View style={styles.studentCard}>
-              <Text style={styles.studentName}>{studentName}</Text>
-              <Text style={styles.studentMeta}>
-                Registration No: {registrationNo}
-              </Text>
-              <Text style={styles.studentMeta}>
-                Enrollment ID: {enrollmentId}
-              </Text>
+              <Text style={styles.studentName}>{_tx(studentName)}</Text>
+              <Text style={styles.studentMeta}>{_t("Registration No: {registrationNo}", { registrationNo })}</Text>
+              <Text style={styles.studentMeta}>{_t("Enrollment ID: {enrollmentId}", { enrollmentId })}</Text>
             </View>
 
-            <Text style={styles.sectionTitle}>Due Fee Items</Text>
+            <Text style={styles.sectionTitle}>{_t("Due Fee Items")}</Text>
           </>
         }
         ListFooterComponent={
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryTitle}>Payment Summary</Text>
+            <Text style={styles.summaryTitle}>{_t("Payment Summary")}</Text>
 
             <TextInput
               style={styles.input}
-              placeholder="Late Fee"
+              placeholder={_t("Late Fee")}
               keyboardType="numeric"
               value={lateFee}
               onChangeText={setLateFee}
@@ -194,20 +190,20 @@ export default function FeeCollectionScreen({ route, navigation }) {
 
             <TextInput
               style={styles.input}
-              placeholder="Discount"
+              placeholder={_t("Discount")}
               keyboardType="numeric"
               value={discount}
               onChangeText={setDiscount}
             />
 
             <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Selected Fees</Text>
-              <Text style={styles.totalValue}>₹ {totalAmount}</Text>
+              <Text style={styles.totalLabel}>{_t("Selected Fees")}</Text>
+              <Text style={styles.totalValue}>{fmtMoney(totalAmount)}</Text>
             </View>
 
             <View style={styles.totalRow}>
-              <Text style={styles.grandLabel}>Grand Total</Text>
-              <Text style={styles.grandValue}>₹ {grandTotal}</Text>
+              <Text style={styles.grandLabel}>{_t("Grand Total")}</Text>
+              <Text style={styles.grandValue}>{fmtMoney(grandTotal)}</Text>
             </View>
 
             <TouchableOpacity
@@ -218,7 +214,7 @@ export default function FeeCollectionScreen({ route, navigation }) {
               {saving ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.collectButtonText}>Collect Payment</Text>
+                <Text style={styles.collectButtonText}>{_t("Collect Payment")}</Text>
               )}
             </TouchableOpacity>
           </View>

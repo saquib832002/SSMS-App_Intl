@@ -15,6 +15,7 @@ import { AuthContext } from "../../context/AuthContext";
 import { fetchBranches, fetchClasses, fetchSections, fetchSessions } from "../../services/SetupServiceApi";
 import { fetchClassSubjects } from "../../services/SubjectServiceApi";
 import { fetchExams, fetchQuickTestMaxMarks, saveQuickTestMaxMarks } from "../../services/ExamServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Category badge colours ────────────────────────────────────────────────────
 const CAT_STYLE = {
@@ -30,7 +31,7 @@ function CategoryBadge({ category }) {
   const { bg, fg } = CAT_STYLE[category] ?? CAT_STYLE.Major;
   return (
     <View style={{ backgroundColor: bg, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 }}>
-      <Text style={{ fontSize: 10, fontWeight: "700", color: fg }}>{category}</Text>
+      <Text style={{ fontSize: 10, fontWeight: "700", color: fg }}>{_tx(category)}</Text>
     </View>
   );
 }
@@ -47,7 +48,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading, renderOp
         activeOpacity={0.75}
       >
         <Text style={[s.ddTxt, !sel && s.ddPh]} numberOfLines={1}>
-          {loading ? "Loading…" : (sel?.label ?? label)}
+          {loading ? _t("Loading…") : (_tx(sel?.label) ?? _tx(label))}
         </Text>
         {sel?.category && <CategoryBadge category={sel.category} />}
         <Feather name="chevron-down" size={13} color="#94a3b8" style={{ marginLeft: 4 }} />
@@ -56,7 +57,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading, renderOp
         <TouchableOpacity style={s.ddOverlay} activeOpacity={1} onPress={() => setOpen(false)}>
           <View style={s.ddSheet}>
             <View style={s.ddHead}>
-              <Text style={s.ddTitle}>{label}</Text>
+              <Text style={s.ddTitle}>{_tx(label)}</Text>
               <TouchableOpacity onPress={() => setOpen(false)}>
                 <Feather name="x" size={14} color="#64748b" />
               </TouchableOpacity>
@@ -73,7 +74,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading, renderOp
                       onPress={() => { onChange(o.value); setOpen(false); }}
                     >
                       <Text style={[s.ddOptTxt, String(o.value) === String(value) && s.ddOptTxtAct]}>
-                        {o.label}
+                        {_tx(o.label)}
                       </Text>
                       {String(o.value) === String(value) && <Feather name="check" size={13} color="#1e40af" />}
                     </TouchableOpacity>
@@ -117,21 +118,26 @@ export default function QuickTestSetupScreen({ navigation }) {
     (async () => {
       try {
         setLoadingFilters(true);
-        const [exData, brData, seData, clData] = await Promise.all([
+        // allSettled: a 403 on one list must not blank the rest of the filters
+        const settled = await Promise.allSettled([
           fetchExams(user), fetchBranches(user), fetchSessions(user), fetchClasses(user),
         ]);
-        const exList = Array.isArray(exData) ? exData : exData?.data ?? [];
-        const brList = Array.isArray(brData) ? brData : brData?.data ?? [];
-        const seList = Array.isArray(seData) ? seData : seData?.data ?? [];
-        const clList = Array.isArray(clData) ? clData : clData?.data ?? [];
+        const [exData, brData, seData, clData] = settled.map(r => r.status === "fulfilled" ? r.value : null);
+        const firstErr = settled.find(r => r.status === "rejected");
+        const asArr = (d) => Array.isArray(d) ? d : Array.isArray(d?.data) ? d.data : [];
+        const exList = asArr(exData);
+        const brList = asArr(brData);
+        const seList = asArr(seData);
+        const clList = asArr(clData);
         setExams(exList);
         setBranches(brList);
         setSessions(seList);
         setClasses(clList);
         if (brList.length) setBranchId(String(brList[0].branch_id));
         if (seList.length) setSessionId(String(seList[0].session_id));
+        if (firstErr) Alert.alert(_t("Error"), _tx(firstErr.reason?.message) || _t("Failed to load filters"));
       } catch (e) {
-        Alert.alert("Error", e.message || "Failed to load filters");
+        Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load filters"));
       } finally {
         setLoadingFilters(false);
       }
@@ -180,7 +186,7 @@ export default function QuickTestSetupScreen({ navigation }) {
     let cancelled = false;
     fetchQuickTestMaxMarks(user, examId, classId)
       .then(saved => {
-        if (cancelled) return;
+        if (cancelled || !Array.isArray(saved)) return;
         setMaxMarks(prev => {
           // Start from current subjects (reset to blank, then overlay saved)
           const next = {};
@@ -226,9 +232,9 @@ export default function QuickTestSetupScreen({ navigation }) {
 
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
-    if (!examId)    { Alert.alert("Required", "Please select an exam.");    return; }
-    if (!classId)   { Alert.alert("Required", "Please select a class.");    return; }
-    if (!sectionId) { Alert.alert("Required", "Please select a section.");  return; }
+    if (!examId)    { Alert.alert(_t("Required"), _t("Please select an exam."));    return; }
+    if (!classId)   { Alert.alert(_t("Required"), _t("Please select a class."));    return; }
+    if (!sectionId) { Alert.alert(_t("Required"), _t("Please select a section."));  return; }
 
     const includedSubjects = subjects
       .filter(sub => isIncluded(sub.subject_id))
@@ -244,7 +250,7 @@ export default function QuickTestSetupScreen({ navigation }) {
       });
 
     if (!includedSubjects.length) {
-      Alert.alert("Required", "Enter max marks for at least one subject.");
+      Alert.alert(_t("Required"), _t("Enter max marks for at least one subject."));
       return;
     }
 
@@ -258,12 +264,12 @@ export default function QuickTestSetupScreen({ navigation }) {
 
       const selExam = exams.find(e => String(e.exam_id) === String(examId));
       Alert.alert(
-        "Max Marks Saved",
-        `Ready to enter marks for "${selExam?.exam_name ?? "Test"}"`,
+        _t("Max Marks Saved"),
+        _t("Ready to enter marks for \"{v}\"", { v: selExam?.exam_name ?? _t("Test") }),
         [
-          { text: "Later", style: "cancel" },
+          { text: _t("Later"), style: "cancel" },
           {
-            text: "Enter Marks →",
+            text: _t("Enter Marks →"),
             onPress: () => navigation.replace("AddMarks", {
               prefill: {
                 exam_id:    String(examId),
@@ -277,7 +283,7 @@ export default function QuickTestSetupScreen({ navigation }) {
         ]
       );
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to save max marks");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to save max marks"));
     } finally {
       setSaving(false);
     }
@@ -301,14 +307,14 @@ export default function QuickTestSetupScreen({ navigation }) {
           <Feather name="arrow-left" size={20} color="#1e40af" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={s.headerTitle}>Quick Test Setup</Text>
-          <Text style={s.headerSub}>Set max marks &amp; enter scores</Text>
+          <Text style={s.headerTitle}>{_t("Quick Test Setup")}</Text>
+          <Text style={s.headerSub}>{_t("Set max marks & enter scores")}</Text>
         </View>
         {saving
           ? <ActivityIndicator color="#1e40af" />
           : <TouchableOpacity style={s.saveBtn} onPress={handleSave} activeOpacity={0.8}>
               <Feather name="check" size={16} color="#fff" />
-              <Text style={s.saveBtnTxt}>Save</Text>
+              <Text style={s.saveBtnTxt}>{_t("Save")}</Text>
             </TouchableOpacity>}
       </View>
 
@@ -320,12 +326,12 @@ export default function QuickTestSetupScreen({ navigation }) {
       >
         {/* ── Exam selector ────────────────────────────────────────────── */}
         <View style={s.card}>
-          <Text style={s.sectionTitle}>SELECT EXAM</Text>
-          <Text style={s.label}>Exam <Text style={s.req}>*</Text></Text>
+          <Text style={s.sectionTitle}>{_t("SELECT EXAM")}</Text>
+          <Text style={s.label}>{_t("Exam")}{" "}<Text style={s.req}>*</Text></Text>
 
           {/* Custom exam list with category badges */}
           <Dropdown
-            label="Select Exam"
+            label={_t("Select Exam")}
             value={examId}
             options={examOpts}
             onChange={setExamId}
@@ -336,7 +342,7 @@ export default function QuickTestSetupScreen({ navigation }) {
                 onPress={onPress}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={[s.ddOptTxt, isActive && s.ddOptTxtAct]}>{o.label}</Text>
+                  <Text style={[s.ddOptTxt, isActive && s.ddOptTxtAct]}>{_tx(o.label)}</Text>
                 </View>
                 <CategoryBadge category={o.category} />
                 {isActive && <Feather name="check" size={13} color="#1e40af" style={{ marginLeft: 6 }} />}
@@ -347,35 +353,35 @@ export default function QuickTestSetupScreen({ navigation }) {
           {selExam && (
             <View style={s.examPill}>
               <CategoryBadge category={selExam.exam_category} />
-              <Text style={s.examPillTxt}>{selExam.exam_name}</Text>
+              <Text style={s.examPillTxt}>{_tx(selExam.exam_name)}</Text>
             </View>
           )}
         </View>
 
         {/* ── Filters ──────────────────────────────────────────────────── */}
         <View style={s.card}>
-          <Text style={s.sectionTitle}>CLASS &amp; SECTION</Text>
+          <Text style={s.sectionTitle}>{_t("CLASS & SECTION")}</Text>
           <View style={s.row2}>
             <View style={s.half}>
-              <Text style={s.label}>Branch</Text>
-              <Dropdown label="Branch" value={branchId} options={branchOpts}
+              <Text style={s.label}>{_t("Branch")}</Text>
+              <Dropdown label={_t("Branch")} value={branchId} options={branchOpts}
                 onChange={setBranchId} loading={loadingFilters} />
             </View>
             <View style={s.half}>
-              <Text style={s.label}>Session</Text>
-              <Dropdown label="Session" value={sessionId} options={sessionOpts}
+              <Text style={s.label}>{_t("Session")}</Text>
+              <Dropdown label={_t("Session")} value={sessionId} options={sessionOpts}
                 onChange={setSessionId} loading={loadingFilters} />
             </View>
           </View>
           <View style={s.row2}>
             <View style={s.half}>
-              <Text style={s.label}>Class <Text style={s.req}>*</Text></Text>
-              <Dropdown label="Select Class" value={classId} options={classOpts}
+              <Text style={s.label}>{_t("Class")}{" "}<Text style={s.req}>*</Text></Text>
+              <Dropdown label={_t("Select Class")} value={classId} options={classOpts}
                 onChange={setClassId} loading={loadingFilters} />
             </View>
             <View style={s.half}>
-              <Text style={s.label}>Section <Text style={s.req}>*</Text></Text>
-              <Dropdown label="Select Section" value={sectionId} options={sectionOpts}
+              <Text style={s.label}>{_t("Section")}{" "}<Text style={s.req}>*</Text></Text>
+              <Dropdown label={_t("Select Section")} value={sectionId} options={sectionOpts}
                 onChange={setSectionId} disabled={!classId} loading={loadingSections} />
             </View>
           </View>
@@ -384,21 +390,21 @@ export default function QuickTestSetupScreen({ navigation }) {
         {/* ── Subject Max Marks ─────────────────────────────────────────── */}
         <View style={s.card}>
           <View style={s.subjectHeader}>
-            <Text style={s.sectionTitle}>SUBJECT MAX MARKS</Text>
+            <Text style={s.sectionTitle}>{_t("SUBJECT MAX MARKS")}</Text>
             {includedCount > 0 && (
               <View style={s.countBadge}>
-                <Text style={s.countBadgeTxt}>{includedCount} included</Text>
+                <Text style={s.countBadgeTxt}>{_t("{includedCount} included", { includedCount })}</Text>
               </View>
             )}
           </View>
-          <Text style={s.hint}>Enter max marks for subjects included in this test. Leave blank to exclude.</Text>
+          <Text style={s.hint}>{_t("Enter max marks for subjects included in this test. Leave blank to exclude.")}</Text>
 
           {loadingSubjects
             ? <ActivityIndicator color="#1e40af" style={{ marginVertical: 20 }} />
             : !classId
-              ? <Text style={s.emptyHint}>Select a class to load subjects.</Text>
+              ? <Text style={s.emptyHint}>{_t("Select a class to load subjects.")}</Text>
               : subjects.length === 0
-                ? <Text style={s.emptyHint}>No subjects assigned to this class.</Text>
+                ? <Text style={s.emptyHint}>{_t("No subjects assigned to this class.")}</Text>
                 : subjects.map(sub => {
                     const m        = maxMarks[sub.subject_id] ?? {};
                     const included = isIncluded(sub.subject_id);
@@ -406,18 +412,18 @@ export default function QuickTestSetupScreen({ navigation }) {
                       <View key={sub.subject_id} style={[s.subRow, included && s.subRowAct]}>
                         {/* Subject name */}
                         <View style={s.subNameWrap}>
-                          <Text style={s.subName}>{sub.subject_name}</Text>
-                          {sub.subject_code ? <Text style={s.subCode}>{sub.subject_code}</Text> : null}
+                          <Text style={s.subName}>{_tx(sub.subject_name)}</Text>
+                          {sub.subject_code ? <Text style={s.subCode}>{_tx(sub.subject_code)}</Text> : null}
                         </View>
                         {/* Four mark inputs */}
                         <View style={s.markGrid}>
                           {[
-                            { key: "theory",    label: "Theory"   },
-                            { key: "internal",  label: "Internal" },
-                            { key: "practical", label: "Practical"},
+                            { key: "theory",    label: _t("Theory")   },
+                            { key: "internal",  label: _t("Internal") },
+                            { key: "practical", label: _t("Practical")},
                           ].map(({ key, label }) => (
                             <View key={key} style={s.markCell}>
-                              <Text style={s.markCellLabel}>{label}</Text>
+                              <Text style={s.markCellLabel}>{_tx(label)}</Text>
                               <TextInput
                                 style={[s.markInput, parseFloat(m[key]) > 0 && s.markInputAct]}
                                 placeholder="—"
@@ -431,10 +437,10 @@ export default function QuickTestSetupScreen({ navigation }) {
                           ))}
                           {/* Total — readonly, auto-computed */}
                           <View style={s.markCell}>
-                            <Text style={s.markCellLabel}>Total</Text>
+                            <Text style={s.markCellLabel}>{_t("Total")}</Text>
                             <View style={[s.markInput, s.markInputReadonly, parseFloat(m.total) > 0 && s.markInputTotalAct]}>
                               <Text style={[s.markInputReadonlyTxt, parseFloat(m.total) > 0 && { color: "#1e40af" }]}>
-                                {m.total || "—"}
+                                {_tx(m.total) || "—"}
                               </Text>
                             </View>
                           </View>
@@ -455,7 +461,7 @@ export default function QuickTestSetupScreen({ navigation }) {
             ? <ActivityIndicator color="#fff" size="small" />
             : <>
                 <Feather name="zap" size={16} color="#fff" />
-                <Text style={s.bottomBtnTxt}>Save &amp; Enter Marks</Text>
+                <Text style={s.bottomBtnTxt}>{_t("Save & Enter Marks")}</Text>
               </>}
         </TouchableOpacity>
 

@@ -12,6 +12,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { MaterialIcons, Feather } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
 import { fetchPeriods, createPeriod, updatePeriod, deletePeriod } from "../../services/TimeTableServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -19,12 +20,12 @@ const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 function TimeInput({ label, value, onChange, disabled }) {
   return (
     <View style={st.timeWrap}>
-      <Text style={st.timeLabel}>{label}</Text>
+      <Text style={st.timeLabel}>{_tx(label)}</Text>
       <TextInput
         style={st.timeInput}
         value={value}
         onChangeText={onChange}
-        placeholder="HH:MM"
+        placeholder={_t("HH:MM")}
         placeholderTextColor="#94a3b8"
         keyboardType="numbers-and-punctuation"
         editable={!disabled}
@@ -59,7 +60,7 @@ export default function PeriodSetupScreen({ navigation }) {
       const data = await fetchPeriods(user);
       setPeriods(Array.isArray(data) ? data : []);
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load periods");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load periods"));
     } finally {
       setLoading(false);
     }
@@ -73,7 +74,7 @@ export default function PeriodSetupScreen({ navigation }) {
       headerRight: () => (
         <TouchableOpacity style={st.headerBtn} onPress={() => navigation.navigate("Timetable")}>
           <Feather name="grid" size={13} color="#6b21a8" />
-          <Text style={st.headerBtnTxt}>Timetable</Text>
+          <Text style={st.headerBtnTxt}>{_t("Timetable")}</Text>
         </TouchableOpacity>
       ),
     });
@@ -101,10 +102,10 @@ export default function PeriodSetupScreen({ navigation }) {
 
   // ── Save ───────────────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!form.period_number.trim()) { Alert.alert("Validation", "Period number is required."); return; }
-    if (!form.period_name.trim())   { Alert.alert("Validation", "Period name is required.");   return; }
-    if (!form.start_time.trim())    { Alert.alert("Validation", "Start time is required.");    return; }
-    if (!form.end_time.trim())      { Alert.alert("Validation", "End time is required.");      return; }
+    if (!form.period_number.trim()) { Alert.alert(_t("Validation"), _t("Period number is required.")); return; }
+    if (!form.period_name.trim())   { Alert.alert(_t("Validation"), _t("Period name is required."));   return; }
+    if (!form.start_time.trim())    { Alert.alert(_t("Validation"), _t("Start time is required."));    return; }
+    if (!form.end_time.trim())      { Alert.alert(_t("Validation"), _t("End time is required."));      return; }
 
     try {
       setSaving(true);
@@ -122,9 +123,9 @@ export default function PeriodSetupScreen({ navigation }) {
       }
       setModalVisible(false);
       load();
-      Alert.alert("Success", editing ? "Period updated." : "Period created.");
+      Alert.alert(_t("Success"), editing ? _t("Period updated.") : _t("Period created."));
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to save");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to save"));
     } finally {
       setSaving(false);
     }
@@ -133,15 +134,15 @@ export default function PeriodSetupScreen({ navigation }) {
   // ── Delete ─────────────────────────────────────────────────────────────────
   const handleDelete = (item) => {
     Alert.alert(
-      "Delete Period",
-      `Delete "${item.period_name}"?`,
+      _t("Delete Period"),
+      _t("Delete \"{period_name}\"?", { period_name: item.period_name }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Delete", style: "destructive",
+          text: _t("Delete"), style: "destructive",
           onPress: async () => {
             try { await deletePeriod(user, item.period_id); load(); }
-            catch (e) { Alert.alert("Error", e.message || "Failed to delete"); }
+            catch (e) { Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to delete")); }
           },
         },
       ]
@@ -153,17 +154,17 @@ export default function PeriodSetupScreen({ navigation }) {
     <View style={[st.card, item.is_break == 1 && st.cardBreak]}>
       <View style={st.cardLeft}>
         <View style={[st.numBadge, item.is_break == 1 && st.numBadgeBreak]}>
-          <Text style={st.numTxt}>{item.period_number}</Text>
+          <Text style={st.numTxt}>{_tx(item.period_number)}</Text>
         </View>
         <View style={{ flex: 1 }}>
           <View style={st.cardTitleRow}>
-            <Text style={st.periodName}>{item.period_name}</Text>
+            <Text style={st.periodName}>{_tx(item.period_name)}</Text>
             {item.is_break == 1 &&
-              <View style={st.breakBadge}><Text style={st.breakTxt}>BREAK</Text></View>}
+              <View style={st.breakBadge}><Text style={st.breakTxt}>{_t("BREAK")}</Text></View>}
           </View>
           <Text style={st.timeRange}>
             <Feather name="clock" size={11} color="#94a3b8" />
-            {"  "}{item.start_time} – {item.end_time}
+            {"  "}{_tx(item.start_time)} – {_tx(item.end_time)}
           </Text>
         </View>
       </View>
@@ -184,7 +185,7 @@ export default function PeriodSetupScreen({ navigation }) {
       {/* Add button */}
       <TouchableOpacity style={st.addBtn} onPress={openAdd}>
         <Feather name="plus" size={16} color="#fff" />
-        <Text style={st.addBtnTxt}>Add Period</Text>
+        <Text style={st.addBtnTxt}>{_t("Add Period")}</Text>
       </TouchableOpacity>
 
       {/* List */}
@@ -199,8 +200,8 @@ export default function PeriodSetupScreen({ navigation }) {
             ListEmptyComponent={
               <View style={st.empty}>
                 <Feather name="clock" size={38} color="#cbd5e1" />
-                <Text style={st.emptyTxt}>No periods yet</Text>
-                <Text style={st.emptySubTxt}>Tap "Add Period" to get started</Text>
+                <Text style={st.emptyTxt}>{_t("No periods yet")}</Text>
+                <Text style={st.emptySubTxt}>{_t("Tap \"Add Period\" to get started")}</Text>
               </View>
             }
           />}
@@ -212,7 +213,7 @@ export default function PeriodSetupScreen({ navigation }) {
             <View style={st.modalCard}>
 
               <View style={st.modalHeader}>
-                <Text style={st.modalTitle}>{editing ? "Edit Period" : "Add Period"}</Text>
+                <Text style={st.modalTitle}>{editing ? _t("Edit Period") : _t("Add Period")}</Text>
                 <TouchableOpacity style={st.modalClose} onPress={() => setModalVisible(false)} disabled={saving}>
                   <Feather name="x" size={15} color="#64748b" />
                 </TouchableOpacity>
@@ -221,7 +222,7 @@ export default function PeriodSetupScreen({ navigation }) {
               <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
                 {/* Period Number */}
-                <Text style={st.fieldLabel}>Sort Order (Period #) <Text style={{ color: "#ef4444" }}>*</Text></Text>
+                <Text style={st.fieldLabel}>{_t("Sort Order (Period #)")}{" "}<Text style={{ color: "#ef4444" }}>*</Text></Text>
                 <TextInput
                   style={st.input}
                   value={form.period_number}
@@ -233,12 +234,12 @@ export default function PeriodSetupScreen({ navigation }) {
                 />
 
                 {/* Period Name */}
-                <Text style={st.fieldLabel}>Period Name <Text style={{ color: "#ef4444" }}>*</Text></Text>
+                <Text style={st.fieldLabel}>{_t("Period Name")}{" "}<Text style={{ color: "#ef4444" }}>*</Text></Text>
                 <TextInput
                   style={st.input}
                   value={form.period_name}
                   onChangeText={v => setField("period_name", v)}
-                  placeholder="e.g. Period 1, Lunch Break"
+                  placeholder={_t("e.g. Period 1, Lunch Break")}
                   placeholderTextColor="#94a3b8"
                   editable={!saving}
                 />
@@ -246,7 +247,7 @@ export default function PeriodSetupScreen({ navigation }) {
                 {/* Times */}
                 <View style={st.timeRow}>
                   <View style={{ flex: 1 }}>
-                    <Text style={st.fieldLabel}>Start Time <Text style={{ color: "#ef4444" }}>*</Text></Text>
+                    <Text style={st.fieldLabel}>{_t("Start Time")}{" "}<Text style={{ color: "#ef4444" }}>*</Text></Text>
                     <TextInput
                       style={st.input}
                       value={form.start_time}
@@ -260,7 +261,7 @@ export default function PeriodSetupScreen({ navigation }) {
                   </View>
                   <View style={{ width: 12 }} />
                   <View style={{ flex: 1 }}>
-                    <Text style={st.fieldLabel}>End Time <Text style={{ color: "#ef4444" }}>*</Text></Text>
+                    <Text style={st.fieldLabel}>{_t("End Time")}{" "}<Text style={{ color: "#ef4444" }}>*</Text></Text>
                     <TextInput
                       style={st.input}
                       value={form.end_time}
@@ -277,8 +278,8 @@ export default function PeriodSetupScreen({ navigation }) {
                 {/* Is Break */}
                 <View style={st.switchRow}>
                   <View>
-                    <Text style={st.fieldLabel}>Break Slot</Text>
-                    <Text style={st.switchDesc}>Break periods cannot be assigned a teacher</Text>
+                    <Text style={st.fieldLabel}>{_t("Break Slot")}</Text>
+                    <Text style={st.switchDesc}>{_t("Break periods cannot be assigned a teacher")}</Text>
                   </View>
                   <Switch
                     value={form.is_break}
@@ -293,12 +294,12 @@ export default function PeriodSetupScreen({ navigation }) {
 
               <View style={st.modalBtns}>
                 <TouchableOpacity style={st.cancelBtn} onPress={() => setModalVisible(false)} disabled={saving}>
-                  <Text style={st.cancelBtnTxt}>Cancel</Text>
+                  <Text style={st.cancelBtnTxt}>{_t("Cancel")}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[st.saveBtn, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>
                   {saving
                     ? <ActivityIndicator color="#fff" size="small" />
-                    : <><Feather name="check" size={14} color="#fff" /><Text style={st.saveBtnTxt}>{editing ? "Update" : "Save"}</Text></>}
+                    : <><Feather name="check" size={14} color="#fff" /><Text style={st.saveBtnTxt}>{editing ? _t("Update") : _t("Save")}</Text></>}
                 </TouchableOpacity>
               </View>
 

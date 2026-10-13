@@ -24,6 +24,7 @@ $stateBadge = static function (array $s) use ($fmt): string {
 $actionLabel = [
     'default_days' => 'Default trial length', 'extend' => 'Extended', 'set_date' => 'End date set',
     'end_now' => 'Ended now', 'restart' => 'Restarted', 'apply_default' => 'New default applied',
+    'edit_client' => 'Changed on Edit client page',
 ];
 ?>
 <!doctype html>

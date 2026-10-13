@@ -16,11 +16,12 @@ import * as DocumentPicker from "expo-document-picker";
 import { AuthContext } from "../../context/AuthContext";
 import { fetchInstituteDetails, updateInstituteDetails } from "../../services/UserServiceApi";
 import { BASE_URL, HOST_NAME } from "../../Environment/EnvironmentConfig";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Field components ──────────────────────────────────────────────────────────
 const Field = ({ label, value, onChangeText, editable = true, multiline, keyboardType, hint, placeholder, autoCapitalize }) => (
   <View style={sc.fieldWrap}>
-    <Text style={sc.fieldLabel}>{label}</Text>
+    <Text style={sc.fieldLabel}>{_tx(label)}</Text>
     {editable
       ? <TextInput
           style={[sc.input, multiline && sc.inputMulti]}
@@ -31,18 +32,18 @@ const Field = ({ label, value, onChangeText, editable = true, multiline, keyboar
           numberOfLines={multiline ? 3 : 1}
           keyboardType={keyboardType ?? "default"}
           placeholderTextColor="#94a3b8"
-          placeholder={placeholder ?? `Enter ${label.replace(" *", "")}`}
+          placeholder={_tx(placeholder) ?? _t("Enter {v}", { v: label.replace(" *", "") })}
           autoCapitalize={autoCapitalize ?? "sentences"}
         />
       : <View style={sc.readOnlyWrap}>
-          <Text style={sc.readOnlyTxt}>{value || "—"}</Text>
-          {!!hint && <Text style={sc.hintTxt}>{hint}</Text>}
+          <Text style={sc.readOnlyTxt}>{_tx(value) || "—"}</Text>
+          {!!hint && <Text style={sc.hintTxt}>{_tx(hint)}</Text>}
         </View>}
   </View>
 );
 
 const SectionTitle = ({ title }) => (
-  <Text style={sc.sectionTitle}>{title}</Text>
+  <Text style={sc.sectionTitle}>{_tx(title)}</Text>
 );
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
@@ -88,7 +89,7 @@ export default function InstituteDetailsScreen() {
     try {
       setLoading(true);
       const data = await fetchInstituteDetails(user);
-      if (!data) { Alert.alert("Error", "Institute details not found."); return; }
+      if (!data) { Alert.alert(_t("Error"), _t("Institute details not found.")); return; }
       setForm({
         ssms_client_code:        data.ssms_client_code        ?? "",
         ssms_client_name:        data.ssms_client_name        ?? "",
@@ -120,7 +121,7 @@ export default function InstituteDetailsScreen() {
         console.log("Logo URL:", `${appRoot}clients/${data.ssms_client_code}/${data.logo_name}`);
       }
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load institute details");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load institute details"));
     } finally { setLoading(false); }
   }, [user]);
 
@@ -140,19 +141,19 @@ export default function InstituteDetailsScreen() {
       if (!asset) return;
       const ext = (asset.name?.split(".").pop() ?? "").toLowerCase();
       if (!["jpg","jpeg","png","webp","gif"].includes(ext)) {
-        Alert.alert("Invalid File", "Please select a JPG, PNG or WEBP image.");
+        Alert.alert(_t("Invalid File"), _t("Please select a JPG, PNG or WEBP image."));
         return;
       }
       setLogoAsset({ uri: asset.uri, name: asset.name, mimeType: asset.mimeType });
     } catch (e) {
-      Alert.alert("Error", e.message || "Could not open file picker");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Could not open file picker"));
     }
   };
 
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!form.ssms_client_name?.trim()) {
-      Alert.alert("Validation", "Institute name is required.");
+      Alert.alert(_t("Validation"), _t("Institute name is required."));
       return;
     }
     try {
@@ -166,9 +167,9 @@ export default function InstituteDetailsScreen() {
         setLogoUrl(`${appRoot}/clients/${form.ssms_client_code}/${res.data.logo_name}`);
         setLogoAsset(null);
       }
-      Alert.alert("Saved", "Institute details updated successfully.");
+      Alert.alert(_t("Saved"), _t("Institute details updated successfully."));
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to save");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to save"));
     } finally { setSaving(false); }
   };
 
@@ -177,7 +178,7 @@ export default function InstituteDetailsScreen() {
     <SafeAreaView style={sc.safe} edges={["bottom"]}>
       <View style={sc.loader}>
         <ActivityIndicator size="large" color="#1e40af" />
-        <Text style={sc.loaderTxt}>Loading institute details…</Text>
+        <Text style={sc.loaderTxt}>{_t("Loading institute details…")}</Text>
       </View>
     </SafeAreaView>
   );
@@ -199,77 +200,77 @@ export default function InstituteDetailsScreen() {
               ? <Image source={{ uri: displayLogo }} style={sc.logoImg} />
               : <View style={sc.logoPlaceholder}>
                   <Feather name="image" size={32} color="#94a3b8" />
-                  <Text style={sc.logoPlaceholderTxt}>No Logo</Text>
+                  <Text style={sc.logoPlaceholderTxt}>{_t("No Logo")}</Text>
                 </View>}
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={sc.instituteName}>{form.ssms_client_name || "Institute Name"}</Text>
-            <Text style={sc.clientCode}>{form.ssms_client_code}</Text>
+            <Text style={sc.instituteName}>{_tx(form.ssms_client_name) || _t("Institute Name")}</Text>
+            <Text style={sc.clientCode}>{_tx(form.ssms_client_code)}</Text>
           </View>
         </View>
 
         {/* ── Basic Info ── */}
         <View style={sc.card}>
-          <SectionTitle title="Basic Information" />
-          <Field label="Client Code" value={form.ssms_client_code} editable={false} />
-          <Field label="Institute Name *" value={form.ssms_client_name}
+          <SectionTitle title={_t("Basic Information")} />
+          <Field label={_t("Client Code")} value={form.ssms_client_code} editable={false} />
+          <Field label={_t("Institute Name *")} value={form.ssms_client_name}
             onChangeText={v => setField("ssms_client_name", v)} editable={isAdmin} />
-          <Field label="Header Text" value={form.ssms_client_header_text}
+          <Field label={_t("Header Text")} value={form.ssms_client_header_text}
             onChangeText={v => setField("ssms_client_header_text", v)}
             editable={isAdmin} multiline />
         </View>
 
         {/* ── Contact ── */}
         <View style={sc.card}>
-          <SectionTitle title="Contact Details" />
-          <Field label="Email" value={form.ssms_client_email}
+          <SectionTitle title={_t("Contact Details")} />
+          <Field label={_t("Email")} value={form.ssms_client_email}
             onChangeText={v => setField("ssms_client_email", v)}
             editable={isAdmin} keyboardType="email-address" />
-          <Field label="Phone" value={form.ssms_client_phone}
+          <Field label={_t("Phone")} value={form.ssms_client_phone}
             onChangeText={v => setField("ssms_client_phone", v)}
             editable={isAdmin} keyboardType="phone-pad" />
         </View>
 
         {/* ── Address ── */}
         <View style={sc.card}>
-          <SectionTitle title="Address" />
-          <Field label="Address" value={form.ssms_client_address}
+          <SectionTitle title={_t("Address")} />
+          <Field label={_t("Address")} value={form.ssms_client_address}
             onChangeText={v => setField("ssms_client_address", v)}
             editable={isAdmin} multiline />
           <View style={sc.row}>
             <View style={sc.half}>
-              <Field label="City" value={form.ssms_client_city}
+              <Field label={_t("City")} value={form.ssms_client_city}
                 onChangeText={v => setField("ssms_client_city", v)} editable={isAdmin} />
             </View>
             <View style={sc.half}>
-              <Field label="State" value={form.ssms_client_state}
+              <Field label={_t("State")} value={form.ssms_client_state}
                 onChangeText={v => setField("ssms_client_state", v)} editable={isAdmin} />
             </View>
           </View>
-          <Field label="ZIP / Postal Code" value={form.ssms_client_zip}
+          <Field label={_t("ZIP / Postal Code")} value={form.ssms_client_zip}
             onChangeText={v => setField("ssms_client_zip", v)}
             editable={isAdmin} keyboardType="numeric" />
         </View>
 
         {/* ── Academic Config ── */}
         <View style={sc.card}>
-          <SectionTitle title="Academic Configuration" />
+          <SectionTitle title={_t("Academic Configuration")} />
           <View style={sc.row}>
             <View style={sc.half}>
-              <Field label="Enroll Prefix" value={form.enroll_prefix}
+              <Field label={_t("Enroll Prefix")} value={form.enroll_prefix}
                 onChangeText={v => setField("enroll_prefix", v)} editable={isAdmin} />
             </View>
             <View style={sc.half}>
-              <Field label="Registration Prefix" value={form.registration_prefix}
+              <Field label={_t("Registration Prefix")} value={form.registration_prefix}
                 onChangeText={v => setField("registration_prefix", v)} editable={isAdmin} />
             </View>
           </View>
-          <Field label="Currency" value={form.currency}
+          <Field label={_t("Currency")} value={form.currency}
             onChangeText={v => setField("currency", v)} editable={isAdmin} />
 
           {/* ── Logo Upload ── */}
           <View style={sc.fieldWrap}>
-            <Text style={sc.fieldLabel}>Institute Logo</Text>
+            <Text style={sc.fieldLabel}>{_t("Institute Logo")}</Text>
             <View style={sc.logoUploadRow}>
               <View style={sc.logoPreviewBox}>
                 {(logoAsset?.uri ?? logoUrl)
@@ -277,15 +278,15 @@ export default function InstituteDetailsScreen() {
                       style={sc.logoPreviewImg} resizeMode="contain" />
                   : <View style={sc.logoPreviewEmpty}>
                       <Feather name="image" size={24} color="#94a3b8" />
-                      <Text style={sc.logoPreviewEmptyTxt}>No Logo</Text>
+                      <Text style={sc.logoPreviewEmptyTxt}>{_t("No Logo")}</Text>
                     </View>}
               </View>
               <View style={sc.logoUploadControls}>
                 {logoAsset
-                  ? <Text style={sc.logoFileName} numberOfLines={2}>{logoAsset.name}</Text>
+                  ? <Text style={sc.logoFileName} numberOfLines={2}>{_tx(logoAsset.name)}</Text>
                   : form.logo_name
-                    ? <Text style={sc.logoFileName} numberOfLines={2}>{form.logo_name}</Text>
-                    : <Text style={sc.logoFileNameEmpty}>No logo uploaded yet</Text>}
+                    ? <Text style={sc.logoFileName} numberOfLines={2}>{_tx(form.logo_name)}</Text>
+                    : <Text style={sc.logoFileNameEmpty}>{_t("No logo uploaded yet")}</Text>}
                 {isAdmin && (
                   <>
                     <TouchableOpacity
@@ -295,7 +296,7 @@ export default function InstituteDetailsScreen() {
                     >
                       <Feather name="upload" size={14} color="#fff" />
                       <Text style={sc.logoPickBtnTxt}>
-                        {logoAsset ? "Change Logo" : "Upload Logo"}
+                        {logoAsset ? _t("Change Logo") : _t("Upload Logo")}
                       </Text>
                     </TouchableOpacity>
                     {logoAsset && (
@@ -304,10 +305,10 @@ export default function InstituteDetailsScreen() {
                         onPress={() => setLogoAsset(null)}
                       >
                         <Feather name="x" size={12} color="#dc2626" />
-                        <Text style={sc.logoClearBtnTxt}>Remove selection</Text>
+                        <Text style={sc.logoClearBtnTxt}>{_t("Remove selection")}</Text>
                       </TouchableOpacity>
                     )}
-                    <Text style={sc.logoHint}>JPG, PNG or WEBP · no crop</Text>
+                    <Text style={sc.logoHint}>{_t("JPG, PNG or WEBP · no crop")}</Text>
                   </>
                 )}
               </View>
@@ -317,25 +318,22 @@ export default function InstituteDetailsScreen() {
 
         {/* ── Payment ── */}
         <View style={sc.card}>
-          <SectionTitle title="Payment Details" />
-          <Field label="UPI ID" value={form.upi_id}
+          <SectionTitle title={_t("Payment Details")} />
+          <Field label={_t("UPI ID")} value={form.upi_id}
             onChangeText={v => setField("upi_id", v)} editable={isAdmin} />
-          <Field label="Account Name" value={form.pay_account_name}
+          <Field label={_t("Account Name")} value={form.pay_account_name}
             onChangeText={v => setField("pay_account_name", v)} editable={isAdmin} />
         </View>
 
         {/* ── WhatsApp Community ── */}
         <View style={sc.card}>
-          <SectionTitle title="WhatsApp Community" />
+          <SectionTitle title={_t("WhatsApp Community")} />
           <View style={sc.waHint}>
             <Feather name="info" size={12} color="#15803d" />
-            <Text style={sc.waHintTxt}>
-              Paste your WhatsApp community invite link here. Students and parents will see a
-              "Join Community" button on their dashboard.
-            </Text>
+            <Text style={sc.waHintTxt}>{_t("Paste your WhatsApp community invite link here. Students and parents will see a \"Join Community\" button on their dashboard.")}</Text>
           </View>
           <Field
-            label="Community Invite Link"
+            label={_t("Community Invite Link")}
             value={form.whatsapp_community_link}
             onChangeText={v => setField("whatsapp_community_link", v)}
             editable={isAdmin}
@@ -344,7 +342,7 @@ export default function InstituteDetailsScreen() {
             placeholder="https://chat.whatsapp.com/..."
           />
           <Field
-            label="Channel Link"
+            label={_t("Channel Link")}
             value={form.whatsapp_channel_link}
             onChangeText={v => setField("whatsapp_channel_link", v)}
             editable={isAdmin}
@@ -356,15 +354,15 @@ export default function InstituteDetailsScreen() {
 
         {/* ── System (read-only) ── */}
         <View style={sc.card}>
-          <SectionTitle title="System Information" />
-          <Field label="Expiry Date" value={form.ssms_client_expiry_date}
+          <SectionTitle title={_t("System Information")} />
+          <Field label={_t("Expiry Date")} value={form.ssms_client_expiry_date}
             editable={false} />
           <View style={sc.row}>
             <View style={sc.half}>
-              <Field label="Created" value={form.created?.slice(0, 10)} editable={false} />
+              <Field label={_t("Created")} value={form.created?.slice(0, 10)} editable={false} />
             </View>
             <View style={sc.half}>
-              <Field label="Last Modified" value={form.modified?.slice(0, 10)} editable={false} />
+              <Field label={_t("Last Modified")} value={form.modified?.slice(0, 10)} editable={false} />
             </View>
           </View>
         </View>
@@ -380,7 +378,7 @@ export default function InstituteDetailsScreen() {
             {saving
               ? <ActivityIndicator color="#fff" size="small" />
               : <><Feather name="check" size={16} color="#fff" />
-                  <Text style={sc.saveBtnTxt}>Save Changes</Text></>}
+                  <Text style={sc.saveBtnTxt}>{_t("Save Changes")}</Text></>}
           </TouchableOpacity>
         )}
 

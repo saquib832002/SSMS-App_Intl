@@ -92,7 +92,7 @@ class StudentPortalController extends AppController
                     } else {
                         // ── Create account ────────────────────────────────────
                         $plainPassword = $this->_generatePassword();
-                        $hashedPw      = crypt($plainPassword, '$2y$10$iusesomecrazystrings22');
+                        $hashedPw      = \App\Service\Passwords::hash($plainPassword);
                         $firstName     = $enrollment['student_first_name'];
                         $lastName      = $enrollment['student_last_name'];
                         $now           = date('Y-m-d H:i:s');
@@ -140,6 +140,7 @@ class StudentPortalController extends AppController
                                 password:      $plainPassword,
                                 role:          $role,
                                 instituteName: $instituteName,
+                                clientCode:    (string)$clientCode,
                             );
 
                             $success = true;
@@ -193,7 +194,7 @@ class StudentPortalController extends AppController
         )->fetchAssoc();
 
         // Fee dues — mirrors the main fee-due query in SsmsFeePaidDetailsController
-        $today = date('Y-m-d');
+        $today = $this->schoolToday();
         $feeDues = $db->execute(
             "SELECT
                 fs.fee_id,
@@ -484,7 +485,8 @@ class StudentPortalController extends AppController
         string $enrollmentId,
         string $password,
         string $role,
-        string $instituteName
+        string $instituteName,
+        string $clientCode = ''
     ): void {
         try {
             $loginUrl = (string)\Cake\Routing\Router::url(
@@ -494,7 +496,7 @@ class StudentPortalController extends AppController
 
             $mailer = new Mailer('default');
             $mailer->setTo($email)
-                   ->setSubject("{$instituteName} — Your Student Portal Account")
+                   ->setSubject($clientCode !== '' ? \App\Service\Locale::t($clientCode, '{school} — Your Student Portal Account', ['school' => $instituteName]) : "{$instituteName} — Your Student Portal Account")
                    ->setEmailFormat('html')
                    ->setViewVars([
                        'instituteName' => $instituteName,
@@ -503,6 +505,7 @@ class StudentPortalController extends AppController
                        'password'      => $password,
                        'role'          => $role,
                        'loginUrl'      => $loginUrl,
+                       'schoolClientCode' => $clientCode,
                    ]);
 
             $mailer->viewBuilder()

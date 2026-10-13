@@ -314,19 +314,23 @@ class SsmsFeeStructureController extends AppController
                     $amount = (float)($amounts[$bucket][$fid] ?? 0);
                     if ($amount <= 0) continue;
 
-                    // One-time fees use 'Apr' as the month_no placeholder
-                    if (isset($existing[$fid]['Apr'])) {
+                    // One-time fees: month = the session's first month (School Settings),
+                    // due on the 1st of that month. Older rows may say 'Apr' – reuse them.
+                    $otMonth = \App\Service\SessionCalendar::startMonthName($clientCode);
+                    $otDue   = \App\Service\SessionCalendar::dueDate($otMonth, $clientCode, $sessionId);
+                    $otId    = !empty($existing[$fid]) ? min($existing[$fid]) : null;
+                    if ($otId) {
                         $db->execute(
-                            "UPDATE ssms_fee_structure SET fee_amount=? WHERE fee_id=?",
-                            [$amount, $existing[$fid]['Apr']]
+                            "UPDATE ssms_fee_structure SET fee_amount=?, month_no=?, due_date=? WHERE fee_id=?",
+                            [$amount, $otMonth, $otDue, $otId]
                         );
                     } else {
                         $db->execute(
                             "INSERT INTO ssms_fee_structure
                                 (fee_item_id, fee_amount, due_date, class_id, session_id, branch_id,
                                  month_no, ssms_client_code)
-                             VALUES (?,?,CURDATE(),?,?,?,'Apr',?)",
-                            [$fid, $amount, $classId, $sessionId, $branchId, $clientCode]
+                             VALUES (?,?,?,?,?,?,?,?)",
+                            [$fid, $amount, $otDue, $classId, $sessionId, $branchId, $otMonth, $clientCode]
                         );
                     }
                 }

@@ -23,6 +23,8 @@ import { getStudentHomework, listHomework } from "../../services/HomeworkService
 import { fetchSections, fetchClasses } from "../../services/StudentServiceApi";
 import { fetchTeacherAssignments }     from "../../services/SubjectServiceApi";
 
+import { fmtDate } from "../../services/Locale";
+import { _t, _tx } from "../../services/i18n";
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmtISO  = (d) => d.toISOString().split("T")[0];
 const TODAY   = fmtISO(new Date());
@@ -31,14 +33,14 @@ const fmtDisplay = (s) => {
   if (!s) return "";
   const d = new Date(String(s).replace(" ", "T") + (s.length === 10 ? "T00:00:00" : ""));
   if (isNaN(d.getTime())) return s;
-  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return fmtDate(d, "medium");
 };
 
 const STATUS_CFG = {
-  pending:    { label: "Pending",    icon: "clock",        color: "#92400e", bg: "#fef3c7", border: "#fcd34d", barColor: "#f59e0b" },
-  submitted:  { label: "Submitted",  icon: "upload",       color: "#1d4ed8", bg: "#eff6ff", border: "#93c5fd", barColor: "#3b82f6" },
-  completed:  { label: "Completed",  icon: "check-circle", color: "#15803d", bg: "#dcfce7", border: "#86efac", barColor: "#22c55e" },
-  incomplete: { label: "Incomplete", icon: "x-circle",     color: "#dc2626", bg: "#fee2e2", border: "#fca5a5", barColor: "#ef4444" },
+  pending:    { get label() { return _t("Pending"); },    icon: "clock",        color: "#92400e", bg: "#fef3c7", border: "#fcd34d", barColor: "#f59e0b" },
+  submitted:  { get label() { return _t("Submitted"); },  icon: "upload",       color: "#1d4ed8", bg: "#eff6ff", border: "#93c5fd", barColor: "#3b82f6" },
+  completed:  { get label() { return _t("Completed"); },  icon: "check-circle", color: "#15803d", bg: "#dcfce7", border: "#86efac", barColor: "#22c55e" },
+  incomplete: { get label() { return _t("Incomplete"); }, icon: "x-circle",     color: "#dc2626", bg: "#fee2e2", border: "#fca5a5", barColor: "#ef4444" },
 };
 
 const PENDING_STATUSES   = new Set(["pending", "submitted", "incomplete"]);
@@ -56,14 +58,14 @@ function Dropdown({ label, value, options, onChange, disabled, placeholder }) {
         activeOpacity={0.7}
       >
         <Text style={sel ? dd.val : dd.ph} numberOfLines={1}>
-          {sel ? sel.label : (placeholder ?? label)}
+          {sel ? _tx(sel.label) : (_tx(placeholder) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={13} color="#64748b" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={dd.overlay} activeOpacity={1} onPress={() => setOpen(false)}>
           <View style={dd.sheet}>
-            <Text style={dd.sheetTitle}>{label}</Text>
+            <Text style={dd.sheetTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={o => String(o.value)}
@@ -73,7 +75,7 @@ function Dropdown({ label, value, options, onChange, disabled, placeholder }) {
                   onPress={() => { onChange(item.value); setOpen(false); }}
                 >
                   <Text style={[dd.optTxt, String(item.value) === String(value) && dd.optSelTxt]}>
-                    {item.label}
+                    {_tx(item.label)}
                   </Text>
                   {String(item.value) === String(value) &&
                     <Feather name="check" size={14} color="#2563eb" />}
@@ -100,39 +102,37 @@ function HomeworkCard({ item }) {
       <View style={sc.cardHead}>
         <View style={{ flex: 1, gap: 3 }}>
           {(item.subjectName ?? item.subject_name)
-            ? <Text style={sc.subject}>📚 {item.subjectName ?? item.subject_name}</Text>
+            ? <Text style={sc.subject}>📚 {_tx(item.subjectName) ?? _tx(item.subject_name)}</Text>
             : null}
-          <Text style={sc.title}>{item.title}</Text>
+          <Text style={sc.title}>{_tx(item.title)}</Text>
         </View>
         <View style={[sc.statusPill, { backgroundColor: cfg.bg, borderColor: cfg.border }]}>
           <Feather name={cfg.icon} size={12} color={cfg.color} />
-          <Text style={[sc.statusTxt, { color: cfg.color }]}>{cfg.label}</Text>
+          <Text style={[sc.statusTxt, { color: cfg.color }]}>{_tx(cfg.label)}</Text>
         </View>
       </View>
 
-      {item.description ? <Text style={sc.desc}>{item.description}</Text> : null}
+      {item.description ? <Text style={sc.desc}>{_tx(item.description)}</Text> : null}
 
       <View style={sc.metaRow}>
         {assignedDate ? (
           <View style={sc.metaChip}>
             <Feather name="edit-3" size={10} color="#64748b" />
-            <Text style={sc.metaTxt}>Assigned: {fmtDisplay(assignedDate)}</Text>
+            <Text style={sc.metaTxt}>{_t("Assigned: {assignedDate}", { assignedDate: fmtDisplay(assignedDate) })}</Text>
           </View>
         ) : null}
         {dueDate ? (
           <View style={[sc.metaChip, isOverdue && sc.metaChipOverdue]}>
             <Feather name="calendar" size={10} color={isOverdue ? "#dc2626" : "#64748b"} />
-            <Text style={[sc.metaTxt, isOverdue && { color: "#dc2626", fontWeight: "700" }]}>
-              Due: {fmtDisplay(dueDate)}
-            </Text>
-            {isOverdue ? <Text style={sc.overdueTag}>OVERDUE</Text> : null}
+            <Text style={[sc.metaTxt, isOverdue && { color: "#dc2626", fontWeight: "700" }]}>{_t("Due: {dueDate}", { dueDate: fmtDisplay(dueDate) })}</Text>
+            {isOverdue ? <Text style={sc.overdueTag}>{_t("OVERDUE")}</Text> : null}
           </View>
         ) : null}
       </View>
 
       {item.completionPercentage != null && (
         <View style={sc.pctRow}>
-          <Text style={[sc.pctTxt, { color: cfg.color }]}>{item.completionPercentage}% done</Text>
+          <Text style={[sc.pctTxt, { color: cfg.color }]}>{_t("{completionPercentage}% done", { completionPercentage: item.completionPercentage })}</Text>
           <View style={sc.pctBar}>
             <View style={[sc.pctFill, { width: `${item.completionPercentage}%`, backgroundColor: cfg.barColor }]} />
           </View>
@@ -142,12 +142,12 @@ function HomeworkCard({ item }) {
       {item.teacherRemarks ? (
         <View style={sc.remarksBox}>
           <Feather name="message-square" size={12} color="#7c3aed" />
-          <Text style={sc.remarks}>{item.teacherRemarks}</Text>
+          <Text style={sc.remarks}>{_tx(item.teacherRemarks)}</Text>
         </View>
       ) : null}
 
       {item.markedAt && !PENDING_STATUSES.has(status) ? (
-        <Text style={sc.markedAt}>Marked: {fmtDisplay(item.markedAt)}</Text>
+        <Text style={sc.markedAt}>{_t("Marked: {markedAt}", { markedAt: fmtDisplay(item.markedAt) })}</Text>
       ) : null}
     </View>
   );
@@ -159,22 +159,18 @@ function TeacherCard({ item }) {
   const isOverdue = (item.dueDate ?? "") < TODAY && (item.completionStatus ?? item.status) !== "completed";
   return (
     <View style={[sc.card, { borderLeftColor: cfg.barColor }]}>
-      {(item.subjectName) ? <Text style={sc.subject}>📚 {item.subjectName}</Text> : null}
-      <Text style={sc.title}>{item.title}</Text>
-      {item.description ? <Text style={sc.desc}>{item.description}</Text> : null}
+      {(item.subjectName) ? <Text style={sc.subject}>📚 {_tx(item.subjectName)}</Text> : null}
+      <Text style={sc.title}>{_tx(item.title)}</Text>
+      {item.description ? <Text style={sc.desc}>{_tx(item.description)}</Text> : null}
       <View style={sc.metaRow}>
         <View style={[sc.metaChip, isOverdue && sc.metaChipOverdue]}>
           <Feather name="calendar" size={10} color={isOverdue ? "#dc2626" : "#64748b"} />
-          <Text style={[sc.metaTxt, isOverdue && { color: "#dc2626", fontWeight: "700" }]}>
-            Due: {fmtDisplay(item.dueDate)}
-          </Text>
-          {isOverdue ? <Text style={sc.overdueTag}>OVERDUE</Text> : null}
+          <Text style={[sc.metaTxt, isOverdue && { color: "#dc2626", fontWeight: "700" }]}>{_t("Due: {dueDate}", { dueDate: fmtDisplay(item.dueDate) })}</Text>
+          {isOverdue ? <Text style={sc.overdueTag}>{_t("OVERDUE")}</Text> : null}
         </View>
       </View>
       {item.totalMarked != null && (
-        <Text style={sc.teacherMeta}>
-          {item.totalCompleted ?? 0} completed · {item.totalSubmitted ?? 0} submitted · {item.totalPending ?? 0} pending
-        </Text>
+        <Text style={sc.teacherMeta}>{_t("{v} completed · {v2} submitted · {v3} pending", { v: item.totalCompleted ?? 0, v2: item.totalSubmitted ?? 0, v3: item.totalPending ?? 0 })}</Text>
       )}
     </View>
   );
@@ -183,13 +179,13 @@ function TeacherCard({ item }) {
 // ── Empty state ────────────────────────────────────────────────────────────────
 function Empty({ tab }) {
   const cfg = tab === "completed"
-    ? { icon: "check-circle", title: "No completed homework", desc: "Homework you finish will appear here." }
-    : { icon: "book-open",    title: "All clear!",            desc: "No pending homework right now." };
+    ? { icon: "check-circle", title: _t("No completed homework"), desc: _t("Homework you finish will appear here.") }
+    : { icon: "book-open",    title: _t("All clear!"),            desc: _t("No pending homework right now.") };
   return (
     <View style={sc.empty}>
       <Feather name={cfg.icon} size={48} color="#cbd5e1" />
-      <Text style={sc.emptyTitle}>{cfg.title}</Text>
-      <Text style={sc.emptyDesc}>{cfg.desc}</Text>
+      <Text style={sc.emptyTitle}>{_tx(cfg.title)}</Text>
+      <Text style={sc.emptyDesc}>{_tx(cfg.desc)}</Text>
     </View>
   );
 }
@@ -242,13 +238,13 @@ export default function HomeworkStudentScreen({ navigation }) {
     if (!isTeacher) return;
     if (isAdminOwner) {
       fetchClasses(user).catch(() => []).then(cls =>
-        setClasses(cls.map(c => ({ value: String(c.class_id ?? c.id), label: c.class_name ?? c.name })))
+        setClasses((Array.isArray(cls) ? cls : []).map(c => ({ value: String(c.class_id ?? c.id), label: c.class_name ?? c.name })))
       );
     } else if (staffId) {
       fetchTeacherAssignments(user, staffId).catch(() => []).then(rows => {
         const seen = new Set();
         const cls  = [];
-        rows.forEach(r => {
+        (Array.isArray(rows) ? rows : []).forEach(r => {
           if (r.class_id && !seen.has(r.class_id)) {
             seen.add(r.class_id);
             cls.push({ value: String(r.class_id), label: r.class_name ?? String(r.class_id) });
@@ -264,7 +260,7 @@ export default function HomeworkStudentScreen({ navigation }) {
   useEffect(() => {
     if (!isTeacher || !classId) { setSections([]); setSectionId(""); return; }
     fetchSections(user, classId).catch(() => []).then(s => {
-      const opts = s.map(x => ({ value: String(x.section_id ?? x.id), label: x.section_name ?? x.name }));
+      const opts = (Array.isArray(s) ? s : []).map(x => ({ value: String(x.section_id ?? x.id), label: x.section_name ?? x.name }));
       setSections(opts);
       setSectionId(opts.length > 0 ? String(opts[0].value) : "");
     });
@@ -283,7 +279,7 @@ export default function HomeworkStudentScreen({ navigation }) {
         // No date passed → backend returns all active homework for the class
         rows = await getStudentHomework(effectiveUser, enrollmentId, null);
       }
-      setHomework(rows);
+      setHomework(Array.isArray(rows) ? rows : []);
     } catch {
       setHomework([]);
     } finally {
@@ -341,7 +337,7 @@ export default function HomeworkStudentScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 4 }}>
           <Feather name="arrow-left" size={20} color="#1e40af" />
         </TouchableOpacity>
-        <Text style={sc.headerTitle}>My Homework</Text>
+        <Text style={sc.headerTitle}>{_t("My Homework")}</Text>
       </View>
 
       {/* ── TEACHER UI ── */}
@@ -349,14 +345,14 @@ export default function HomeworkStudentScreen({ navigation }) {
         <>
           <View style={sc.filters}>
             <View style={sc.filterCell}>
-              <Text style={sc.filterLabel}>Class</Text>
-              <Dropdown label="Class" value={classId} options={classes}
-                onChange={v => { setClassId(v); setSectionId(""); }} placeholder="Select class" />
+              <Text style={sc.filterLabel}>{_t("Class")}</Text>
+              <Dropdown label={_t("Class")} value={classId} options={classes}
+                onChange={v => { setClassId(v); setSectionId(""); }} placeholder={_t("Select class")} />
             </View>
             <View style={sc.filterCell}>
-              <Text style={sc.filterLabel}>Section</Text>
-              <Dropdown label="Section" value={sectionId} options={sections}
-                onChange={setSectionId} disabled={!classId} placeholder="Select" />
+              <Text style={sc.filterLabel}>{_t("Section")}</Text>
+              <Dropdown label={_t("Section")} value={sectionId} options={sections}
+                onChange={setSectionId} disabled={!classId} placeholder={_t("Select")} />
             </View>
           </View>
 
@@ -366,7 +362,7 @@ export default function HomeworkStudentScreen({ navigation }) {
             </TouchableOpacity>
             <TouchableOpacity style={sc.dateBtn} onPress={() => setShowPicker(true)}>
               <Feather name="calendar" size={14} color="#2563eb" />
-              <Text style={sc.dateTxt}>{date === TODAY ? "Today" : date}</Text>
+              <Text style={sc.dateTxt}>{date === TODAY ? _t("Today") : _tx(date)}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={sc.arrowBtn} onPress={() => shift(1)} disabled={date >= TODAY}>
               <Feather name="chevron-right" size={20} color={date >= TODAY ? "#cbd5e1" : "#1e40af"} />
@@ -387,8 +383,8 @@ export default function HomeworkStudentScreen({ navigation }) {
                 ...(teacherSummary.overdue > 0 ? [{ n: teacherSummary.overdue, l: "Overdue", c: "#dc2626" }] : []),
               ].map(s => (
                 <View key={s.l} style={sc.stripItem}>
-                  <Text style={[sc.stripN, { color: s.c }]}>{s.n}</Text>
-                  <Text style={sc.stripL}>{s.l}</Text>
+                  <Text style={[sc.stripN, { color: s.c }]}>{_tx(s.n)}</Text>
+                  <Text style={sc.stripL}>{_tx(s.l)}</Text>
                 </View>
               ))}
             </View>
@@ -401,11 +397,11 @@ export default function HomeworkStudentScreen({ navigation }) {
         <View style={sc.tabBar}>
           <TouchableOpacity style={sc.tab} onPress={() => switchTab("pending")} activeOpacity={0.7}>
             <View style={sc.tabInner}>
-              <Text style={[sc.tabTxt, activeTab === "pending" && sc.tabTxtActive]}>Pending</Text>
+              <Text style={[sc.tabTxt, activeTab === "pending" && sc.tabTxtActive]}>{_t("Pending")}</Text>
               {pendingList.length > 0 && (
                 <View style={[sc.tabBadge, activeTab === "pending" ? sc.tabBadgeActive : sc.tabBadgeInactive]}>
                   <Text style={[sc.tabBadgeTxt, activeTab === "pending" && { color: "#fff" }]}>
-                    {pendingList.length}
+                    {_tx(pendingList.length)}
                   </Text>
                 </View>
               )}
@@ -418,11 +414,11 @@ export default function HomeworkStudentScreen({ navigation }) {
 
           <TouchableOpacity style={sc.tab} onPress={() => switchTab("completed")} activeOpacity={0.7}>
             <View style={sc.tabInner}>
-              <Text style={[sc.tabTxt, activeTab === "completed" && sc.tabTxtActive]}>Completed</Text>
+              <Text style={[sc.tabTxt, activeTab === "completed" && sc.tabTxtActive]}>{_t("Completed")}</Text>
               {completedList.length > 0 && (
                 <View style={[sc.tabBadge, activeTab === "completed" ? sc.tabBadgeGreen : sc.tabBadgeInactive]}>
                   <Text style={[sc.tabBadgeTxt, activeTab === "completed" && { color: "#fff" }]}>
-                    {completedList.length}
+                    {_tx(completedList.length)}
                   </Text>
                 </View>
               )}
@@ -436,9 +432,7 @@ export default function HomeworkStudentScreen({ navigation }) {
       {!isTeacher && overdueCount > 0 && activeTab === "pending" && (
         <View style={sc.overdueBanner}>
           <Feather name="alert-triangle" size={13} color="#fff" />
-          <Text style={sc.overdueBannerTxt}>
-            {overdueCount} overdue homework{overdueCount > 1 ? "s" : ""} — submit as soon as possible
-          </Text>
+          <Text style={sc.overdueBannerTxt}>{_t("{overdueCount} overdue homework{pl} — submit as soon as possible", { overdueCount, pl: overdueCount > 1 ? "s" : "" })}</Text>
         </View>
       )}
 
@@ -462,16 +456,16 @@ export default function HomeworkStudentScreen({ navigation }) {
                   ? (
                     <View style={sc.empty}>
                       <Feather name="book" size={48} color="#cbd5e1" />
-                      <Text style={sc.emptyTitle}>Select a class</Text>
-                      <Text style={sc.emptyDesc}>Choose a class above to view homework.</Text>
+                      <Text style={sc.emptyTitle}>{_t("Select a class")}</Text>
+                      <Text style={sc.emptyDesc}>{_t("Choose a class above to view homework.")}</Text>
                     </View>
                   )
                   : homework.length === 0
                     ? (
                       <View style={sc.empty}>
                         <Feather name="book-open" size={48} color="#cbd5e1" />
-                        <Text style={sc.emptyTitle}>No homework for this day</Text>
-                        <Text style={sc.emptyDesc}>{date === TODAY ? "Nothing assigned today." : "Nothing was assigned on this date."}</Text>
+                        <Text style={sc.emptyTitle}>{_t("No homework for this day")}</Text>
+                        <Text style={sc.emptyDesc}>{date === TODAY ? _t("Nothing assigned today.") : _t("Nothing was assigned on this date.")}</Text>
                       </View>
                     )
                     : homework.map(hw => <TeacherCard key={hw.id} item={hw} />)

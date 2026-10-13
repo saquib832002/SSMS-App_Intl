@@ -1,6 +1,7 @@
 //const BASE_URL = "http://192.168.4.90/ssms5/FeeApi";
 import { BASE_URL as _BASE_URL_RAW } from "../Environment/EnvironmentConfig";
 import { safeFetch } from "./apiInterceptor";
+import { _t } from "./i18n";
 const BASE_URL = _BASE_URL_RAW.replace(/\/+$/, "");
 
 const buildHeaders = (user) => ({
@@ -23,7 +24,7 @@ export async function createFeeItem(user, payload) {
 
   const data = await response.json();
   if (!response.ok || !data.status) {
-    throw new Error(data.message || "Failed to create fee item");
+    throw new Error(data.message || _t("Failed to create fee item"));
   }
   return data;
 }
@@ -39,7 +40,7 @@ export async function fetchFeeItems(user, category = "") {
   });
   const data = await response.json();
   if (!response.ok || !data.status) {
-    throw new Error(data.message || "Failed to load fee items");
+    throw new Error(data.message || _t("Failed to load fee items"));
   }
   return data.data || [];
 }
@@ -55,7 +56,7 @@ export async function saveClassFeeStructure(user, payload) {
 
   const data = await response.json();
   if (!response.ok || !data.status) {
-    throw new Error(data.message || "Failed to save fee structure");
+    throw new Error(data.message || _t("Failed to save fee structure"));
   }
   return data;
 }
@@ -74,7 +75,7 @@ export async function fetchClassFeeStructure(user, { classId, sessionId, branchI
 
   const data = await response.json();
   if (!response.ok || !data.status) {
-    throw new Error(data.message || "Failed to load fee structure");
+    throw new Error(data.message || _t("Failed to load fee structure"));
   }
   return data.data || [];
 }
@@ -95,7 +96,7 @@ export async function updateFeeItem(user, feeItemId, payload) {
 
   const data = await response.json();
   if (!response.ok || !data.status) {
-    throw new Error(data.message || "Failed to update fee item");
+    throw new Error(data.message || _t("Failed to update fee item"));
   }
   return data;
 }
@@ -108,7 +109,7 @@ export async function deactivateFeeItem(user, feeItemId) {
 
   const data = await response.json();
   if (!response.ok || !data.status) {
-    throw new Error(data.message || "Failed to deactivate fee item");
+    throw new Error(data.message || _t("Failed to deactivate fee item"));
   }
   return data;
 }
@@ -121,7 +122,7 @@ export async function deleteFeeItem(user, feeItemId) {
 
   const data = await response.json();
   if (!response.ok || !data.status) {
-    throw new Error(data.message || "Failed to delete fee item");
+    throw new Error(data.message || _t("Failed to delete fee item"));
   }
   return data;
 }
@@ -143,7 +144,7 @@ export const fetchDueFees = async (enrollmentId, user) => {
     const data = await response.json();
 
     if (!response.ok || data.status === false) {
-      throw new Error(data.message || "Failed to fetch due fees");
+      throw new Error(data.message || _t("Failed to fetch due fees"));
     }
 
     return data.data || [];
@@ -167,7 +168,7 @@ export const collectStudentFee = async (payload, user) => {
     const data = await response.json();
 
     if (!response.ok || data.status === false) {
-      throw new Error(data.message || "Failed to collect fee");
+      throw new Error(data.message || _t("Failed to collect fee"));
     }
 
     return data;
@@ -199,7 +200,7 @@ const handle = async (res) => {
     throw new Error('SESSION_EXPIRED');  // ← caught by screens
   }
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json?.message ?? `HTTP ${res.status}`);
+  if (!res.ok) throw new Error(json?.message ?? _t("HTTP {status}", { status: res.status }));
   return json;
 };
 
@@ -272,7 +273,7 @@ export const sendReceiptEmail = async (data, user) => {
     const json = await response.json().catch(() => ({}));
 
     if (!response.ok || json.success === false) {
-      throw new Error(json.message || `HTTP ${response.status}`);
+      throw new Error(json.message || _t("HTTP {status}", { status: response.status }));
     }
     return json;
   } catch (error) {
@@ -299,7 +300,7 @@ export const fetchDemandSlip = async (params, user) => {
     const data = await response.json().catch(() => ({}));
  
     if (!response.ok || data.status === false) {
-      throw new Error(data.message || `HTTP ${response.status}`);
+      throw new Error(data.message || _t("HTTP {status}", { status: response.status }));
     }
     return data;
   } catch (error) {
@@ -316,7 +317,7 @@ const fetchPendingCollections = async (user, filters = {}) => {
     method: 'GET', headers: buildHeaders(user),
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok || json.status === false) throw new Error(json.message ?? `HTTP ${res.status}`);
+  if (!res.ok || json.status === false) throw new Error(json.message ?? _t("HTTP {status}", { status: res.status }));
   return json;
 };
 
@@ -327,7 +328,7 @@ const approveCollections = async (user, receiptNumbers) => {
     body:    JSON.stringify({ receipt_numbers: receiptNumbers }),
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok || json.status === false) throw new Error(json.message ?? `HTTP ${res.status}`);
+  if (!res.ok || json.status === false) throw new Error(json.message ?? _t("HTTP {status}", { status: res.status }));
   return json;
 };
 

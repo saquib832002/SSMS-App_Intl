@@ -27,6 +27,7 @@ import {
 } from '../../services/StudentServiceApi';
 import { fetchClientInfo } from '../../services/ExamServiceApi';
 import { HOST_NAME } from '../../Environment/EnvironmentConfig';
+import { _t, _th, _tx } from "../../services/i18n";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const { width: W, height: SCREEN_H } = Dimensions.get('window');
@@ -40,11 +41,11 @@ const YEARS = Array.from({ length: 8 }, (_, i) => new Date().getFullYear() + 1 -
 
 // Attendance status colours — matches web att-p / att-a / att-l / att-h / att-s / att-f
 const STATUS = {
-  P: { bg: '#dcfce7', fg: '#15803d', label: 'P' },  // Present — green
-  A: { bg: '#fee2e2', fg: '#dc2626', label: 'A' },  // Absent  — red
-  L: { bg: '#fef9c3', fg: '#92400e', label: 'L' },  // Leave   — amber
-  H: { bg: '#e0f2fe', fg: '#0369a1', label: 'H' },  // Holiday — blue
-  S: { bg: '#f1f5f9', fg: '#94a3b8', label: 'S' },  // Sunday  — slate
+  P: { bg: '#dcfce7', fg: '#15803d', get label() { return _t("P"); } },  // Present — green
+  A: { bg: '#fee2e2', fg: '#dc2626', get label() { return _t("A"); } },  // Absent  — red
+  L: { bg: '#fef9c3', fg: '#92400e', get label() { return _t("L"); } },  // Leave   — amber
+  H: { bg: '#e0f2fe', fg: '#0369a1', get label() { return _t("H"); } },  // Holiday — blue
+  S: { bg: '#f1f5f9', fg: '#94a3b8', get label() { return _t("S"); } },  // Sunday  — slate
   '-': { bg: '#fff',  fg: '#e2e8f0', label: '–' },  // Future  — blank
 };
 
@@ -52,9 +53,9 @@ const PCT_COLOR = (p) => p >= 75 ? '#15803d' : p >= 50 ? '#b45309' : '#dc2626';
 
 // Day abbreviations
 const dayAbbr = (name) => {
-  if (name === 'Sunday')   return 'Sun';
-  if (name === 'Saturday') return 'Sat';
-  return name.slice(0, 3);
+  if (name === 'Sunday')   return _tx('Sun');
+  if (name === 'Saturday') return _tx('Sat');
+  return _tx(name.slice(0, 3));
 };
 
 // ─── Picker modal ─────────────────────────────────────────────────────────────
@@ -64,14 +65,14 @@ function PickerModal({ visible, title, items, keyField, labelField, onSelect, on
       <Pressable style={s.overlay} onPress={onClose}>
         <Pressable style={s.sheet}>
           <View style={s.sheetHandle} />
-          <Text style={s.sheetTitle}>{title}</Text>
+          <Text style={s.sheetTitle}>{_tx(title)}</Text>
           <FlatList
             data={items}
             keyExtractor={(item) => String(item[keyField])}
             ItemSeparatorComponent={() => <View style={s.sep} />}
             renderItem={({ item }) => (
               <TouchableOpacity style={s.sheetRow} onPress={() => { onSelect(item); onClose(); }}>
-                <Text style={s.sheetRowTxt}>{item[labelField]}</Text>
+                <Text style={s.sheetRowTxt}>{_tx(item[labelField])}</Text>
                 <MaterialIcons name="chevron-right" size={18} color="#94a3b8" />
               </TouchableOpacity>
             )}
@@ -93,7 +94,7 @@ function FilterChip({ icon, label, value, onPress, required, error, flex }) {
     >
       <MaterialIcons name={icon} size={14} color={hasVal ? '#0b1f4b' : '#64748b'} />
       <Text style={[s.chipTxt, hasVal && s.chipTxtFilled]} numberOfLines={1}>
-        {value || label}
+        {_tx(value) || _tx(label)}
       </Text>
       {required && !hasVal && <Text style={s.chipReq}>*</Text>}
       <MaterialIcons name="expand-more" size={14} color={hasVal ? '#0b1f4b' : '#94a3b8'} />
@@ -107,7 +108,7 @@ function LegendItem({ code, label }) {
   return (
     <View style={s.legendItem}>
       <View style={[s.legendDot, { backgroundColor: st.bg, borderColor: st.fg + '55' }]} />
-      <Text style={s.legendTxt}>{code} — {label}</Text>
+      <Text style={s.legendTxt}>{_tx(code)} — {_tx(label)}</Text>
     </View>
   );
 }
@@ -116,27 +117,27 @@ function LegendItem({ code, label }) {
 function SummaryCard({ meta }) {
   return (
     <View style={s.summaryCard}>
-      <Text style={s.summarySchool}>{meta.schoolName}</Text>
+      <Text style={s.summarySchool}>{_tx(meta.schoolName)}</Text>
       <View style={s.summaryRow}>
         <View style={s.summaryChip}>
           <MaterialIcons name="business" size={11} color="#64748b" />
-          <Text style={s.summaryChipTxt}>{meta.branchName}</Text>
+          <Text style={s.summaryChipTxt}>{_tx(meta.branchName)}</Text>
         </View>
         <View style={s.summaryChip}>
           <MaterialIcons name="class" size={11} color="#64748b" />
-          <Text style={s.summaryChipTxt}>{meta.className}</Text>
+          <Text style={s.summaryChipTxt}>{_tx(meta.className)}</Text>
         </View>
         <View style={s.summaryChip}>
           <MaterialIcons name="group" size={11} color="#64748b" />
-          <Text style={s.summaryChipTxt}>{meta.sectionName}</Text>
+          <Text style={s.summaryChipTxt}>{_tx(meta.sectionName)}</Text>
         </View>
         <View style={s.summaryChip}>
           <MaterialIcons name="calendar-month" size={11} color="#64748b" />
-          <Text style={s.summaryChipTxt}>{meta.monthName} {meta.year}</Text>
+          <Text style={s.summaryChipTxt}>{_tx(meta.monthName)} {_tx(meta.year)}</Text>
         </View>
         <View style={s.summaryChip}>
           <MaterialIcons name="people" size={11} color="#64748b" />
-          <Text style={s.summaryChipTxt}>{meta.studentCount} students</Text>
+          <Text style={s.summaryChipTxt}>{_t("{studentCount} students", { studentCount: meta.studentCount })}</Text>
         </View>
       </View>
     </View>
@@ -162,19 +163,19 @@ function AttendanceMatrix({ columns, dayNames, students }) {
           <View style={[s.matRow, s.matHeaderRow]}>
             {/* sticky name cell */}
             <View style={[s.matNameCell, { width: NAME_W }, s.matHeaderCell]}>
-              <Text style={s.matHeaderTxt}>Student</Text>
+              <Text style={s.matHeaderTxt}>{_t("Student")}</Text>
             </View>
             {/* day cells */}
             {dayHeader.map(({ col, abbr, isSun }) => (
               <View key={col} style={[s.matDayCell, { width: DAY_W }, s.matHeaderCell,
                 isSun && { backgroundColor: '#e8edf5' }]}>
-                <Text style={[s.matDayAbbrTxt, isSun && { color: '#94a3b8' }]}>{abbr}</Text>
+                <Text style={[s.matDayAbbrTxt, isSun && { color: '#94a3b8' }]}>{_tx(abbr)}</Text>
                 <Text style={[s.matDayNumTxt,  isSun && { color: '#94a3b8' }]}>{parseInt(col, 10)}</Text>
               </View>
             ))}
             {/* totals */}
             <View style={[s.matTotCell, { width: TOT_W }, s.matHeaderCell]}>
-              <Text style={s.matHeaderTxt}>P/T</Text>
+              <Text style={s.matHeaderTxt}>{_t("P/T")}</Text>
             </View>
             <View style={[s.matTotCell, { width: TOT_W }, s.matHeaderCell]}>
               <Text style={s.matHeaderTxt}>%</Text>
@@ -187,8 +188,8 @@ function AttendanceMatrix({ columns, dayNames, students }) {
               style={[s.matRow, idx % 2 === 1 && { backgroundColor: '#fafafa' }]}>
               {/* Name + roll */}
               <View style={[s.matNameCell, { width: NAME_W }]}>
-                <Text style={s.matNameTxt} numberOfLines={1}>{stu.student_name}</Text>
-                <Text style={s.matEnrollTxt}>{stu.enrollment_id}</Text>
+                <Text style={s.matNameTxt} numberOfLines={1}>{_tx(stu.student_name)}</Text>
+                <Text style={s.matEnrollTxt}>{_tx(stu.enrollment_id)}</Text>
               </View>
               {/* Day cells */}
               {columns.map((col) => {
@@ -196,17 +197,17 @@ function AttendanceMatrix({ columns, dayNames, students }) {
                 const st = STATUS[v] ?? STATUS['-'];
                 return (
                   <View key={col} style={[s.matDayCell, { width: DAY_W, backgroundColor: st.bg }]}>
-                    <Text style={[s.matDayValTxt, { color: st.fg }]}>{st.label}</Text>
+                    <Text style={[s.matDayValTxt, { color: st.fg }]}>{_tx(st.label)}</Text>
                   </View>
                 );
               })}
               {/* Totals */}
               <View style={[s.matTotCell, { width: TOT_W }]}>
-                <Text style={s.matTotTxt}>{stu.present}/{stu.total}</Text>
+                <Text style={s.matTotTxt}>{_tx(stu.present)}/{_tx(stu.total)}</Text>
               </View>
               <View style={[s.matTotCell, { width: TOT_W }]}>
                 <Text style={[s.matPctTxt, { color: PCT_COLOR(stu.percent) }]}>
-                  {stu.percent}%
+                  {_tx(stu.percent)}%
                 </Text>
               </View>
             </View>
@@ -237,9 +238,9 @@ function buildPdfHtml(report, schoolInfo = {}) {
   const pctColor = (p) => p >= 75 ? '#15803d' : p >= 50 ? '#b45309' : '#dc2626';
 
   const dayAbbrev = (name) => {
-    if (name === 'Sunday')   return 'Sun';
-    if (name === 'Saturday') return 'Sat';
-    return name.slice(0, 3);
+    if (name === 'Sunday')   return _tx('Sun');
+    if (name === 'Saturday') return _tx('Sat');
+    return _tx(name.slice(0, 3));
   };
 
   // Address line
@@ -294,11 +295,11 @@ function buildPdfHtml(report, schoolInfo = {}) {
 
   // Legend
   const legendItems = [
-    { code: 'P', label: 'Present',  css: STATUS_CSS.P },
-    { code: 'A', label: 'Absent',   css: STATUS_CSS.A },
-    { code: 'L', label: 'Leave',    css: STATUS_CSS.L },
-    { code: 'H', label: 'Holiday',  css: STATUS_CSS.H },
-    { code: 'S', label: 'Sunday',   css: STATUS_CSS.S },
+    { code: 'P', label: _t("Present"),  css: STATUS_CSS.P },
+    { code: 'A', label: _t("Absent"),   css: STATUS_CSS.A },
+    { code: 'L', label: _t("Leave"),    css: STATUS_CSS.L },
+    { code: 'H', label: _t("Holiday"),  css: STATUS_CSS.H },
+    { code: 'S', label: _t("Sunday"),   css: STATUS_CSS.S },
   ].map(({ code, label, css }) =>
     `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;">
        <span style="${css}font-size:8px;font-weight:800;padding:2px 5px;border-radius:3px;">${code}</span>
@@ -439,7 +440,7 @@ export default function AttendanceReportScreen() {
               logoBase64 = await new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload  = () => resolve(reader.result);
-                reader.onerror = () => reject(new Error('FileReader failed'));
+                reader.onerror = () => reject(new Error(_t("FileReader failed")));
                 reader.readAsDataURL(blob);
               });
             } else {
@@ -536,7 +537,7 @@ export default function AttendanceReportScreen() {
   const openWhatsApp = useCallback(async (stu) => {
     let phone = (stu.parent_phone ?? '').replace(/\D/g, '');
     if (!phone) {
-      Alert.alert('No Phone Number', `${stu.student_name} has no contact number on record.`);
+      Alert.alert(_t("No Phone Number"), _t("{student_name} has no contact number on record.", { student_name: stu.student_name }));
       return;
     }
     // Normalise to international format for wa.me (no leading +)
@@ -546,7 +547,7 @@ export default function AttendanceReportScreen() {
     try {
       await Linking.openURL(url);
     } catch {
-      Alert.alert('Cannot Open WhatsApp', 'Ensure WhatsApp is installed on this device.');
+      Alert.alert(_t("Cannot Open WhatsApp"), _t("Ensure WhatsApp is installed on this device."));
     }
   }, [buildWaMessage]);
 
@@ -572,7 +573,7 @@ export default function AttendanceReportScreen() {
 
       // Generate the PDF file via expo-print
       const { uri } = await Print.printToFileAsync({
-        html,
+        html: _th(html),
         width:  841,   // A4 landscape — points (~297mm)
         height: 595,
         base64: false,
@@ -587,10 +588,10 @@ export default function AttendanceReportScreen() {
           UTI: 'com.adobe.pdf',
         });
       } else {
-        Alert.alert('PDF Ready', `Saved to:\n${uri}`);
+        Alert.alert(_t("PDF Ready"), _t("Saved to:\n{uri}", { uri }));
       }
     } catch (e) {
-      Alert.alert('PDF Error', e.message ?? 'Failed to generate PDF');
+      Alert.alert(_t("PDF Error"), _tx(e.message) ?? _t("Failed to generate PDF"));
     } finally {
       setPdfLoading(false);
     }
@@ -602,10 +603,15 @@ export default function AttendanceReportScreen() {
     (async () => {
       setRefLoading(true);
       try {
-        const [b, c] = await Promise.all([fetchBranches(user), fetchClasses(user)]);
+        // allSettled: a denied branches call must not also hide the classes (and vice versa)
+        const [br, cr] = await Promise.allSettled([fetchBranches(user), fetchClasses(user)]);
         if (!alive) return;
+        const b = br.status === 'fulfilled' && Array.isArray(br.value) ? br.value : [];
+        const c = cr.status === 'fulfilled' && Array.isArray(cr.value) ? cr.value : [];
         setBranches(b);
         setClasses(c);
+        const failed = br.status === 'rejected' ? br.reason : cr.status === 'rejected' ? cr.reason : null;
+        if (failed) Alert.alert(_t("Error"), _tx(failed?.message) ?? _t("Failed to load options"));
         // Auto-select branch: prefer user's branch, otherwise first available
         if (b.length > 0) {
           const userBranch = user?.branchId
@@ -614,7 +620,7 @@ export default function AttendanceReportScreen() {
           setBranch(userBranch ?? b[0]);
         }
       } catch (e) {
-        if (alive) Alert.alert('Error', e.message ?? 'Failed to load options');
+        if (alive) Alert.alert(_t("Error"), _tx(e.message) ?? _t("Failed to load options"));
       } finally {
         if (alive) setRefLoading(false);
       }
@@ -632,8 +638,9 @@ export default function AttendanceReportScreen() {
       try {
         const secs = await fetchSections(user, cls.class_id);
         if (!alive) return;
-        setSections(secs);
-        if (secs.length > 0) setSection(secs[0]); // auto-select first section
+        const list = Array.isArray(secs) ? secs : [];
+        setSections(list);
+        if (list.length > 0) setSection(list[0]); // auto-select first section
       } catch { /* silently ignore */ }
     })();
     return () => { alive = false; };
@@ -643,7 +650,7 @@ export default function AttendanceReportScreen() {
   const generate = useCallback(async (silent = false) => {
     setValidated(true);
     if (!branch || !cls || !section) {
-      Alert.alert('Filters required', 'Please select Branch, Class and Section.');
+      Alert.alert(_t("Filters required"), _t("Please select Branch, Class and Section."));
       return;
     }
     try {
@@ -655,9 +662,17 @@ export default function AttendanceReportScreen() {
         year,
         month,
       });
-      setReport(data);
+      setReport({
+        ...data,
+        meta:     data?.meta ?? {},
+        columns:  Array.isArray(data?.columns)  ? data.columns  : [],
+        dayNames: Array.isArray(data?.dayNames) ? data.dayNames : [],
+        students: Array.isArray(data?.students)
+          ? data.students.map(stu => (stu && stu.days ? stu : { ...stu, days: {} }))
+          : [],
+      });
     } catch (e) {
-      Alert.alert('Error', e.message ?? 'Failed to load attendance report');
+      Alert.alert(_t("Error"), _tx(e.message) ?? _t("Failed to load attendance report"));
       setReport(null);
     } finally {
       setLoading(false);
@@ -685,8 +700,8 @@ export default function AttendanceReportScreen() {
       <View style={s.header}>
         <MaterialIcons name="calendar-month" size={22} color="#0b1f4b" />
         <View style={{ flex: 1, marginLeft: 10 }}>
-          <Text style={s.headerTitle}>Monthly Attendance</Text>
-          <Text style={s.headerSub}>Select filters and generate report</Text>
+          <Text style={s.headerTitle}>{_t("Monthly Attendance")}</Text>
+          <Text style={s.headerSub}>{_t("Select filters and generate report")}</Text>
         </View>
         {refLoading && <ActivityIndicator size="small" color="#0b1f4b" />}
       </View>
@@ -696,13 +711,13 @@ export default function AttendanceReportScreen() {
         {/* Row 1: Branch | Class */}
         <View style={s.filterRow}>
           <FilterChip
-            icon="business" label="Branch" required flex
+            icon="business" label={_t("Branch")} required flex
             value={branch?.branch_name}
             error={validated && !branch}
             onPress={() => openPicker('branch')}
           />
           <FilterChip
-            icon="class" label="Class" required flex
+            icon="class" label={_t("Class")} required flex
             value={cls?.class_name}
             error={validated && !cls}
             onPress={() => openPicker('class')}
@@ -711,18 +726,18 @@ export default function AttendanceReportScreen() {
         {/* Row 2: Section | Year | Month */}
         <View style={s.filterRow}>
           <FilterChip
-            icon="group" label="Section" required flex
+            icon="group" label={_t("Section")} required flex
             value={section?.section_name}
             error={validated && !section}
             onPress={() => openPicker('section')}
           />
           <FilterChip
-            icon="calendar-today" label="Year" flex
+            icon="calendar-today" label={_t("Year")} flex
             value={String(year)}
             onPress={() => openPicker('year')}
           />
           <FilterChip
-            icon="date-range" label="Month" flex
+            icon="date-range" label={_t("Month")} flex
             value={MONTH_NAMES[month]}
             onPress={() => openPicker('month')}
           />
@@ -737,7 +752,7 @@ export default function AttendanceReportScreen() {
           {loading
             ? <ActivityIndicator size="small" color="#fff" />
             : <MaterialIcons name="bar-chart" size={16} color="#fff" />}
-          <Text style={s.generateBtnTxt}>{loading ? 'Generating…' : 'Generate'}</Text>
+          <Text style={s.generateBtnTxt}>{loading ? _t("Generating…") : _t("Generate")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -745,7 +760,7 @@ export default function AttendanceReportScreen() {
       {loading && !report ? (
         <View style={s.centred}>
           <ActivityIndicator size="large" color="#0b1f4b" />
-          <Text style={s.loadingTxt}>Loading attendance data…</Text>
+          <Text style={s.loadingTxt}>{_t("Loading attendance data…")}</Text>
         </View>
       ) : report ? (
         <ScrollView
@@ -760,11 +775,8 @@ export default function AttendanceReportScreen() {
             {report.students.length === 0 ? (
               <View style={s.emptyBox}>
                 <MaterialIcons name="event-busy" size={40} color="#cbd5e1" />
-                <Text style={s.emptyTitle}>No attendance records</Text>
-                <Text style={s.emptySub}>
-                  No data found for {report.meta.className} — {report.meta.sectionName}
-                  {'\n'}{report.meta.monthName} {report.meta.year}
-                </Text>
+                <Text style={s.emptyTitle}>{_t("No attendance records")}</Text>
+                <Text style={s.emptySub}>{_t("No data found for {className} — {sectionName}\n{monthName} {year}", { className: report.meta.className, sectionName: report.meta.sectionName, monthName: report.meta.monthName, year: report.meta.year })}</Text>
               </View>
             ) : (
               <AttendanceMatrix
@@ -777,29 +789,27 @@ export default function AttendanceReportScreen() {
 
           {/* Legend */}
           <View style={s.legendCard}>
-            <Text style={s.legendTitle}>Legend</Text>
+            <Text style={s.legendTitle}>{_t("Legend")}</Text>
             <View style={s.legendRow}>
-              <LegendItem code="P" label="Present" />
-              <LegendItem code="A" label="Absent" />
-              <LegendItem code="L" label="Leave" />
-              <LegendItem code="H" label="Holiday" />
-              <LegendItem code="S" label="Sunday" />
-              <LegendItem code="-" label="Future" />
+              <LegendItem code="P" label={_t("Present")} />
+              <LegendItem code="A" label={_t("Absent")} />
+              <LegendItem code="L" label={_t("Leave")} />
+              <LegendItem code="H" label={_t("Holiday")} />
+              <LegendItem code="S" label={_t("Sunday")} />
+              <LegendItem code="-" label={_t("Future")} />
             </View>
-            <Text style={s.legendNote}>
-              P/T = Present / Working days{'  ·  '}
-              <Text style={{ color: '#15803d', fontWeight: '700' }}>≥75%</Text> good{'  '}
-              <Text style={{ color: '#b45309', fontWeight: '700' }}>≥50%</Text> average{'  '}
-              <Text style={{ color: '#dc2626', fontWeight: '700' }}>&lt;50%</Text> low
-            </Text>
+            <Text style={s.legendNote}>{_t("P/T = Present / Working days")}{'  ·  '}
+              <Text style={{ color: '#15803d', fontWeight: '700' }}>≥75%</Text>{" "}{_t("good")}{'  '}
+              <Text style={{ color: '#b45309', fontWeight: '700' }}>≥50%</Text>{" "}{_t("average")}{'  '}
+              <Text style={{ color: '#dc2626', fontWeight: '700' }}>&lt;50%</Text>{" "}{_t("low")}</Text>
           </View>
 
         </ScrollView>
       ) : (
         <View style={s.centred}>
           <MaterialIcons name="calendar-month" size={52} color="#cbd5e1" />
-          <Text style={s.emptyTitle}>Select filters above</Text>
-          <Text style={s.emptySub}>Choose Branch, Class, Section, Year and Month,{'\n'}then tap Generate.</Text>
+          <Text style={s.emptyTitle}>{_t("Select filters above")}</Text>
+          <Text style={s.emptySub}>{_t("Choose Branch, Class, Section, Year and Month,\nthen tap Generate.")}</Text>
         </View>
       )}
 
@@ -817,7 +827,7 @@ export default function AttendanceReportScreen() {
                 ? <ActivityIndicator size="small" color="#fff" />
                 : <MaterialIcons name="picture-as-pdf" size={18} color="#fff" />}
               <Text style={s.pdfBtnTxt}>
-                {pdfLoading ? 'Generating…' : 'Save PDF'}
+                {pdfLoading ? _t("Generating…") : _t("Save PDF")}
               </Text>
             </TouchableOpacity>
 
@@ -828,7 +838,7 @@ export default function AttendanceReportScreen() {
             >
               <MaterialIcons name="chat" size={18} color="#fff" />
               <Text style={s.pdfBtnTxt}>
-                {absentStudents.length > 0 ? `WhatsApp (${absentStudents.length})` : 'WhatsApp'}
+                {absentStudents.length > 0 ? _t("WhatsApp ({length})", { length: absentStudents.length }) : _t("WhatsApp")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -838,32 +848,32 @@ export default function AttendanceReportScreen() {
       {/* ── Pickers ────────────────────────────────────────────────────── */}
       <PickerModal
         visible={picker === 'branch'}
-        title="Select Branch"
+        title={_t("Select Branch")}
         items={branches} keyField="branch_id" labelField="branch_name"
         onSelect={handleBranchSelect} onClose={closePicker}
       />
       <PickerModal
         visible={picker === 'class'}
-        title="Select Class"
+        title={_t("Select Class")}
         items={classes} keyField="class_id" labelField="class_name"
         onSelect={handleClassSelect} onClose={closePicker}
       />
       <PickerModal
         visible={picker === 'section'}
-        title="Select Section"
+        title={_t("Select Section")}
         items={sections} keyField="section_id" labelField="section_name"
         onSelect={handleSectionSelect} onClose={closePicker}
       />
       <PickerModal
         visible={picker === 'year'}
-        title="Select Year"
+        title={_t("Select Year")}
         items={YEARS.map(y => ({ id: y, label: String(y) }))}
         keyField="id" labelField="label"
         onSelect={(item) => setYear(item.id)} onClose={closePicker}
       />
       <PickerModal
         visible={picker === 'month'}
-        title="Select Month"
+        title={_t("Select Month")}
         items={MONTH_NAMES.slice(1).map((m, i) => ({ id: i + 1, label: m }))}
         keyField="id" labelField="label"
         onSelect={(item) => setMonth(item.id)} onClose={closePicker}
@@ -888,14 +898,14 @@ export default function AttendanceReportScreen() {
             </TouchableOpacity>
             <View style={{ flex: 1 }}>
               <Text style={s.waNavTitle}>
-                {waBulkMode ? `Sending ${waBulkIdx + 1} / ${absentStudents.length}` : 'WhatsApp — Absent Students'}
+                {waBulkMode ? _t("Sending {v} / {length}", { v: waBulkIdx + 1, length: absentStudents.length }) : _t("WhatsApp — Absent Students")}
               </Text>
               <Text style={s.waNavSub}>
-                {report?.meta?.className} · {report?.meta?.sectionName} · {report?.meta?.monthName} {report?.meta?.year}
+                {_tx(report?.meta?.className)} · {_tx(report?.meta?.sectionName)} · {_tx(report?.meta?.monthName)} {_tx(report?.meta?.year)}
               </Text>
             </View>
             <View style={s.waBadge}>
-              <Text style={s.waBadgeTxt}>{absentStudents.length}</Text>
+              <Text style={s.waBadgeTxt}>{_tx(absentStudents.length)}</Text>
             </View>
           </View>
 
@@ -903,8 +913,8 @@ export default function AttendanceReportScreen() {
           {absentStudents.length === 0 ? (
             <View style={s.centred}>
               <MaterialIcons name="check-circle" size={48} color="#86efac" />
-              <Text style={s.emptyTitle}>No absences this month</Text>
-              <Text style={s.emptySub}>All students were present or on leave.</Text>
+              <Text style={s.emptyTitle}>{_t("No absences this month")}</Text>
+              <Text style={s.emptySub}>{_t("All students were present or on leave.")}</Text>
             </View>
 
           ) : waBulkMode ? (
@@ -914,23 +924,21 @@ export default function AttendanceReportScreen() {
               <View style={s.bulkProgress}>
                 <View style={[s.bulkBar, { width: `${((waBulkIdx + 1) / absentStudents.length) * 100}%` }]} />
               </View>
-              <Text style={s.bulkCount}>Student {waBulkIdx + 1} of {absentStudents.length}</Text>
+              <Text style={s.bulkCount}>{_t("Student {v} of {length}", { v: waBulkIdx + 1, length: absentStudents.length })}</Text>
 
               {(() => {
                 const stu = absentStudents[waBulkIdx];
                 const hasPhone = !!(stu.parent_phone ?? '').replace(/\D/g, '');
                 return (
                   <View style={s.bulkCard}>
-                    <Text style={s.bulkName}>{stu.student_name}</Text>
-                    <Text style={s.bulkEnroll}>{stu.enrollment_id}</Text>
-                    <Text style={s.bulkDays}>
-                      Absent on: {stu.absentDays.join(', ')} · {stu.absentDays.length} day{stu.absentDays.length !== 1 ? 's' : ''}
-                    </Text>
+                    <Text style={s.bulkName}>{_tx(stu.student_name)}</Text>
+                    <Text style={s.bulkEnroll}>{_tx(stu.enrollment_id)}</Text>
+                    <Text style={s.bulkDays}>{_t("Absent on: {v} · {length} day{pl}", { v: stu.absentDays.join(', '), length: stu.absentDays.length, pl: stu.absentDays.length !== 1 ? 's' : '' })}</Text>
                     <Text style={[s.bulkPhone, !hasPhone && { color: '#f87171' }]}>
-                      {hasPhone ? `📱 ${stu.parent_phone}` : '⚠️  No phone number on record'}
+                      {hasPhone ? `📱 ${_tx(stu.parent_phone)}` : _t("⚠️  No phone number on record")}
                     </Text>
                     <View style={s.msgPreview}>
-                      <Text style={s.msgPreviewLabel}>Message preview</Text>
+                      <Text style={s.msgPreviewLabel}>{_t("Message preview")}</Text>
                       <Text style={s.msgPreviewTxt}>{buildWaMessage(stu)}</Text>
                     </View>
                     <TouchableOpacity
@@ -940,7 +948,7 @@ export default function AttendanceReportScreen() {
                       activeOpacity={0.8}
                     >
                       <MaterialIcons name="chat" size={17} color="#fff" />
-                      <Text style={s.openWaBtnTxt}>Open in WhatsApp</Text>
+                      <Text style={s.openWaBtnTxt}>{_t("Open in WhatsApp")}</Text>
                     </TouchableOpacity>
                   </View>
                 );
@@ -949,14 +957,14 @@ export default function AttendanceReportScreen() {
               <View style={s.bulkNav}>
                 <TouchableOpacity style={s.bulkSkipBtn} onPress={bulkNext}>
                   <Text style={s.bulkSkipTxt}>
-                    {waBulkIdx + 1 >= absentStudents.length ? 'Finish ✓' : 'Skip / Next →'}
+                    {waBulkIdx + 1 >= absentStudents.length ? _t("Finish ✓") : _t("Skip / Next →")}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={s.bulkDoneBtn}
                   onPress={() => { setWaBulkMode(false); setWaMdVisible(false); }}
                 >
-                  <Text style={s.bulkDoneTxt}>Done</Text>
+                  <Text style={s.bulkDoneTxt}>{_t("Done")}</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -966,7 +974,7 @@ export default function AttendanceReportScreen() {
             <>
               <TouchableOpacity style={s.sendAllBtn} onPress={startBulkSend} activeOpacity={0.8}>
                 <MaterialIcons name="send" size={15} color="#fff" />
-                <Text style={s.sendAllTxt}>Send All One by One ({absentStudents.length})</Text>
+                <Text style={s.sendAllTxt}>{_t("Send All One by One ({length})", { length: absentStudents.length })}</Text>
               </TouchableOpacity>
 
               <FlatList
@@ -979,13 +987,11 @@ export default function AttendanceReportScreen() {
                   return (
                     <View style={s.waRow}>
                       <View style={{ flex: 1 }}>
-                        <Text style={s.waRowName}>{item.student_name}</Text>
-                        <Text style={s.waRowEnroll}>{item.enrollment_id}</Text>
-                        <Text style={s.waRowDays}>
-                          Absent: {item.absentDays.join(', ')} · {item.absentDays.length} day{item.absentDays.length !== 1 ? 's' : ''}
-                        </Text>
+                        <Text style={s.waRowName}>{_tx(item.student_name)}</Text>
+                        <Text style={s.waRowEnroll}>{_tx(item.enrollment_id)}</Text>
+                        <Text style={s.waRowDays}>{_t("Absent: {v} · {length} day{pl}", { v: item.absentDays.join(', '), length: item.absentDays.length, pl: item.absentDays.length !== 1 ? 's' : '' })}</Text>
                         <Text style={[s.waRowPhone, !hasPhone && { color: '#f87171' }]}>
-                          {hasPhone ? item.parent_phone : 'No phone number'}
+                          {hasPhone ? _tx(item.parent_phone) : _t("No phone number")}
                         </Text>
                       </View>
                       <TouchableOpacity

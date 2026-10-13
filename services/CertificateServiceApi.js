@@ -4,6 +4,7 @@
  */
 import { BASE_URL } from "../Environment/EnvironmentConfig";
 import { safeFetch } from "./apiInterceptor";
+import { _t } from "./i18n";
 
 const buildHeaders = (user) => ({
   Accept:         "application/json",
@@ -25,6 +26,6 @@ export async function fetchCertificateData(user, enrollmentId) {
   );
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.status === false)
-    throw new Error(data.message ?? `HTTP ${res.status}`);
+    throw new Error(data.message ?? _t("HTTP {status}", { status: res.status }));
   return { student: data.student, school: data.school };
 }

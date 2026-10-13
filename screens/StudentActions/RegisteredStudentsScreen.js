@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -17,33 +17,34 @@ import { wasJustLocked } from "../../services/apiInterceptor";
 import { fetchBranches, fetchClasses, fetchSections, fetchSessions, getAllRegisteredStudents, enrollStudent } from "../../services/StudentServiceApi";
 import { useFocusEffect } from "@react-navigation/native";
 import { HOST_NAME } from "../../Environment/EnvironmentConfig";
+import { _t, _tx } from "../../services/i18n";
 
 
 // ── Course medium options ─────────────────────────────────────────────────────
 const MEDIUM_OPTIONS = [
-  { label: "Select Medium", value: "" },
-  { label: "English",  value: "English"  },
-  { label: "Hindi",    value: "Hindi"    },
-  { label: "Urdu",     value: "Urdu"     },
-  { label: "Arabic",   value: "Arabic"   },
-  { label: "Assamese", value: "Assamese" },
-  { label: "Bengali",  value: "Bengali"  },
-  { label: "Dogri",    value: "Dogri"    },
-  { label: "Gujarati", value: "Gujarati" },
-  { label: "Kannada",  value: "Kannada"  },
-  { label: "Kashmiri", value: "Kashmiri" },
-  { label: "Maithili", value: "Maithili" },
-  { label: "Malayalam",value: "Malayalam"},
-  { label: "Marathi",  value: "Marathi"  },
-  { label: "Nepali",   value: "Nepali"   },
-  { label: "Odia",     value: "Odia"     },
-  { label: "Pali",     value: "Pali"     },
-  { label: "Prakrit",  value: "Prakrit"  },
-  { label: "Punjabi",  value: "Punjabi"  },
-  { label: "Sindhi",   value: "Sindhi"   },
-  { label: "Tamil",    value: "Tamil"    },
-  { label: "Telugu",   value: "Telugu"   },
-  { label: "Others",   value: "Others"   },
+  { get label() { return _t("Select Medium"); }, value: "" },
+  { get label() { return _t("English"); },  value: "English"  },
+  { get label() { return _t("Hindi"); },    value: "Hindi"    },
+  { get label() { return _t("Urdu"); },     value: "Urdu"     },
+  { get label() { return _t("Arabic"); },   value: "Arabic"   },
+  { get label() { return _t("Assamese"); }, value: "Assamese" },
+  { get label() { return _t("Bengali"); },  value: "Bengali"  },
+  { get label() { return _t("Dogri"); },    value: "Dogri"    },
+  { get label() { return _t("Gujarati"); }, value: "Gujarati" },
+  { get label() { return _t("Kannada"); },  value: "Kannada"  },
+  { get label() { return _t("Kashmiri"); }, value: "Kashmiri" },
+  { get label() { return _t("Maithili"); }, value: "Maithili" },
+  { get label() { return _t("Malayalam"); },value: "Malayalam"},
+  { get label() { return _t("Marathi"); },  value: "Marathi"  },
+  { get label() { return _t("Nepali"); },   value: "Nepali"   },
+  { get label() { return _t("Odia"); },     value: "Odia"     },
+  { get label() { return _t("Pali"); },     value: "Pali"     },
+  { get label() { return _t("Prakrit"); },  value: "Prakrit"  },
+  { get label() { return _t("Punjabi"); },  value: "Punjabi"  },
+  { get label() { return _t("Sindhi"); },   value: "Sindhi"   },
+  { get label() { return _t("Tamil"); },    value: "Tamil"    },
+  { get label() { return _t("Telugu"); },   value: "Telugu"   },
+  { get label() { return _t("Others"); },   value: "Others"   },
 ];
 
 // ── Custom Dropdown — replaces @react-native-picker/picker ───────────────────
@@ -59,14 +60,14 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
         activeOpacity={0.7}
       >
         <Text style={[_ddSt.triggerTxt, !selected?.value && _ddSt.placeholder]} numberOfLines={1}>
-          {loading ? "Loading…" : (selected?.label ?? label)}
+          {loading ? _t("Loading…") : (_tx(selected?.label) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={16} color="#475569" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={_ddSt.overlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={_ddSt.sheet}>
-            <Text style={_ddSt.sheetTitle}>{label}</Text>
+            <Text style={_ddSt.sheetTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={(o, i) => String(o.value) + i}
@@ -76,7 +77,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[_ddSt.optionTxt, String(o.value) === String(value) && _ddSt.optionTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) && <Feather name="check" size={14} color="#2563eb" />}
                 </TouchableOpacity>
@@ -147,12 +148,15 @@ export default function RegisteredStudentsScreen({ navigation }) {
   const [branches,           setBranches]           = useState([]);
   const [loadingBranches,    setLoadingBranches]    = useState(false);
 
-
-useFocusEffect(
-  useCallback(() => {
-    if (user) loadStudents({ nextPage: 1, reset: true });
-  }, [user, loadStudents])
-);
+  // Show at most one error alert per burst (filters + list can fail with the same 403)
+  const lastAlertRef = useRef(0);
+  const alertOnce = useCallback((msg) => {
+    if (wasJustLocked()) return;
+    const now = Date.now();
+    if (now - lastAlertRef.current < 3000) return;
+    lastAlertRef.current = now;
+    Alert.alert(_t("Error"), _tx(msg));
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -167,10 +171,15 @@ useFocusEffect(
     (async () => {
       try {
         setLoadingFilters(true);
-        const [classData, sessionData] = await Promise.all([
+        // allSettled: a denied sessions call must not also blank the classes (and vice versa)
+        const [classRes, sessionRes] = await Promise.allSettled([
           fetchClasses(user),
           fetchSessions(user),
         ]);
+        const classData   = classRes.status   === "fulfilled" ? classRes.value   : [];
+        const sessionData = sessionRes.status === "fulfilled" ? sessionRes.value : [];
+        const failed = classRes.status === "rejected" ? classRes.reason : sessionRes.status === "rejected" ? sessionRes.reason : null;
+        if (failed) alertOnce(failed.message || "Failed to load filters");
         const clsList  = Array.isArray(classData)        ? classData
                        : Array.isArray(classData?.data)  ? classData.data  : [];
         const sessList = Array.isArray(sessionData)       ? sessionData
@@ -178,7 +187,7 @@ useFocusEffect(
         setClasses(clsList);
         setSessions(sessList);
       } catch (error) {
-        Alert.alert("Error", error.message || "Failed to load filters");
+        alertOnce(error.message || "Failed to load filters");
       } finally {
         setLoadingFilters(false);
       }
@@ -187,7 +196,7 @@ useFocusEffect(
 
   const classOptions = useMemo(() => {
     return [
-      { label: "All Classes", value: "" },
+      { label: _t("All Classes"), value: "" },
       ...classes.map((item) => ({
         label: item.class_name,
         value: String(item.class_id),
@@ -196,20 +205,20 @@ useFocusEffect(
   }, [classes]);
 
   const sessionOptions = useMemo(() => [
-    { label: "All Sessions", value: "" },
+    { label: _t("All Sessions"), value: "" },
     ...sessions
       .filter(s => s.session_id != null)
       .map(s => ({
-        label: s.session_name ?? s.session_year ?? `Session ${s.session_id}`,
+        label: s.session_name ?? s.session_year ?? _t("Session {session_id}", { session_id: s.session_id }),
         value: String(s.session_id),
       })),
   ], [sessions]);
 
   const loadStudents = useCallback(
-    async ({ nextPage = 1, reset = false } = {}) => {
+    async ({ nextPage = 1, reset = false, isRefresh = false } = {}) => {
       try {
         if (reset) {
-          setLoading(nextPage === 1 && !refreshing);
+          setLoading(nextPage === 1 && !isRefresh);
         } else {
           setLoadingMore(true);
         }
@@ -222,8 +231,8 @@ useFocusEffect(
           sessionId,
         });
 
-        const newStudents = result.students || [];
-        const pagination = result.pagination || {};
+        const newStudents = Array.isArray(result?.students) ? result.students : [];
+        const pagination = result?.pagination || {};
 
         setStudents((prev) => (reset ? newStudents : [...prev, ...newStudents]));
         setPage(nextPage);
@@ -231,23 +240,38 @@ useFocusEffect(
       } catch (error) {
         // Stop "load more" retrying forever (an empty list keeps firing onEndReached)
         setHasNextPage(false);
-        if (!wasJustLocked()) Alert.alert("Error", error.message || "Failed to load students");
+        alertOnce(error.message || "Failed to load students");
       } finally {
         setLoading(false);
         setLoadingMore(false);
         setRefreshing(false);
       }
     },
-    [user, limit, debouncedSearch, classId, sessionId, refreshing]
+    // `refreshing` is NOT a dep: it is set by this function, so depending on it
+    // recreated loadStudents and re-fired the effects below (repeated loads/alerts).
+    [user, limit, debouncedSearch, classId, sessionId, alertOnce]
   );
 
   useEffect(() => {
     loadStudents({ nextPage: 1, reset: true });
   }, [debouncedSearch, classId, sessionId, loadStudents]);
 
+  // Reload when returning to the screen. Declared after loadStudents (it was
+  // referenced before its declaration) and keyed only on focus via a ref, so a
+  // filter change no longer triggers a second, duplicate load from here.
+  const loadStudentsRef = useRef(loadStudents);
+  loadStudentsRef.current = loadStudents;
+  const firstFocusRef = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (firstFocusRef.current) { firstFocusRef.current = false; return; } // mount load is done by the effect above
+      if (user) loadStudentsRef.current({ nextPage: 1, reset: true });
+    }, [user])
+  );
+
   const handleRefresh = () => {
     setRefreshing(true);
-    loadStudents({ nextPage: 1, reset: true });
+    loadStudents({ nextPage: 1, reset: true, isRefresh: true });
   };
 
   const handleLoadMore = () => {
@@ -303,11 +327,11 @@ useFocusEffect(
 
   // ── Bulk enroll handler ───────────────────────────────────────────────────────
   const handleBulkEnroll = async () => {
-    if (!bulkBranchId)       return Alert.alert("Validation", "Please select a branch");
-    if (!bulkClassId)        return Alert.alert("Validation", "Please select a class");
-    if (!bulkSectionId)      return Alert.alert("Validation", "Please select a section");
-    if (!bulkSessionId)      return Alert.alert("Validation", "Please select a session");
-    if (!bulkMedium)         return Alert.alert("Validation", "Please select course medium");
+    if (!bulkBranchId)       return Alert.alert(_t("Validation"), _t("Please select a branch"));
+    if (!bulkClassId)        return Alert.alert(_t("Validation"), _t("Please select a class"));
+    if (!bulkSectionId)      return Alert.alert(_t("Validation"), _t("Please select a section"));
+    if (!bulkSessionId)      return Alert.alert(_t("Validation"), _t("Please select a session"));
+    if (!bulkMedium)         return Alert.alert(_t("Validation"), _t("Please select course medium"));
 
     const ids = [...selectedIds];
     setBulkProgress({ done: 0, total: ids.length });
@@ -340,15 +364,15 @@ useFocusEffect(
     setBulkSessionId(""); setBulkMedium("");
 
     Alert.alert(
-      "Bulk Enrollment",
-      `${succeeded} student${succeeded !== 1 ? "s" : ""} enrolled successfully` +
+      _t("Bulk Enrollment"),
+      _t("{succeeded} student{pl} enrolled successfully", { succeeded, pl: succeeded !== 1 ? "s" : "" }) +
       (failed > 0 ? `, ${failed} failed.` : ".")
     );
   };
 
   const renderChip = (label, onRemove) => (
     <View style={styles.chip}>
-      <Text style={styles.chipText}>{label}</Text>
+      <Text style={styles.chipText}>{_tx(label)}</Text>
       <Pressable onPress={onRemove}>
         <Text style={styles.chipClose}>✕</Text>
       </Pressable>
@@ -379,18 +403,12 @@ useFocusEffect(
 
       <View style={styles.cardBody}>
         <Text style={styles.name} numberOfLines={2}>
-          {item.firstName} {item.lastName}
+          {_tx(item.firstName)} {_tx(item.lastName)}
         </Text>
 
-        <Text style={styles.meta} numberOfLines={1}>
-          Reg No: {item.registrationNo}
-        </Text>
+        <Text style={styles.meta} numberOfLines={1}>{_t("Reg No: {registrationNo}", { registrationNo: item.registrationNo })}</Text>
 
-        <Text style={styles.meta} numberOfLines={1}>
-          {item.className || `Class ${item.classId || ""}`}
-          {" • "}
-          Section {item.section || "-"}
-        </Text>
+        <Text style={styles.meta} numberOfLines={1}>{_t("{v} • Section {v2}", { v: item.className || _t("Class {v}", { v: item.classId || "" }), v2: item.section || "-" })}</Text>
 
         <View style={styles.actionRow}>
           <Pressable
@@ -398,9 +416,7 @@ useFocusEffect(
             onPress={() => navigation.navigate("StudentProfile", { regId: item.registrationNo })}
           >
             <Feather name="eye" size={14} color="#2563eb" />
-            <Text style={[styles.actionButtonText, styles.detailsButtonText]}>
-              View Details
-            </Text>
+            <Text style={[styles.actionButtonText, styles.detailsButtonText]}>{_t("View Details")}</Text>
           </Pressable>
 
           <Pressable
@@ -408,12 +424,11 @@ useFocusEffect(
             onPress={() => navigation.navigate("Enrollment", {
               regId: item.id,
               registrationNo: item.registrationNo,
+              courseMedium: item.courseMedium ?? item.course_medium ?? "",
             })}
           >
             <Feather name="user-check" size={14} color="#16a34a" />
-            <Text style={[styles.actionButtonText, styles.enrollButtonText]}>
-              Enroll
-            </Text>
+            <Text style={[styles.actionButtonText, styles.enrollButtonText]}>{_t("Enroll")}</Text>
           </Pressable>
         </View>
       </View>
@@ -426,7 +441,7 @@ useFocusEffect(
     return (
       <View style={styles.footerLoader}>
         <ActivityIndicator size="small" color="#2563eb" />
-        <Text style={styles.footerText}>Loading more...</Text>
+        <Text style={styles.footerText}>{_t("Loading more...")}</Text>
       </View>
     );
   };
@@ -435,7 +450,7 @@ useFocusEffect(
     return (
       <View style={styles.loaderWrap}>
         <ActivityIndicator size="large" color="#2563eb" />
-        <Text style={styles.loaderText}>Loading students...</Text>
+        <Text style={styles.loaderText}>{_t("Loading students...")}</Text>
       </View>
     );
   }
@@ -443,7 +458,7 @@ useFocusEffect(
   return (
     <View style={styles.container}>
       <TextInput
-        placeholder="Search by name, reg no, class"
+        placeholder={_t("Search by name, reg no, class")}
         placeholderTextColor="#94a3b8"
         value={searchText}
         onChangeText={setSearchText}
@@ -453,7 +468,7 @@ useFocusEffect(
       <View style={styles.filterRow}>
         <View style={styles.filterBox}>
           <Dropdown
-            label="All Classes"
+            label={_t("All Classes")}
             value={classId}
             options={classOptions}
             onChange={setClassId}
@@ -463,7 +478,7 @@ useFocusEffect(
 
         <View style={styles.filterBox}>
           <Dropdown
-            label="All Sessions"
+            label={_t("All Sessions")}
             value={sessionId}
             options={sessionOptions}
             onChange={setSessionId}
@@ -506,7 +521,7 @@ useFocusEffect(
         onEndReachedThreshold={0.4}
         ListFooterComponent={renderFooter}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>No students found</Text>
+          <Text style={styles.emptyText}>{_t("No students found")}</Text>
         }
       />
 
@@ -518,9 +533,7 @@ useFocusEffect(
           activeOpacity={0.85}
         >
           <Feather name="user-check" size={17} color="#fff" />
-          <Text style={styles.floatBtnText}>
-            Enroll {selectedIds.size} Student{selectedIds.size !== 1 ? "s" : ""}
-          </Text>
+          <Text style={styles.floatBtnText}>{_t("Enroll {size} Student{pl}", { size: selectedIds.size, pl: selectedIds.size !== 1 ? "s" : "" })}</Text>
         </TouchableOpacity>
       )}
 
@@ -536,8 +549,8 @@ useFocusEffect(
             {/* Header */}
             <View style={bm.header}>
               <View style={{ flex: 1 }}>
-                <Text style={bm.title}>Bulk Enrollment</Text>
-                <Text style={bm.sub}>{selectedIds.size} student{selectedIds.size !== 1 ? "s" : ""} selected</Text>
+                <Text style={bm.title}>{_t("Bulk Enrollment")}</Text>
+                <Text style={bm.sub}>{_t("{size} student{pl} selected", { size: selectedIds.size, pl: selectedIds.size !== 1 ? "s" : "" })}</Text>
               </View>
               {!bulkEnrolling && (
                 <TouchableOpacity onPress={() => setBulkModal(false)} style={bm.closeBtn}>
@@ -548,12 +561,12 @@ useFocusEffect(
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               {/* Branch */}
-              <Text style={bm.label}>Branch</Text>
+              <Text style={bm.label}>{_t("Branch")}</Text>
               <Dropdown
-                label="Select Branch"
+                label={_t("Select Branch")}
                 value={bulkBranchId}
                 options={[
-                  { label: "Select Branch", value: "" },
+                  { label: _t("Select Branch"), value: "" },
                   ...branches.map(b => ({ label: b.branch_name, value: String(b.branch_id) })),
                 ]}
                 onChange={setBulkBranchId}
@@ -562,12 +575,12 @@ useFocusEffect(
               />
 
               {/* Session */}
-              <Text style={bm.label}>Session</Text>
+              <Text style={bm.label}>{_t("Session")}</Text>
               <Dropdown
-                label="Select Session"
+                label={_t("Select Session")}
                 value={bulkSessionId}
                 options={[
-                  { label: "Select Session", value: "" },
+                  { label: _t("Select Session"), value: "" },
                   ...sessions.map(s => ({ label: s.session_name || s.session_year, value: String(s.session_id) })),
                 ]}
                 onChange={setBulkSessionId}
@@ -575,12 +588,12 @@ useFocusEffect(
               />
 
               {/* Class */}
-              <Text style={bm.label}>Class</Text>
+              <Text style={bm.label}>{_t("Class")}</Text>
               <Dropdown
-                label="Select Class"
+                label={_t("Select Class")}
                 value={bulkClassId}
                 options={[
-                  { label: "Select Class", value: "" },
+                  { label: _t("Select Class"), value: "" },
                   ...classes.map(c => ({ label: c.class_name, value: String(c.class_id) })),
                 ]}
                 onChange={(v) => { setBulkClassId(v); setBulkSectionId(""); }}
@@ -588,12 +601,12 @@ useFocusEffect(
               />
 
               {/* Section */}
-              <Text style={bm.label}>Section</Text>
+              <Text style={bm.label}>{_t("Section")}</Text>
               <Dropdown
-                label={!bulkClassId ? "Select Class First" : bulkLoadingSections ? "Loading…" : "Select Section"}
+                label={!bulkClassId ? _t("Select Class First") : bulkLoadingSections ? _t("Loading…") : _t("Select Section")}
                 value={bulkSectionId}
                 options={[
-                  { label: "Select Section", value: "" },
+                  { label: _t("Select Section"), value: "" },
                   ...bulkSections.map(s => ({ label: s.name, value: s.id })),
                 ]}
                 onChange={setBulkSectionId}
@@ -601,9 +614,9 @@ useFocusEffect(
               />
 
               {/* Course Medium */}
-              <Text style={bm.label}>Course Medium</Text>
+              <Text style={bm.label}>{_t("Course Medium")}</Text>
               <Dropdown
-                label="Select Medium"
+                label={_t("Select Medium")}
                 value={bulkMedium}
                 options={MEDIUM_OPTIONS}
                 onChange={setBulkMedium}
@@ -614,9 +627,7 @@ useFocusEffect(
               {bulkEnrolling && (
                 <View style={bm.progressWrap}>
                   <ActivityIndicator size="small" color="#2563eb" />
-                  <Text style={bm.progressTxt}>
-                    Enrolling {bulkProgress.done} / {bulkProgress.total}…
-                  </Text>
+                  <Text style={bm.progressTxt}>{_t("Enrolling {done} / {total}…", { done: bulkProgress.done, total: bulkProgress.total })}</Text>
                 </View>
               )}
 
@@ -631,9 +642,7 @@ useFocusEffect(
                   : (
                     <>
                       <Feather name="user-check" size={16} color="#fff" />
-                      <Text style={bm.submitTxt}>
-                        Enroll {selectedIds.size} Student{selectedIds.size !== 1 ? "s" : ""}
-                      </Text>
+                      <Text style={bm.submitTxt}>{_t("Enroll {size} Student{pl}", { size: selectedIds.size, pl: selectedIds.size !== 1 ? "s" : "" })}</Text>
                     </>
                   )
                 }

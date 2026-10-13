@@ -295,7 +295,7 @@ class LibraryCirculationApiController extends AppController
 
         $settings  = $this->settings($clientCode);
         $memberId  = (int)$member['id'];
-        $issueDate = $this->dateOrNull($body, 'issue_date') ?? date('Y-m-d');
+        $issueDate = $this->dateOrNull($body, 'issue_date') ?? $this->schoolToday();
         $actor     = $this->actor();
 
         // Standing is read once. booksOut is then incremented locally as the
@@ -552,7 +552,7 @@ class LibraryCirculationApiController extends AppController
             return;
         }
 
-        $returnDate = $this->dateOrNull($body, 'return_date') ?? date('Y-m-d');
+        $returnDate = $this->dateOrNull($body, 'return_date') ?? $this->schoolToday();
         $damageFine = $this->decOrNull($body, 'damage_fine');
         $notes      = $this->str($body, 'notes');
         $settings   = $this->settings($clientCode);
@@ -933,7 +933,7 @@ class LibraryCirculationApiController extends AppController
         $days   = $this->loanPeriodFor((string)$ck['member_type'], $settings);
         $oldDue = (string)$ck['due_date'];
         // Extend from the due date if still in the future, otherwise from today.
-        $base   = max(strtotime($oldDue), strtotime(date('Y-m-d')));
+        $base   = max(strtotime($oldDue), strtotime($this->schoolToday()));
         $newDue = $this->dueDate(date('Y-m-d', $base), $days, $settings);
 
         $db->execute(
@@ -1044,7 +1044,7 @@ class LibraryCirculationApiController extends AppController
                 $db->execute(
                     "UPDATE lib_book_copies SET status = 'Lost', notes = CONCAT(COALESCE(notes, ''), ?)
                      WHERE id = ? AND ssms_client_code = ?",
-                    ["\n" . date('Y-m-d') . ' — reported lost' . ($notes ? ': ' . $notes : ''),
+                    ["\n" . $this->schoolToday() . ' — reported lost' . ($notes ? ': ' . $notes : ''),
                      (int)$ck['cp_id'], $clientCode]
                 );
 

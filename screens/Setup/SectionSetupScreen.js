@@ -26,6 +26,7 @@ import {
   updateSection,
   deleteSection,
 } from "../../services/SetupServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 const { width } = Dimensions.get("window");
 const isTablet = width > 768;
@@ -43,14 +44,14 @@ function Dropdown({ label, value, options, onChange, disabled }) {
         activeOpacity={0.7}
       >
         <Text style={[ddSt.triggerTxt, !selected?.value && ddSt.placeholder]} numberOfLines={1}>
-          {selected?.label ?? label}
+          {_tx(selected?.label) ?? _tx(label)}
         </Text>
         <Feather name="chevron-down" size={16} color="#475569" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={ddSt.overlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={ddSt.sheet}>
-            <Text style={ddSt.title}>{label}</Text>
+            <Text style={ddSt.title}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={(o, i) => String(o.value) + i}
@@ -60,7 +61,7 @@ function Dropdown({ label, value, options, onChange, disabled }) {
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[ddSt.optionTxt, String(o.value) === String(value) && ddSt.optionTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) && <Feather name="check" size={14} color="#1e40af" />}
                 </TouchableOpacity>
@@ -111,23 +112,30 @@ export default function SectionSetupScreen() {
     try {
       setLoading(true);
 
-      const [sectionResponse, classResponse] = await Promise.all([
+      // allSettled: a denied class lookup must not hide the sections (and vice versa)
+      const [rSec, rCls] = await Promise.allSettled([
         fetchSections(user),
         fetchClasses(user),
       ]);
+      const sectionResponse = rSec.status === "fulfilled" ? rSec.value : null;
+      const classResponse   = rCls.status === "fulfilled" ? rCls.value : null;
 
       const normalizedSections = Array.isArray(sectionResponse)
         ? sectionResponse
-        : sectionResponse?.data || [];
+        : Array.isArray(sectionResponse?.data) ? sectionResponse.data : [];
 
       const normalizedClasses = Array.isArray(classResponse)
         ? classResponse
-        : classResponse?.data || [];
+        : Array.isArray(classResponse?.data) ? classResponse.data : [];
 
       setSections(normalizedSections);
       setClasses(normalizedClasses);
+      const failMsg = rSec.status === "rejected" ? rSec.reason?.message
+        : sectionResponse?.status === false ? sectionResponse.message
+        : rCls.status === "rejected" ? rCls.reason?.message : null;
+      if (failMsg !== null) Alert.alert(_t("Error"), _tx(failMsg) || _t("Failed to load section data"));
     } catch (error) {
-      Alert.alert("Error", error.message || "Failed to load section data");
+      Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to load section data"));
     } finally {
       setLoading(false);
     }
@@ -153,10 +161,10 @@ export default function SectionSetupScreen() {
     try {
       setLoadingStaff(true);
       const data = await fetchStaff(user);
-      const list = Array.isArray(data) ? data : data?.data ?? [];
+      const list = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
       setStaff(list);
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load staff list");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load staff list"));
     } finally {
       setLoadingStaff(false);
     }
@@ -186,12 +194,12 @@ export default function SectionSetupScreen() {
 
   const handleSave = async () => {
     if (!form.sectionName.trim()) {
-      Alert.alert("Validation", "Please enter section name");
+      Alert.alert(_t("Validation"), _t("Please enter section name"));
       return;
     }
 
     if (!form.classId) {
-      Alert.alert("Validation", "Please select class");
+      Alert.alert(_t("Validation"), _t("Please select class"));
       return;
     }
 
@@ -208,17 +216,17 @@ export default function SectionSetupScreen() {
       if (editingSection) {
         const response = await updateSection(editingSection.section_id, user, payload);
         if (response?.status) {
-            Alert.alert("Success", "Section updated successfully");
+            Alert.alert(_t("Success"), _t("Section updated successfully"));
           } 
         else {
-             Alert.alert("Error", response?.message || "Failed to update section");
+             Alert.alert(_t("Error"), _tx(response?.message) || _t("Failed to update section"));
          }
       } else {
         const response = await createSection(user, payload);
         if (response?.status) {
-          Alert.alert("Success", "Section created successfully");
+          Alert.alert(_t("Success"), _t("Section created successfully"));
         } else {
-          Alert.alert("Error", response?.message || "Failed to create section");
+          Alert.alert(_t("Error"), _tx(response?.message) || _t("Failed to create section"));
         }
       }
 
@@ -226,7 +234,7 @@ export default function SectionSetupScreen() {
       resetForm();
       loadData();
     } catch (error) {
-      Alert.alert("Error", error.message || "Failed to save section");
+      Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to save section"));
     } finally {
       setSaving(false);
     }
@@ -234,24 +242,24 @@ export default function SectionSetupScreen() {
 
   const handleDelete = (sectionId) => {
     Alert.alert(
-      "Delete Section",
-      "Are you sure you want to delete this section?",
+      _t("Delete Section"),
+      _t("Are you sure you want to delete this section?"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Delete",
+          text: _t("Delete"),
           style: "destructive",
           onPress: async () => {
             try {
               const response = await deleteSection(sectionId, user);
               if (response?.status) {
-                Alert.alert("Success", "Section deleted successfully");
+                Alert.alert(_t("Success"), _t("Section deleted successfully"));
               } else {
-                Alert.alert("Error", response?.message || "Failed to delete section");
+                Alert.alert(_t("Error"), _tx(response?.message) || _t("Failed to delete section"));
               }
               loadData();
             } catch (error) {
-              Alert.alert("Error", error.message || "Failed to delete section");
+              Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to delete section"));
             }
           },
         },
@@ -265,27 +273,23 @@ export default function SectionSetupScreen() {
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.pageSubtitle}>
-        Create, update and manage school sections and capacity.
-      </Text>
+      <Text style={styles.pageSubtitle}>{_t("Create, update and manage school sections and capacity.")}</Text>
 
       <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
         <MaterialIcons name="add-circle-outline" size={20} color="#fff" />
-        <Text style={styles.addButtonText}>Add New Section</Text>
+        <Text style={styles.addButtonText}>{_t("Add New Section")}</Text>
       </TouchableOpacity>
 
       {loading ? (
         <View style={styles.loaderWrap}>
           <ActivityIndicator size="large" color="#1e40af" />
-          <Text style={styles.loaderText}>Loading sections...</Text>
+          <Text style={styles.loaderText}>{_t("Loading sections...")}</Text>
         </View>
       ) : sections.length === 0 ? (
         <View style={styles.emptyCard}>
           <MaterialIcons name="view-module" size={50} color="#94a3b8" />
-          <Text style={styles.emptyTitle}>No Sections Found</Text>
-          <Text style={styles.emptyText}>
-            Start by creating your first section.
-          </Text>
+          <Text style={styles.emptyTitle}>{_t("No Sections Found")}</Text>
+          <Text style={styles.emptyText}>{_t("Start by creating your first section.")}</Text>
         </View>
       ) : (
         <View style={styles.cardGrid}>
@@ -307,23 +311,23 @@ export default function SectionSetupScreen() {
                   </View>
 
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.sectionName}>{item.section_name}</Text>
-                    <Text style={styles.classText}>{className}</Text>
+                    <Text style={styles.sectionName}>{_tx(item.section_name)}</Text>
+                    <Text style={styles.classText}>{_tx(className)}</Text>
                   </View>
 
                   <View style={styles.badge}>
-                    <Text style={styles.badgeText}>Active</Text>
+                    <Text style={styles.badgeText}>{_t("Active")}</Text>
                   </View>
                 </View>
 
                 <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Capacity</Text>
-                  <Text style={styles.infoValue}>{item.capacity || 0}</Text>
+                  <Text style={styles.infoLabel}>{_t("Capacity")}</Text>
+                  <Text style={styles.infoValue}>{_tx(item.capacity) || 0}</Text>
                 </View>
 
                 <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Class Teacher</Text>
-                  <Text style={styles.infoValue}>{item.first_name} {item.last_name || ""}</Text>
+                  <Text style={styles.infoLabel}>{_t("Class Teacher")}</Text>
+                  <Text style={styles.infoValue}>{_tx(item.first_name)} {_tx(item.last_name) || ""}</Text>
                 </View>
 
                 <View style={styles.footerButtons}>
@@ -332,7 +336,7 @@ export default function SectionSetupScreen() {
                     onPress={() => openEditModal(item)}
                   >
                     <MaterialIcons name="edit" size={18} color="#1e40af" />
-                    <Text style={styles.editButtonText}>Edit</Text>
+                    <Text style={styles.editButtonText}>{_t("Edit")}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -344,7 +348,7 @@ export default function SectionSetupScreen() {
                       size={18}
                       color="#dc2626"
                     />
-                    <Text style={styles.deleteButtonText}>Delete</Text>
+                    <Text style={styles.deleteButtonText}>{_t("Delete")}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -357,15 +361,14 @@ export default function SectionSetupScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>
-              {editingSection ? "Edit Section" : "Add New Section"}
+              {editingSection ? _t("Edit Section") : _t("Add New Section")}
             </Text>
 
-            <Text style={styles.fieldLabel}>
-              Section Name <Text style={{ color: "#ef4444" }}>*</Text>
+            <Text style={styles.fieldLabel}>{_t("Section Name")}{" "}<Text style={{ color: "#ef4444" }}>*</Text>
             </Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. A, B, Red"
+              placeholder={_t("e.g. A, B, Red")}
               placeholderTextColor="#94a3b8"
               value={form.sectionName}
               onChangeText={(value) =>
@@ -373,10 +376,10 @@ export default function SectionSetupScreen() {
               }
             />
 
-            <Text style={styles.fieldLabel}>Capacity</Text>
+            <Text style={styles.fieldLabel}>{_t("Capacity")}</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. 40"
+              placeholder={_t("e.g. 40")}
               placeholderTextColor="#94a3b8"
               keyboardType="numeric"
               value={form.capacity}
@@ -385,24 +388,24 @@ export default function SectionSetupScreen() {
               }
             />
 
-            <Text style={styles.fieldLabel}>Class <Text style={{ color: "#ef4444" }}>*</Text></Text>
+            <Text style={styles.fieldLabel}>{_t("Class")}{" "}<Text style={{ color: "#ef4444" }}>*</Text></Text>
             <Dropdown
-              label="Select Class"
+              label={_t("Select Class")}
               value={form.classId}
               options={[
-                { label: "Select Class", value: "" },
+                { label: _t("Select Class"), value: "" },
                 ...classes.map(c => ({ label: c.class_name, value: String(c.class_id) })),
               ]}
               onChange={(value) => setForm((prev) => ({ ...prev, classId: value }))}
               disabled={saving}
             />
 
-            <Text style={styles.fieldLabel}>Staff (Class Teacher)</Text>
+            <Text style={styles.fieldLabel}>{_t("Staff (Class Teacher)")}</Text>
             <Dropdown
-              label={loadingStaff ? "Loading staff…" : "Select Staff"}
+              label={loadingStaff ? _t("Loading staff…") : _t("Select Staff")}
               value={form.staffId}
               options={[
-                { label: loadingStaff ? "Loading…" : "Select Staff", value: "" },
+                { label: loadingStaff ? _t("Loading…") : _t("Select Staff"), value: "" },
                 ...staff.map(s => ({
                   label: s.display_name ?? `${s.first_name} ${s.last_name} (${s.staff_id})`,
                   value: String(s.staff_id),
@@ -417,7 +420,7 @@ export default function SectionSetupScreen() {
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setModalVisible(false)}
               >
-                <Text style={styles.cancelText}>Cancel</Text>
+                <Text style={styles.cancelText}>{_t("Cancel")}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -429,7 +432,7 @@ export default function SectionSetupScreen() {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={styles.saveText}>
-                    {editingSection ? "Update" : "Save"}
+                    {editingSection ? _t("Update") : _t("Save")}
                   </Text>
                 )}
               </TouchableOpacity>

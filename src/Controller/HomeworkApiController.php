@@ -150,7 +150,7 @@ class HomeworkApiController extends AppController
         $subjectId   = !empty($d['subjectId'])   ? (int)$d['subjectId']   : null;
         $subjectName = trim((string)($d['subjectName']  ?? '')) ?: null;
         $description = trim((string)($d['description']  ?? '')) ?: null;
-        $assignedDate = trim((string)($d['assignedDate'] ?? date('Y-m-d')));
+        $assignedDate = trim((string)($d['assignedDate'] ?? $this->schoolToday()));
         $dueDate      = trim((string)($d['dueDate'] ?? $assignedDate));
 
         if (!$sessionId || !$classId || $title === '') {
@@ -210,8 +210,8 @@ class HomeworkApiController extends AppController
         $sectionId = $this->request->getQuery('sectionId');
         $teacherId = $this->request->getQuery('teacherId');
         $date      = $this->request->getQuery('date');
-        $fromDate  = $this->request->getQuery('fromDate') ?? date('Y-m-d');
-        $toDate    = $this->request->getQuery('toDate')   ?? date('Y-m-d');
+        $fromDate  = $this->request->getQuery('fromDate') ?? $this->schoolToday();
+        $toDate    = $this->request->getQuery('toDate')   ?? $this->schoolToday();
         if ($date) { $fromDate = $toDate = $date; }
 
         try {

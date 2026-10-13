@@ -21,11 +21,12 @@ import {
   saveStaffRegistration,
 } from "../../services/StaffServiceApi";
 import { fetchBranches } from "../../services/SetupServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TITLES   = ["Mr.", "Mrs.", "Ms.", "Dr.", "Prof."];
 const GENDERS  = ["Male", "Female", "Other"];
-const YES_NO   = [{ label: "Yes", value: "Y" }, { label: "No", value: "N" }];
+const YES_NO   = [{ get label() { return _t("Yes"); }, value: "Y" }, { get label() { return _t("No"); }, value: "N" }];
 
 // ── Dropdown ──────────────────────────────────────────────────────────────────
 function Dropdown({ label, value, options, onChange, disabled, placeholder }) {
@@ -39,14 +40,14 @@ function Dropdown({ label, value, options, onChange, disabled, placeholder }) {
         activeOpacity={0.7}
       >
         <Text style={[sc.dropTxt, !selected?.value && sc.dropPh]} numberOfLines={1}>
-          {selected?.label ?? placeholder ?? label}
+          {_tx(selected?.label) ?? _tx(placeholder) ?? _tx(label)}
         </Text>
         <Feather name="chevron-down" size={14} color="#64748b" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={sc.dropOverlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={sc.dropSheet}>
-            <Text style={sc.dropSheetTitle}>{label}</Text>
+            <Text style={sc.dropSheetTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={(o, i) => String(o.value) + i}
@@ -56,7 +57,7 @@ function Dropdown({ label, value, options, onChange, disabled, placeholder }) {
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[sc.dropOptionTxt, String(o.value) === String(value) && sc.dropOptionTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) && <Feather name="check" size={14} color="#1e40af" />}
                 </TouchableOpacity>
@@ -82,7 +83,7 @@ function DateField({ label, value, onChange, disabled }) {
         activeOpacity={0.7}
       >
         <Text style={[sc.dropTxt, !value && sc.dropPh]}>
-          {value || `Select ${label}`}
+          {_tx(value) || _t("Select {label}", { label })}
         </Text>
         <Feather name="calendar" size={14} color="#64748b" />
       </TouchableOpacity>
@@ -106,7 +107,7 @@ function FilePickerField({ label, value, onPick, type = "image", disabled }) {
   const hasFile = !!value?.uri;
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") { Alert.alert("Permission required", "Please allow media access."); return; }
+    if (status !== "granted") { Alert.alert(_t("Permission required"), _t("Please allow media access.")); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.7,
@@ -137,7 +138,7 @@ function FilePickerField({ label, value, onPick, type = "image", disabled }) {
         : <Feather name={hasFile ? "check-circle" : "upload"} size={18}
             color={hasFile ? "#16a34a" : "#64748b"} />}
       <Text style={[sc.fileTxt, hasFile && { color: "#16a34a" }]} numberOfLines={1}>
-        {hasFile ? (value.name ?? "File selected") : `Choose ${label}`}
+        {hasFile ? (_tx(value.name) ?? _t("File selected")) : _t("Choose {label}", { label })}
       </Text>
       {hasFile && (
         <TouchableOpacity onPress={() => onPick(null)} style={{ padding: 4 }}>
@@ -154,7 +155,7 @@ const SectionHead = ({ icon, title }) => (
     <View style={sc.sectionIconWrap}>
       <Feather name={icon} size={14} color="#1e40af" />
     </View>
-    <Text style={sc.sectionTitle}>{title}</Text>
+    <Text style={sc.sectionTitle}>{_tx(title)}</Text>
   </View>
 );
 
@@ -162,7 +163,7 @@ const SectionHead = ({ icon, title }) => (
 const Field = ({ label, required, children }) => (
   <View style={sc.field}>
     <Text style={sc.fieldLabel}>
-      {label}{required && <Text style={{ color: "#ef4444" }}> *</Text>}
+      {_tx(label)}{required && <Text style={{ color: "#ef4444" }}> *</Text>}
     </Text>
     {children}
   </View>
@@ -242,24 +243,28 @@ export default function StaffRegistrationScreen({ navigation, route }) {
   useEffect(() => {
     let cancelled = false;
     setLoadingDropdowns(true);
-    Promise.all([fetchStaffCategories(user), fetchBranches(user)])
-      .then(([cats, brs]) => {
+    Promise.allSettled([fetchStaffCategories(user), fetchBranches(user)])
+      .then(([rCats, rBrs]) => {
         if (cancelled) return;
-        const catList = Array.isArray(cats) ? cats : cats?.data ?? [];
-        const brList  = Array.isArray(brs)  ? brs  : brs?.data  ?? [];
+        const cats = rCats.status === "fulfilled" ? rCats.value : null;
+        const brs  = rBrs.status  === "fulfilled" ? rBrs.value  : null;
+        const catList = Array.isArray(cats) ? cats : Array.isArray(cats?.data) ? cats.data : [];
+        const brList  = Array.isArray(brs)  ? brs  : Array.isArray(brs?.data)  ? brs.data  : [];
         setCategories(catList);
         setBranches(brList);
+        const failed = [rCats, rBrs].find(r => r.status === "rejected");
+        if (failed) Alert.alert(_t("Error"), _tx(failed.reason?.message) || _t("Failed to load data"));
       })
-      .catch(e => Alert.alert("Error", e.message || "Failed to load data"))
+      .catch(e => { if (!cancelled) Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load data")); })
       .finally(() => { if (!cancelled) setLoadingDropdowns(false); });
     return () => { cancelled = true; };
   }, [user]);
 
   // ── Save ─────────────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!form.first_name.trim())    { Alert.alert("Validation", "First name is required.");    return; }
-    if (!form.last_name.trim())     { Alert.alert("Validation", "Last name is required.");     return; }
-    if (!form.mobile_number.trim()) { Alert.alert("Validation", "Mobile number is required."); return; }
+    if (!form.first_name.trim())    { Alert.alert(_t("Validation"), _t("First name is required."));    return; }
+    if (!form.last_name.trim())     { Alert.alert(_t("Validation"), _t("Last name is required."));     return; }
+    if (!form.mobile_number.trim()) { Alert.alert(_t("Validation"), _t("Mobile number is required.")); return; }
 
     try {
       setSaving(true);
@@ -269,12 +274,12 @@ export default function StaffRegistrationScreen({ navigation, route }) {
       };
       await saveStaffRegistration(user, payload);
       Alert.alert(
-        "Success",
-        editStaff ? "Staff updated successfully." : "Staff registered successfully.",
-        [{ text: "OK", onPress: () => navigation.goBack() }]
+        _t("Success"),
+        editStaff ? _t("Staff updated successfully.") : _t("Staff registered successfully."),
+        [{ text: _t("OK"), onPress: () => navigation.goBack() }]
       );
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to save staff");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to save staff"));
     } finally {
       setSaving(false);
     }
@@ -282,11 +287,11 @@ export default function StaffRegistrationScreen({ navigation, route }) {
 
   // ── Options ──────────────────────────────────────────────────────────────
   const categoryOptions = [
-    { label: "Select Category", value: "" },
+    { label: _t("Select Category"), value: "" },
     ...categories.map(c => ({ label: c.category_name, value: String(c.category_id) })),
   ];
   const branchOptions = [
-    { label: "Select Branch", value: "" },
+    { label: _t("Select Branch"), value: "" },
     ...branches.map(b => ({ label: b.branch_name, value: String(b.branch_id) })),
   ];
   const titleOptions   = TITLES.map(t => ({ label: t, value: t }));
@@ -302,25 +307,25 @@ export default function StaffRegistrationScreen({ navigation, route }) {
 
         {/* ── Personal Info ── */}
         <View style={sc.card}>
-          <SectionHead icon="user" title="Personal Information" />
+          <SectionHead icon="user" title={_t("Personal Information")} />
 
           <View style={sc.row}>
             <View style={{ flex: 1, marginRight: 8 }}>
-              <Field label="Title">
+              <Field label={_t("Title")}>
                 <Dropdown
-                  label="Title"
+                  label={_t("Title")}
                   value={form.staff_title}
                   options={titleOptions}
                   onChange={v => setField("staff_title", v)}
-                  placeholder="Select"
+                  placeholder={_t("Select")}
                 />
               </Field>
             </View>
             <View style={{ flex: 2 }}>
-              <Field label="First Name" required>
+              <Field label={_t("First Name")} required>
                 <TextInput
                   style={sc.input}
-                  placeholder="First name"
+                  placeholder={_t("First name")}
                   placeholderTextColor="#94a3b8"
                   value={form.first_name}
                   onChangeText={v => setField("first_name", v)}
@@ -329,48 +334,48 @@ export default function StaffRegistrationScreen({ navigation, route }) {
             </View>
           </View>
 
-          <Field label="Last Name" required>
+          <Field label={_t("Last Name")} required>
             <TextInput
               style={sc.input}
-              placeholder="Last name"
+              placeholder={_t("Last name")}
               placeholderTextColor="#94a3b8"
               value={form.last_name}
               onChangeText={v => setField("last_name", v)}
             />
           </Field>
 
-          <Field label="Gender">
+          <Field label={_t("Gender")}>
             <Dropdown
-              label="Gender"
+              label={_t("Gender")}
               value={form.gender}
               options={genderOptions}
               onChange={v => setField("gender", v)}
-              placeholder="Select gender"
+              placeholder={_t("Select gender")}
             />
           </Field>
 
-          <Field label="Date of Birth">
+          <Field label={_t("Date of Birth")}>
             <DateField
-              label="Date of Birth"
+              label={_t("Date of Birth")}
               value={form.date_of_birth}
               onChange={v => setField("date_of_birth", v)}
             />
           </Field>
 
-          <Field label="Father Name">
+          <Field label={_t("Father Name")}>
             <TextInput
               style={sc.input}
-              placeholder="Father's name"
+              placeholder={_t("Father's name")}
               placeholderTextColor="#94a3b8"
               value={form.father_name}
               onChangeText={v => setField("father_name", v)}
             />
           </Field>
 
-          <Field label="Mother Name">
+          <Field label={_t("Mother Name")}>
             <TextInput
               style={sc.input}
-              placeholder="Mother's name"
+              placeholder={_t("Mother's name")}
               placeholderTextColor="#94a3b8"
               value={form.mother_name}
               onChangeText={v => setField("mother_name", v)}
@@ -380,12 +385,12 @@ export default function StaffRegistrationScreen({ navigation, route }) {
 
         {/* ── Contact ── */}
         <View style={sc.card}>
-          <SectionHead icon="phone" title="Contact Details" />
+          <SectionHead icon="phone" title={_t("Contact Details")} />
 
-          <Field label="Mobile Number" required>
+          <Field label={_t("Mobile Number")} required>
             <TextInput
               style={sc.input}
-              placeholder="+91 XXXXX XXXXX"
+              placeholder={_t("+91 XXXXX XXXXX")}
               placeholderTextColor="#94a3b8"
               value={form.mobile_number}
               onChangeText={v => setField("mobile_number", v)}
@@ -393,7 +398,7 @@ export default function StaffRegistrationScreen({ navigation, route }) {
             />
           </Field>
 
-          <Field label="Email Address">
+          <Field label={_t("Email Address")}>
             <TextInput
               style={sc.input}
               placeholder="email@example.com"
@@ -405,10 +410,10 @@ export default function StaffRegistrationScreen({ navigation, route }) {
             />
           </Field>
 
-          <Field label="Address">
+          <Field label={_t("Address")}>
             <TextInput
               style={[sc.input, sc.textArea]}
-              placeholder="Full address"
+              placeholder={_t("Full address")}
               placeholderTextColor="#94a3b8"
               value={form.address}
               onChangeText={v => setField("address", v)}
@@ -417,10 +422,10 @@ export default function StaffRegistrationScreen({ navigation, route }) {
             />
           </Field>
 
-          <Field label="State">
+          <Field label={_t("State")}>
             <TextInput
               style={sc.input}
-              placeholder="State"
+              placeholder={_t("State")}
               placeholderTextColor="#94a3b8"
               value={form.state}
               onChangeText={v => setField("state", v)}
@@ -430,7 +435,7 @@ export default function StaffRegistrationScreen({ navigation, route }) {
 
         {/* ── Employment ── */}
         <View style={sc.card}>
-          <SectionHead icon="briefcase" title="Employment Details" />
+          <SectionHead icon="briefcase" title={_t("Employment Details")} />
 
           {/* <Field label="Branch">
             <Dropdown
@@ -442,29 +447,29 @@ export default function StaffRegistrationScreen({ navigation, route }) {
             />
           </Field> */}
 
-          <Field label="Category">
+          <Field label={_t("Category")}>
             <Dropdown
-              label="Category"
+              label={_t("Category")}
               value={form.category_id}
               options={categoryOptions}
               onChange={v => setField("category_id", v)}
-              placeholder="Select category"
+              placeholder={_t("Select category")}
             />
           </Field>
 
-          <Field label="Specialty">
+          <Field label={_t("Specialty")}>
             <TextInput
               style={sc.input}
-              placeholder="e.g. Mathematics, Science"
+              placeholder={_t("e.g. Mathematics, Science")}
               placeholderTextColor="#94a3b8"
               value={form.specialty}
               onChangeText={v => setField("specialty", v)}
             />
           </Field>
 
-          <Field label="Date of Hiring">
+          <Field label={_t("Date of Hiring")}>
             <DateField
-              label="Date of Hiring"
+              label={_t("Date of Hiring")}
               value={form.date_of_hiring}
               onChange={v => setField("date_of_hiring", v)}
             />
@@ -472,7 +477,7 @@ export default function StaffRegistrationScreen({ navigation, route }) {
 
           <View style={sc.row}>
             <View style={{ flex: 1, marginRight: 8 }}>
-              <Field label="Years of Exp.">
+              <Field label={_t("Years of Exp.")}>
                 <TextInput
                   style={sc.input}
                   placeholder="0"
@@ -484,7 +489,7 @@ export default function StaffRegistrationScreen({ navigation, route }) {
               </Field>
             </View>
             <View style={{ flex: 1 }}>
-              <Field label="Salary">
+              <Field label={_t("Salary")}>
                 <TextInput
                   style={sc.input}
                   placeholder="0.00"
@@ -499,9 +504,9 @@ export default function StaffRegistrationScreen({ navigation, route }) {
 
           <View style={sc.row}>
             <View style={{ flex: 1, marginRight: 8 }}>
-              <Field label="Hired">
+              <Field label={_t("Hired")}>
                 <Dropdown
-                  label="Hired"
+                  label={_t("Hired")}
                   value={form.hired}
                   options={YES_NO}
                   onChange={v => setField("hired", v)}
@@ -509,9 +514,9 @@ export default function StaffRegistrationScreen({ navigation, route }) {
               </Field>
             </View>
             <View style={{ flex: 1 }}>
-              <Field label="Resigned">
+              <Field label={_t("Resigned")}>
                 <Dropdown
-                  label="Resigned"
+                  label={_t("Resigned")}
                   value={form.resigned}
                   options={YES_NO}
                   onChange={v => setField("resigned", v)}
@@ -521,9 +526,9 @@ export default function StaffRegistrationScreen({ navigation, route }) {
           </View>
 
           {form.resigned === "Y" && (
-            <Field label="Resignation Date">
+            <Field label={_t("Resignation Date")}>
               <DateField
-                label="Resignation Date"
+                label={_t("Resignation Date")}
                 value={form.resignation_date}
                 onChange={v => setField("resignation_date", v)}
               />
@@ -533,38 +538,38 @@ export default function StaffRegistrationScreen({ navigation, route }) {
 
         {/* ── Documents ── */}
         <View style={sc.card}>
-          <SectionHead icon="file-text" title="Documents & Photo" />
+          <SectionHead icon="file-text" title={_t("Documents & Photo")} />
 
-          <Field label="Staff Photo">
+          <Field label={_t("Staff Photo")}>
             <FilePickerField
-              label="Staff Photo"
+              label={_t("Staff Photo")}
               value={form.staff_photo}
               onPick={v => setField("staff_photo", v)}
               type="image"
             />
           </Field>
 
-          <Field label="ID Proof">
+          <Field label={_t("ID Proof")}>
             <FilePickerField
-              label="ID Proof"
+              label={_t("ID Proof")}
               value={form.id_proof}
               onPick={v => setField("id_proof", v)}
               type="doc"
             />
           </Field>
 
-          <Field label="Address Proof">
+          <Field label={_t("Address Proof")}>
             <FilePickerField
-              label="Address Proof"
+              label={_t("Address Proof")}
               value={form.address_proof}
               onPick={v => setField("address_proof", v)}
               type="doc"
             />
           </Field>
 
-          <Field label="Experience Letter">
+          <Field label={_t("Experience Letter")}>
             <FilePickerField
-              label="Experience Letter"
+              label={_t("Experience Letter")}
               value={form.experience_letter}
               onPick={v => setField("experience_letter", v)}
               type="doc"
@@ -584,7 +589,7 @@ export default function StaffRegistrationScreen({ navigation, route }) {
             : <>
                 <Feather name="check" size={18} color="#fff" />
                 <Text style={sc.saveTxt}>
-                  {editStaff ? "Update Staff" : "Register Staff"}
+                  {editStaff ? _t("Update Staff") : _t("Register Staff")}
                 </Text>
               </>}
         </TouchableOpacity>

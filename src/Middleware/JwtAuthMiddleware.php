@@ -12,6 +12,8 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use App\Service\Entitlements;
+use App\Service\AccountSecurity;
+use App\Service\Permissions;
 
 /**
  * JwtAuthMiddleware
@@ -68,6 +70,24 @@ class JwtAuthMiddleware implements MiddlewareInterface
         '/CertificateApi',
         '/LeaveApi',
         '/SubscriptionApi/',
+        '/OnlinePayApi/',
+        '/ReportCardApi/',
+        '/StudentLeaveApi/',
+        '/StaffAttendanceApi/',
+        '/SecurityApi/',
+        '/AuditApi/',
+        '/RolesApi/',
+        '/PrivacyApi/',
+        '/StudentRecordApi/',
+        '/MeetingApi/',
+        '/AnalyticsApi/',
+        '/ExamLogisticsApi/',
+        '/CoverApi/',
+        '/CalendarApi/',
+        '/SafetyApi/',
+        '/BusTrackingApi/',
+        '/LocaleApi/',
+        '/NotifyApi/',
     ];
 
     // ── Public API routes — no token required ─────────────────────────────────
@@ -86,6 +106,8 @@ class JwtAuthMiddleware implements MiddlewareInterface
         'UserServiceApi/submitTicket',
         'SubscriptionApi/stripeWebhook',   // verified by Stripe-Signature instead
         'SubscriptionApi/revenuecatWebhook', // verified by RevenueCat Authorization header
+        'SecurityApi/setPassword',           // one-time set-password link token
+        'UserServiceApi/mfaSetup',           // required two-step set-up during sign-in (challenge token)
     ];
 
     public function process(
@@ -94,9 +116,13 @@ class JwtAuthMiddleware implements MiddlewareInterface
     ): ResponseInterface {
 
         $path = $request->getUri()->getPath();
+        [$routeController, $routeAction] = $this->routeOf($request, $path);
 
         // ── Step 1: Is this an API route at all? ──────────────────────────────
-        $isApiRoute = false;
+        // Decided by the ROUTED controller too, not only the URL text: fallback
+        // routes also accept /fee-api/… or /feeApi/…, which would otherwise skip this check.
+        $known = array_map(fn($p) => trim($p, '/'), self::API_PREFIXES);
+        $isApiRoute = in_array($routeController, $known, true);
         foreach (self::API_PREFIXES as $prefix) {
             if (strpos($path, $prefix) !== false) {
                 $isApiRoute = true;
@@ -109,9 +135,12 @@ class JwtAuthMiddleware implements MiddlewareInterface
         }
 
         // ── Step 2: Is this a public API route? ───────────────────────────────
+        // Exact controller + action prefix (a URL that merely CONTAINS "UserServiceApi/login"
+        // somewhere, e.g. as a passed parameter, is not public).
         $isPublic = false;
         foreach (self::PUBLIC_ROUTES as $publicRoute) {
-            if (strpos($path, $publicRoute) !== false) {
+            [$pc, $pa] = explode('/', $publicRoute, 2);
+            if (strcasecmp($routeController, $pc) === 0 && str_starts_with(strtolower($routeAction), strtolower($pa))) {
                 $isPublic = true;
                 break;
             }
@@ -138,11 +167,17 @@ class JwtAuthMiddleware implements MiddlewareInterface
         }
 
         if ($sessionClientCode !== '') {
+            $sessUser = (string)($_SESSION['ssms_user_name'] ?? '');
+            $sessRole = (string)($_SESSION['ssms_user_role'] ?? '');
             $request = $request
                 ->withAttribute('jwt_client_code', $sessionClientCode)
-                ->withAttribute('jwt_user',        '')
-                ->withAttribute('jwt_role',        '')
-                ->withAttribute('jwt_branch_id',   null);
+                ->withAttribute('jwt_user',        $sessUser)
+                ->withAttribute('jwt_role',        $sessRole)
+                ->withAttribute('jwt_branch_id',   null)
+                // never trust identity headers sent by the caller
+                ->withHeader('ssmsClientCode', $sessionClientCode)
+                ->withHeader('ssmsUserRole',   $sessRole)
+                ->withHeader('ssmsUserName',   $sessUser);
             return $this->guardModules($request, $handler, $sessionClientCode, $path);
         }
 
@@ -192,12 +227,61 @@ class JwtAuthMiddleware implements MiddlewareInterface
         // Login (UserServiceApiController::login) writes the username as
         // `user`; `sub` is kept as a fallback for any older tokens.
         $clientCode = (string)($decoded->client_code ?? '');
+        $tokenUser  = (string)($decoded->user ?? $decoded->sub ?? '');
+        $role       = (string)($decoded->role ?? '');   // keep the stored spelling; checks lower-case it
+        $customRole = null;
+        $sid        = isset($decoded->sid) ? (string)$decoded->sid : null;
+
+        // ── Step 5a: is the account / sign-in still valid? (sign out everywhere,
+        // disabled account, changed role). One query; skipped if the tables are missing.
+        if ($tokenUser !== '') {
+            try {
+                $row = AccountSecurity::lookup($tokenUser, $sid);
+                $problem = AccountSecurity::tokenProblem($row, (int)($decoded->iat ?? 0), $sid);
+                if ($problem === null && $row && strcasecmp((string)$row['ssms_client_code'], $clientCode) !== 0) {
+                    $problem = 'Invalid token. Please log in again.';
+                }
+                if ($problem !== null) {
+                    return $this->jsonError(401, $problem, ['code' => 'SIGNED_OUT']);
+                }
+                $role       = (string)$row['ssms_user_role'] ?: $role;   // current role, not the one in a 30-day token
+                $customRole = $row['custom_role_id'] ?? null;
+                if ($sid) {
+                    AccountSecurity::touch($sid, $row['s_seen'] ?? null);
+                }
+            } catch (\Throwable $e) {
+                \Cake\Log\Log::warning('JWT session check skipped: ' . $e->getMessage());
+            }
+        }
+
         $request = $request
-            ->withAttribute('jwt_user',          (string)($decoded->user ?? $decoded->sub ?? ''))
-            ->withAttribute('jwt_role',          $decoded->role          ?? '')
+            ->withAttribute('jwt_user',          $tokenUser)
+            ->withAttribute('jwt_role',          $role)
             ->withAttribute('jwt_client_code',   $clientCode)
             ->withAttribute('jwt_branch_id',     $decoded->branch_id     ?? null)
-            ->withAttribute('jwt_enrollment_id', $decoded->enrollment_id ?? null);
+            ->withAttribute('jwt_enrollment_id', $decoded->enrollment_id ?? null)
+            ->withAttribute('jwt_sid',           $sid)
+            ->withAttribute('jwt_custom_role',   $customRole);
+        // Controllers that still read these headers now get the signed values,
+        // whatever the caller sent (fixes role / school spoofing).
+        $request = $request
+            ->withHeader('ssmsClientCode', $clientCode)
+            ->withHeader('ssmsUserRole',   $role);
+        if ($tokenUser !== '') {
+            $request = $request->withHeader('ssmsUserName', $tokenUser);
+        }
+
+        // ── Step 6a: role permissions (Settings › Roles & permissions)
+        try {
+            if (AccountSecurity::settings($clientCode)['permissions_enforced']) {
+                $deny = Permissions::check($clientCode, $role, $customRole, $routeController, $routeAction, $request->getMethod());
+                if ($deny !== null) {
+                    return $this->jsonError(403, $deny, ['code' => 'NO_PERMISSION']);
+                }
+            }
+        } catch (\Throwable $e) {
+            \Cake\Log\Log::warning('Permission check skipped: ' . $e->getMessage());
+        }
 
         return $this->guardModules($request, $handler, $clientCode, $path);
     }

@@ -4,6 +4,7 @@
 import { safeFetch } from './apiInterceptor';
 
 import { BASE_URL } from "../Environment/EnvironmentConfig";
+import { _t } from "./i18n";
 
 //const BASE_URL = "http://192.168.4.90/ssms5/StudentApi"; // change to PC IP on real device
 
@@ -37,7 +38,7 @@ export const fetchWithTimeout = async (url, options = {}, timeoutMs = 12000) => 
     const text = await res.text();
     const json = safeJsonFromText(text);
     if (!res.ok || !json) {
-      throw new Error(json?.message || `HTTP ${res.status}: ${text?.slice(0, 120)}`);
+      throw new Error(json?.message || _t("HTTP {status}: {v}", { status: res.status, v: text?.slice(0, 120) }));
     }
     return json;
   } finally {
@@ -85,7 +86,7 @@ export const fetchSessions = async (user) => {
     headers: buildHeaders(user),
   });
   const json = await response.json().catch(() => null);
-  if (!response.ok || !json) throw new Error("Failed to load sessions");
+  if (!response.ok || !json) throw new Error(_t("Failed to load sessions"));
   return json.data ?? [];
 };
 
@@ -96,7 +97,7 @@ export const fetchBranches = async (user) => {
     headers: buildHeaders(user),
   });
   const json = await response.json().catch(() => null);
-  if (!response.ok || !json) throw new Error("Failed to load branches");
+  if (!response.ok || !json) throw new Error(_t("Failed to load branches"));
   return json.data ?? [];
 };
 
@@ -107,7 +108,7 @@ export const fetchSections = async (user, classId) => {
     headers: buildHeaders(user),
   });
   const json = await response.json().catch(() => null);
-  if (!response.ok || !json) throw new Error("Failed to load sections");
+  if (!response.ok || !json) throw new Error(_t("Failed to load sections"));
   return json.data ?? [];
 };
 
@@ -319,7 +320,7 @@ export const registerStudent = ({ form, photoAsset, user, onProgress }) => {
         const jEnd   = raw.lastIndexOf("}");
         if (jStart === -1 || jEnd === -1) {
           //console.warn("registerStudent: no JSON found in response:", raw.slice(0, 200));
-          reject(new Error('Invalid server response'));
+          reject(new Error(_t("Invalid server response")));
           return;
         }
         const json = JSON.parse(raw.slice(jStart, jEnd + 1));
@@ -328,15 +329,15 @@ export const registerStudent = ({ form, photoAsset, user, onProgress }) => {
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve(json);
         } else {
-          reject(new Error(json?.message ?? `HTTP ${xhr.status}`));
+          reject(new Error(json?.message ?? _t("HTTP {status}", { status: xhr.status })));
         }
       } catch (e) {
         //console.error("registerStudent parse error:", e.message);
-        reject(new Error('Invalid server response'));
+        reject(new Error(_t("Invalid server response")));
       }
     };
  
-    xhr.onerror = () => reject(new Error('Network error. Please check your connection.'));
+    xhr.onerror = () => reject(new Error(_t("Network error. Please check your connection.")));
  
     xhr.open('POST', `${BASE_URL}/StudentApi/registerStudent`);
  
@@ -377,7 +378,7 @@ export async function getEnrolledStudents(user, {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.message || "Failed to load students");
+        throw new Error(data.message || _t("Failed to load students"));
       }
       return {
         students:   data.data       || [],
@@ -391,7 +392,7 @@ export async function fetchStudent(regId, user) {
     headers: buildHeaders(user),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.message || "Failed to load student details");
+  if (!response.ok) throw new Error(data.message || _t("Failed to load student details"));
   return data.student;
     }
 
@@ -407,7 +408,7 @@ export async function updateStudent(regId, payload, user) {
   const jsonStart = rawText.indexOf('{');
   if (jsonStart === -1) {
     console.error("[updateStudent] non-JSON response:", rawText.slice(0, 300));
-    throw new Error(`Server error ${response.status}: unexpected response`);
+    throw new Error(_t("Server error {status}: unexpected response", { status: response.status }));
   }
   if (jsonStart > 0) {
     console.warn("[updateStudent] PHP warning stripped:", rawText.slice(0, jsonStart).trim());
@@ -418,13 +419,13 @@ export async function updateStudent(regId, payload, user) {
     data = JSON.parse(rawText.slice(jsonStart));
   } catch (e) {
     console.error("[updateStudent] JSON parse failed:", rawText.slice(0, 300));
-    throw new Error("Failed to parse server response");
+    throw new Error(_t("Failed to parse server response"));
   }
 
   console.log("[updateStudent] server response:", JSON.stringify(data));
 
   if (!response.ok || data.status === false) {
-    throw new Error(data.message || "Failed to update student");
+    throw new Error(data.message || _t("Failed to update student"));
   }
   return data;
 }
@@ -444,7 +445,7 @@ export async function getAllRegisteredStudents(user, {
         headers: buildHeaders(user),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Failed to load students");
+      if (!response.ok) throw new Error(data.message || _t("Failed to load students"));
       return { students: data.students || [], pagination: data.pagination || {} };
     }
 
@@ -455,7 +456,7 @@ export async function enrollStudent(user, payload, regId) {
     body: JSON.stringify(payload),
   });
   const data = await response.json();
-  if (!response.ok || !data.status) throw new Error(data.message || "Enrollment failed");
+  if (!response.ok || !data.status) throw new Error(data.message || _t("Enrollment failed"));
   return data;
 }
 
@@ -484,7 +485,7 @@ export const saveAttendance = async (user, payload) => {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data.success === false) {
-    throw new Error(data.message || `Save failed (HTTP ${response.status})`);
+    throw new Error(data.message || _t("Save failed (HTTP {status})", { status: response.status }));
   }
   return data;
 };
@@ -505,7 +506,7 @@ export const fetchRecentAttendance = async (user, { classId, sectionId, branchId
     `${BASE_URL}/StudentApi/getRecentAttendance?${params.toString()}`,
     { method: 'GET', headers: buildHeaders(user) }
   );
-  if (!res.status) throw new Error(res.message ?? 'Failed to load recent attendance');
+  if (!res.status) throw new Error(res.message ?? _t("Failed to load recent attendance"));
   return res;
 };
 
@@ -525,7 +526,7 @@ export const fetchMonthlyAttendance = async (user, { classId, sectionId, branchI
     `${BASE_URL}/StudentApi/getMonthlyAttendance?${params.toString()}`,
     { method: 'GET', headers: buildHeaders(user) }
   );
-  if (!res.status) throw new Error(res.message ?? 'Failed to load attendance');
+  if (!res.status) throw new Error(res.message ?? _t("Failed to load attendance"));
   return res;
 };
 
@@ -539,7 +540,7 @@ export const fetchMyAttendance = async (user) => {
     `${BASE_URL}/StudentApi/getMyAttendance`,
     { method: 'GET', headers: buildHeaders(user) }
   );
-  if (!res.status) throw new Error(res.message ?? 'Failed to load attendance');
+  if (!res.status) throw new Error(res.message ?? _t("Failed to load attendance"));
   return res;
 };
 
@@ -556,14 +557,14 @@ export async function fetchIdCardData(user, { classId, sessionId, branchId, sect
   );
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.status === false)
-    throw new Error(json.message ?? `HTTP ${res.status}`);
+    throw new Error(json.message ?? _t("HTTP {status}", { status: res.status }));
   return json;
 }
 
 export const uploadStudentPhoto = (user, registrationNo, photoAsset, onProgress) =>
   new Promise((resolve, reject) => {
-    if (!photoAsset?.uri) return reject(new Error("No photo selected"));
-    if (!registrationNo)  return reject(new Error("Registration number is required"));
+    if (!photoAsset?.uri) return reject(new Error(_t("No photo selected")));
+    if (!registrationNo)  return reject(new Error(_t("Registration number is required")));
  
     // Build the file extension and MIME type
     const uri  = photoAsset.uri;
@@ -592,15 +593,15 @@ export const uploadStudentPhoto = (user, registrationNo, photoAsset, onProgress)
         if (xhr.status >= 200 && xhr.status < 300 && json.status !== false) {
           resolve(json);
         } else {
-          reject(new Error(json?.message ?? `Server error ${xhr.status}`));
+          reject(new Error(json?.message ?? _t("Server error {status}", { status: xhr.status })));
         }
       } catch {
-        reject(new Error('Invalid server response'));
+        reject(new Error(_t("Invalid server response")));
       }
     };
  
-    xhr.onerror   = () => reject(new Error('Network error — check your connection'));
-    xhr.ontimeout = () => reject(new Error('Upload timed out'));
+    xhr.onerror   = () => reject(new Error(_t("Network error — check your connection")));
+    xhr.ontimeout = () => reject(new Error(_t("Upload timed out")));
     xhr.timeout   = 30000; // 30 s
  
     xhr.open('POST', `${BASE_URL}/StudentApi/uploadStudentPhoto`);
@@ -630,7 +631,7 @@ export const updateEnrollment = async (user, payload) => {
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.status === false)
-    throw new Error(json.message ?? `HTTP ${res.status}`);
+    throw new Error(json.message ?? _t("HTTP {status}", { status: res.status }));
   return json;
 };
 
@@ -646,7 +647,7 @@ export const fetchLinkedStudents = async (user) => {
     `${BASE_URL}/StudentApi/getLinkedStudents`,
     { method: 'GET', headers: buildHeaders(user) }
   );
-  if (!res.status) throw new Error(res.message ?? 'Failed to load linked students');
+  if (!res.status) throw new Error(res.message ?? _t("Failed to load linked students"));
   return Array.isArray(res.data) ? res.data : [];
 };
 
@@ -658,9 +659,9 @@ export const fetchStudentById = async (studentId, user) => {
   });
   const rawText = await response.text();
   const jsonStart = rawText.indexOf('{');
-  if (jsonStart === -1) throw new Error(`Server error ${response.status}: unexpected response`);
+  if (jsonStart === -1) throw new Error(_t("Server error {status}: unexpected response", { status: response.status }));
   const data = JSON.parse(rawText.slice(jsonStart));
-  if (!response.ok || data.status === false) throw new Error(data.message || 'Failed to load student details');
+  if (!response.ok || data.status === false) throw new Error(data.message || _t("Failed to load student details"));
   return data.student ?? {};
 };
 
@@ -678,7 +679,7 @@ export const updateRollNumber = async (user, payload) => {
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.status === false)
-    throw new Error(json.message ?? `HTTP ${res.status}`);
+    throw new Error(json.message ?? _t("HTTP {status}", { status: res.status }));
   return json;
 };
 
@@ -696,6 +697,6 @@ export const updateRollNumbers = async (user, rolls) => {
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.status === false)
-    throw new Error(json.message ?? `HTTP ${res.status}`);
+    throw new Error(json.message ?? _t("HTTP {status}", { status: res.status }));
   return json;
 };

@@ -21,18 +21,19 @@ import { fetchClasses, fetchBranches, fetchSessions } from "../../services/Setup
 import { fetchSubjects } from "../../services/SubjectServiceApi";
 import { fetchChapters } from "../../services/TestSeriesServiceApi";
 import { HOST_NAME } from "../../Environment/EnvironmentConfig";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TYPES = [
-  { key: "mcq",          label: "MCQ (Single)",   icon: "list" },
-  { key: "multi_correct",label: "Multi-Select",   icon: "check-square" },
-  { key: "fill_blank",   label: "Fill Blank",     icon: "minus" },
+  { key: "mcq",          get label() { return _t("MCQ (Single)"); },   icon: "list" },
+  { key: "multi_correct",get label() { return _t("Multi-Select"); },   icon: "check-square" },
+  { key: "fill_blank",   get label() { return _t("Fill Blank"); },     icon: "minus" },
   { key: "true_false",   label: "True/False",     icon: "check-circle" },
-  { key: "short",        label: "Short Ans",      icon: "file-text" },
-  { key: "long",         label: "Long Ans",       icon: "align-left" },
-  { key: "match",      label: "Match",       icon: "shuffle" },
-  { key: "passage",    label: "Passage",     icon: "book-open" },
-  { key: "figure",     label: "Figure",      icon: "image" },
+  { key: "short",        get label() { return _t("Short Ans"); },      icon: "file-text" },
+  { key: "long",         get label() { return _t("Long Ans"); },       icon: "align-left" },
+  { key: "match",      get label() { return _t("Match"); },       icon: "shuffle" },
+  { key: "passage",    get label() { return _t("Passage"); },     icon: "book-open" },
+  { key: "figure",     get label() { return _t("Figure"); },      icon: "image" },
 ];
 const DIFFICULTIES = ["easy", "medium", "hard"];
 
@@ -46,10 +47,10 @@ const MATH_SYMBOLS = [
 
 // Math construct types shown as buttons
 const CONSTRUCTS = [
-  { key: "fraction", label: "a/b  Fraction" },
-  { key: "sqrt",     label: "√  Root"       },
-  { key: "power",    label: "xⁿ  Power"    },
-  { key: "sub",      label: "xₙ  Sub"      },
+  { key: "fraction", get label() { return _t("a/b  Fraction"); } },
+  { key: "sqrt",     get label() { return _t("√  Root"); }       },
+  { key: "power",    get label() { return _t("xⁿ  Power"); }    },
+  { key: "sub",      get label() { return _t("xₙ  Sub"); }      },
 ];
 
 // ── Dropdown (matches PaperHeaderScreen style) ────────────────────────────────
@@ -62,14 +63,14 @@ function QDropdown({ value, placeholder, items, labelKey, valueKey, onChange, re
   return (
     <>
       <TouchableOpacity style={st.ddBox} onPress={() => setOpen(true)} activeOpacity={0.75}>
-        <Text style={isEmpty ? st.ddPlaceholder : st.ddText} numberOfLines={1}>{label}</Text>
+        <Text style={isEmpty ? st.ddPlaceholder : st.ddText} numberOfLines={1}>{_tx(label)}</Text>
         <Feather name="chevron-down" size={14} color="#6b7280" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={st.ddOverlay} activeOpacity={1} onPress={() => setOpen(false)} />
         <View style={st.ddSheet}>
           <View style={st.ddHandle} />
-          <Text style={st.ddTitle}>{placeholder}</Text>
+          <Text style={st.ddTitle}>{_tx(placeholder)}</Text>
           <FlatList
             data={allItems}
             keyExtractor={i => String(i[valueKey])}
@@ -80,7 +81,7 @@ function QDropdown({ value, placeholder, items, labelKey, valueKey, onChange, re
                   style={[st.ddItem, isSel && st.ddItemSel]}
                   onPress={() => { onChange(String(item[valueKey])); setOpen(false); }}
                 >
-                  <Text style={[st.ddItemTxt, isSel && st.ddItemTxtSel]}>{item[labelKey]}</Text>
+                  <Text style={[st.ddItemTxt, isSel && st.ddItemTxtSel]}>{_tx(item[labelKey])}</Text>
                   {isSel && <Feather name="check" size={16} color="#2563eb" />}
                 </TouchableOpacity>
               );
@@ -257,7 +258,7 @@ function CropModal({ visible, uri, onDone, onCancel }) {
       );
       onDone(r.uri);
     } catch (err) {
-      Alert.alert('Crop Error', err?.message ?? String(err));
+      Alert.alert(_t("Crop Error"), _tx(err?.message) ?? String(err));
     } finally {
       setApplying(false);
     }
@@ -276,13 +277,13 @@ function CropModal({ visible, uri, onDone, onCancel }) {
         {/* Header */}
         <View style={cropSt.header}>
           <TouchableOpacity onPress={onCancel} style={cropSt.headerBtn}>
-            <Text style={cropSt.cancelTxt}>Cancel</Text>
+            <Text style={cropSt.cancelTxt}>{_t("Cancel")}</Text>
           </TouchableOpacity>
-          <Text style={cropSt.title}>Crop Image</Text>
+          <Text style={cropSt.title}>{_t("Crop Image")}</Text>
           <TouchableOpacity onPress={applyCrop} disabled={applying || normalizing} style={cropSt.headerBtn}>
             {(applying || normalizing)
               ? <ActivityIndicator color="#60a5fa" size="small" />
-              : <Text style={cropSt.doneTxt}>Done</Text>}
+              : <Text style={cropSt.doneTxt}>{_t("Done")}</Text>}
           </TouchableOpacity>
         </View>
 
@@ -301,7 +302,7 @@ function CropModal({ visible, uri, onDone, onCancel }) {
           {normalizing && (
             <View style={[StyleSheet.absoluteFill, cropSt.normOverlay]}>
               <ActivityIndicator color="#60a5fa" size="large" />
-              <Text style={cropSt.normTxt}>Preparing image…</Text>
+              <Text style={cropSt.normTxt}>{_t("Preparing image…")}</Text>
             </View>
           )}
 
@@ -336,7 +337,7 @@ function CropModal({ visible, uri, onDone, onCancel }) {
           )}
         </View>
 
-        <Text style={cropSt.hint}>Drag corners or inside box to adjust</Text>
+        <Text style={cropSt.hint}>{_t("Drag corners or inside box to adjust")}</Text>
       </View>
     </Modal>
   );
@@ -430,12 +431,13 @@ export default function AddEditQuestionScreen({ navigation, route }) {
   useEffect(() => {
     const load = async () => {
       try {
-        const [cls, subs, brs, sess] = await Promise.all([
+        const val = (r) => (r.status === "fulfilled" ? r.value : null);
+        const [cls, subs, brs, sess] = (await Promise.allSettled([
           fetchClasses(user),
           fetchSubjects(user),
           fetchBranches(user),
           fetchSessions(user),
-        ]);
+        ])).map(val);
         setClasses (Array.isArray(cls)  ? cls  : []);
         setSubjects(Array.isArray(subs) ? subs : []);
         setBranches(norm(brs));
@@ -449,7 +451,7 @@ export default function AddEditQuestionScreen({ navigation, route }) {
   useEffect(() => {
     if (!user || !classId || !subjectId) { setChapters([]); return; }
     fetchChapters(user, classId, subjectId)
-      .then(setChapters)
+      .then(r => setChapters(Array.isArray(r) ? r : []))
       .catch(() => setChapters([]));
   }, [user, classId, subjectId]);
 
@@ -530,26 +532,26 @@ export default function AddEditQuestionScreen({ navigation, route }) {
   // the enum can be undefined in ProGuard-minified production builds,
   // causing a silent crash. String literals are always safe.
   const pickImage = () => {
-    Alert.alert("Attach Figure", "Choose image source", [
+    Alert.alert(_t("Attach Figure"), _t("Choose image source"), [
       {
-        text: "Photo Library",
+        text: _t("Photo Library"),
         onPress: async () => {
           try {
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (status !== "granted") { Alert.alert("Permission needed", "Allow photo library access to attach images."); return; }
+            if (status !== "granted") { Alert.alert(_t("Permission needed"), _t("Allow photo library access to attach images.")); return; }
             const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', quality: 0.85 });
             if (!result.canceled) { setImageUri(result.assets[0].uri); setShowCrop(true); }
           } catch (e) {
-            Alert.alert("Gallery Error", e?.message ?? String(e));
+            Alert.alert(_t("Gallery Error"), _tx(e?.message) ?? String(e));
           }
         },
       },
       {
-        text: "Camera",
+        text: _t("Camera"),
         onPress: async () => {
           try {
             const { status } = await ImagePicker.requestCameraPermissionsAsync();
-            if (status !== "granted") { Alert.alert("Permission needed", "Allow camera access to take a photo."); return; }
+            if (status !== "granted") { Alert.alert(_t("Permission needed"), _t("Allow camera access to take a photo.")); return; }
             const result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.85 });
             if (!result.canceled) {
               // Pass raw URI straight to CropModal — it normalizes EXIF internally
@@ -557,11 +559,11 @@ export default function AddEditQuestionScreen({ navigation, route }) {
               setShowCrop(true);
             }
           } catch (e) {
-            Alert.alert("Camera Error", e?.message ?? String(e));
+            Alert.alert(_t("Camera Error"), _tx(e?.message) ?? String(e));
           }
         },
       },
-      { text: "Cancel", style: "cancel" },
+      { text: _t("Cancel"), style: "cancel" },
     ]);
   };
 
@@ -592,11 +594,11 @@ export default function AddEditQuestionScreen({ navigation, route }) {
 
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!questionText.trim()) { Alert.alert("Validation", "Question text is required."); return; }
-    if (!branchId)            { Alert.alert("Validation", "Please select a branch.");   return; }
-    if (!sessionId)           { Alert.alert("Validation", "Please select a session.");  return; }
-    if (!classId)             { Alert.alert("Validation", "Please select a class.");    return; }
-    if (!subjectId)           { Alert.alert("Validation", "Please select a subject.");  return; }
+    if (!questionText.trim()) { Alert.alert(_t("Validation"), _t("Question text is required.")); return; }
+    if (!branchId)            { Alert.alert(_t("Validation"), _t("Please select a branch."));   return; }
+    if (!sessionId)           { Alert.alert(_t("Validation"), _t("Please select a session."));  return; }
+    if (!classId)             { Alert.alert(_t("Validation"), _t("Please select a class."));    return; }
+    if (!subjectId)           { Alert.alert(_t("Validation"), _t("Please select a subject."));  return; }
 
     // ── Validate the answer field — qb.answer is the authoritative source ─
     // The admin types the correct letter (A/B/C/D) in the Answer text box.
@@ -604,13 +606,13 @@ export default function AddEditQuestionScreen({ navigation, route }) {
     const derivedAnswer = answer.trim().toUpperCase();
     if (type === "mcq" || type === "true_false") {
       if (!VALID_LETTERS.includes(derivedAnswer)) {
-        Alert.alert("Validation", "Please enter the correct answer letter (A, B, C, or D) in the Answer field.");
+        Alert.alert(_t("Validation"), _t("Please enter the correct answer letter (A, B, C, or D) in the Answer field."));
         return;
       }
     } else if (type === "multi_correct") {
       const letters = derivedAnswer.split(",").map((l) => l.trim()).filter(Boolean);
       if (letters.length === 0 || letters.some((l) => !VALID_LETTERS.includes(l))) {
-        Alert.alert("Validation", "Please enter valid answer letters separated by commas (e.g. A,C) in the Answer field.");
+        Alert.alert(_t("Validation"), _t("Please enter valid answer letters separated by commas (e.g. A,C) in the Answer field."));
         return;
       }
     }
@@ -633,7 +635,7 @@ export default function AddEditQuestionScreen({ navigation, route }) {
       setSaving(true);
       if (isEdit) {
         await updateQuestion(user, editing.id, payload);
-        Alert.alert("Success", "Question updated.", [{ text: "OK", onPress: () => navigation.goBack() }]);
+        Alert.alert(_t("Success"), _t("Question updated."), [{ text: _t("OK"), onPress: () => navigation.goBack() }]);
       } else {
         await createQuestion(user, payload);
         // Stay on screen — reset question fields but keep dropdowns + type + difficulty
@@ -652,10 +654,10 @@ export default function AddEditQuestionScreen({ navigation, route }) {
           { text: "", isCorrect: false },
         ]);
         setPairs([{ left: "", right: "" }, { left: "", right: "" }]);
-        Alert.alert("✓ Question Added", "Question saved successfully. You can add the next one.");
+        Alert.alert(_t("✓ Question Added"), _t("Question saved successfully. You can add the next one."));
       }
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to save question");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to save question"));
     } finally {
       setSaving(false);
     }
@@ -675,29 +677,29 @@ export default function AddEditQuestionScreen({ navigation, route }) {
       >
 
         {/* Branch / Session / Class / Subject — at top so user sets context first */}
-        <Text style={st.sectionLabel}>Branch &amp; Session *</Text>
+        <Text style={st.sectionLabel}>{_t("Branch & Session *")}</Text>
         <View style={st.ddRow}>
           <View style={st.ddCell}>
-            <QDropdown required value={branchId} placeholder="Select Branch"
+            <QDropdown required value={branchId} placeholder={_t("Select Branch")}
               items={branches} labelKey="branch_name" valueKey="branch_id"
               onChange={v => { setBranchId(v);  _lastSel.branchId  = v; }} />
           </View>
           <View style={st.ddCell}>
-            <QDropdown required value={sessionId} placeholder="Select Session"
+            <QDropdown required value={sessionId} placeholder={_t("Select Session")}
               items={sessions} labelKey="session_name" valueKey="session_id"
               onChange={v => { setSessionId(v); _lastSel.sessionId = v; }} />
           </View>
         </View>
 
-        <Text style={st.sectionLabel}>Class &amp; Subject *</Text>
+        <Text style={st.sectionLabel}>{_t("Class & Subject *")}</Text>
         <View style={st.ddRow}>
           <View style={st.ddCell}>
-            <QDropdown required value={classId} placeholder="Select Class"
+            <QDropdown required value={classId} placeholder={_t("Select Class")}
               items={classes} labelKey="class_name" valueKey="class_id"
               onChange={v => { setClassId(v); setChapterId(""); _lastSel.classId = v; }} />
           </View>
           <View style={st.ddCell}>
-            <QDropdown required value={subjectId} placeholder="Select Subject"
+            <QDropdown required value={subjectId} placeholder={_t("Select Subject")}
               items={subjects} labelKey="subject_name" valueKey="subject_id"
               onChange={v => { setSubjectId(v); setChapterId(""); _lastSel.subjectId = v; }} />
           </View>
@@ -706,10 +708,10 @@ export default function AddEditQuestionScreen({ navigation, route }) {
         {/* Chapter picker — appears once class + subject are selected AND chapters exist */}
         {classId && subjectId && chapters.length > 0 && (
           <>
-            <Text style={st.sectionLabel}>Chapter (optional)</Text>
+            <Text style={st.sectionLabel}>{_t("Chapter (optional)")}</Text>
             <QDropdown
               value={chapterId}
-              placeholder="Select chapter…"
+              placeholder={_t("Select chapter…")}
               items={chapters}
               labelKey="chapter_name"
               valueKey="id"
@@ -719,25 +721,25 @@ export default function AddEditQuestionScreen({ navigation, route }) {
         )}
 
         {/* Type selector */}
-        <Text style={st.sectionLabel}>Question Type</Text>
+        <Text style={st.sectionLabel}>{_t("Question Type")}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={st.typeRow} contentContainerStyle={{ gap: 8, paddingRight: 14 }}>
           {TYPES.map(t => (
             <TouchableOpacity key={t.key} style={[st.typeChip, type === t.key && st.typeChipSel]} onPress={() => setType(t.key)}>
               <Feather name={t.icon} size={13} color={type === t.key ? "#fff" : "#374151"} />
-              <Text style={[st.typeChipTxt, type === t.key && st.typeChipTxtSel]}>{t.label}</Text>
+              <Text style={[st.typeChipTxt, type === t.key && st.typeChipTxtSel]}>{_tx(t.label)}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
         {/* Question text */}
-        <Text style={st.sectionLabel}>Question Text {type === "fill_blank" ? "(use ___ for blanks)" : ""}</Text>
+        <Text style={st.sectionLabel}>{_t("Question Text {v}", { v: type === "fill_blank" ? _t("(use ___ for blanks)") : "" })}</Text>
         <TextInput
           style={st.textArea}
           multiline
           numberOfLines={4}
           placeholder={type === "fill_blank"
-            ? "e.g. All circles are _______________ (congruent / similar)"
-            : "Enter question here… use $ $ for math, e.g. $\\frac{1}{2}$"}
+            ? _t("e.g. All circles are _______________ (congruent / similar)")
+            : _t("Enter question here… use $ $ for math, e.g. $\\frac{1}{2}$")}
           placeholderTextColor="#9ca3af"
           value={questionText}
           onChangeText={handleQTextChange}
@@ -746,38 +748,36 @@ export default function AddEditQuestionScreen({ navigation, route }) {
         />
 
         {/* Formatting toolbar */}
-        <Text style={st.toolbarLabel}>Formatting — select text then tap</Text>
+        <Text style={st.toolbarLabel}>{_t("Formatting — select text then tap")}</Text>
         <View style={{ flexDirection: "row", gap: 8, marginBottom: 4 }}>
           <TouchableOpacity style={[st.constructBtn, { paddingHorizontal: 16 }]} onPress={handleBold}>
-            <Text style={[st.constructBtnTxt, { fontWeight: "900" }]}>B</Text>
+            <Text style={[st.constructBtnTxt, { fontWeight: "900" }]}>{_t("B")}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[st.constructBtn, { paddingHorizontal: 16 }]} onPress={handleItalic}>
-            <Text style={[st.constructBtnTxt, { fontStyle: "italic" }]}>I</Text>
+            <Text style={[st.constructBtnTxt, { fontStyle: "italic" }]}>{_t("I")}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[st.constructBtn, { paddingHorizontal: 16 }]} onPress={handleUnderline}>
-            <Text style={[st.constructBtnTxt, { textDecorationLine: "underline" }]}>U</Text>
+            <Text style={[st.constructBtnTxt, { textDecorationLine: "underline" }]}>{_t("U")}</Text>
           </TouchableOpacity>
-          <Text style={{ fontSize: 11, color: "#9ca3af", alignSelf: "center", flex: 1 }}>
-            Bold **text**, Italic *text*, Underline __text__
-          </Text>
+          <Text style={{ fontSize: 11, color: "#9ca3af", alignSelf: "center", flex: 1 }}>{_t("Bold **text**, Italic *text*, Underline __text__")}</Text>
         </View>
 
         {/* Symbol toolbar */}
-        <Text style={st.toolbarLabel}>Symbols</Text>
+        <Text style={st.toolbarLabel}>{_t("Symbols")}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={st.symbolRow} contentContainerStyle={{ gap: 6, paddingRight: 14 }}>
           {MATH_SYMBOLS.map(sym => (
             <TouchableOpacity key={sym} style={st.symBtn} onPress={() => handleQTextChange(questionText + sym)}>
-              <Text style={st.symTxt}>{sym}</Text>
+              <Text style={st.symTxt}>{_tx(sym)}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
         {/* Math construct buttons */}
-        <Text style={st.toolbarLabel}>Math constructs</Text>
+        <Text style={st.toolbarLabel}>{_t("Math constructs")}</Text>
         <View style={st.constructRow}>
           {CONSTRUCTS.map(c => (
             <TouchableOpacity key={c.key} style={st.constructBtn} onPress={() => openMath(c.key)}>
-              <Text style={st.constructBtnTxt}>{c.label}</Text>
+              <Text style={st.constructBtnTxt}>{_tx(c.label)}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -785,7 +785,7 @@ export default function AddEditQuestionScreen({ navigation, route }) {
         {/* Live preview — shows when question contains $...$ math or formatting markers */}
         {(previewText.includes("$") || previewText.includes("__") || previewText.includes("*")) && (
           <View style={st.mathPreviewWrap}>
-            <Text style={st.mathPreviewLabel}>Rendered preview</Text>
+            <Text style={st.mathPreviewLabel}>{_t("Rendered preview")}</Text>
             <WebView
               source={{ html: previewHtml }}
               style={st.mathPreviewView}
@@ -799,17 +799,17 @@ export default function AddEditQuestionScreen({ navigation, route }) {
         {/* ── MCQ options (single-correct — radio) ────────────────── */}
         {type === "mcq" && (
           <>
-            <Text style={st.sectionLabel}>Options — tap the circle to mark the ONE correct answer</Text>
+            <Text style={st.sectionLabel}>{_t("Options — tap the circle to mark the ONE correct answer")}</Text>
             {options.map((opt, idx) => (
               <View key={idx} style={{ marginBottom: 8 }}>
                 <View style={[st.optRow, { marginBottom: 2 }]}>
                   <TouchableOpacity style={[st.optRadio, opt.isCorrect && st.optRadioSel]} onPress={() => setCorrect(idx)}>
                     {opt.isCorrect && <View style={st.optRadioDot} />}
                   </TouchableOpacity>
-                  <Text style={st.optLabel}>{["A", "B", "C", "D"][idx]}.</Text>
+                  <Text style={st.optLabel}>{_tx(["A", "B", "C", "D"][idx])}.</Text>
                   <TextInput
                     style={st.optInput}
-                    placeholder={`Option ${["A","B","C","D"][idx]}`}
+                    placeholder={_t("Option {v}", { v: ["A","B","C","D"][idx] })}
                     placeholderTextColor="#9ca3af"
                     value={opt.text}
                     onChangeText={t => setOptionText(idx, t)}
@@ -818,13 +818,13 @@ export default function AddEditQuestionScreen({ navigation, route }) {
                 </View>
                 <View style={st.optFmtRow}>
                   <TouchableOpacity style={st.optFmtBtn} onPress={() => applyOptFmt(idx, "**", "**")}>
-                    <Text style={[st.optFmtTxt, { fontWeight: "900" }]}>B</Text>
+                    <Text style={[st.optFmtTxt, { fontWeight: "900" }]}>{_t("B")}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={st.optFmtBtn} onPress={() => applyOptFmt(idx, "*", "*")}>
-                    <Text style={[st.optFmtTxt, { fontStyle: "italic" }]}>I</Text>
+                    <Text style={[st.optFmtTxt, { fontStyle: "italic" }]}>{_t("I")}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={st.optFmtBtn} onPress={() => applyOptFmt(idx, "__", "__")}>
-                    <Text style={[st.optFmtTxt, { textDecorationLine: "underline" }]}>U</Text>
+                    <Text style={[st.optFmtTxt, { textDecorationLine: "underline" }]}>{_t("U")}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -835,14 +835,14 @@ export default function AddEditQuestionScreen({ navigation, route }) {
         {/* ── Multi-Select options (multiple-correct) ──────────────── */}
         {type === "multi_correct" && (
           <>
-            <Text style={st.sectionLabel}>Options (enter text for each option)</Text>
+            <Text style={st.sectionLabel}>{_t("Options (enter text for each option)")}</Text>
             {options.map((opt, idx) => (
               <View key={idx} style={{ marginBottom: 8 }}>
                 <View style={[st.optRow, { marginBottom: 2 }]}>
-                  <Text style={st.optLabel}>{["A", "B", "C", "D"][idx]}.</Text>
+                  <Text style={st.optLabel}>{_tx(["A", "B", "C", "D"][idx])}.</Text>
                   <TextInput
                     style={st.optInput}
-                    placeholder={`Option ${["A","B","C","D"][idx]}`}
+                    placeholder={_t("Option {v}", { v: ["A","B","C","D"][idx] })}
                     placeholderTextColor="#9ca3af"
                     value={opt.text}
                     onChangeText={t => setOptionText(idx, t)}
@@ -851,21 +851,21 @@ export default function AddEditQuestionScreen({ navigation, route }) {
                 </View>
                 <View style={st.optFmtRow}>
                   <TouchableOpacity style={st.optFmtBtn} onPress={() => applyOptFmt(idx, "**", "**")}>
-                    <Text style={[st.optFmtTxt, { fontWeight: "900" }]}>B</Text>
+                    <Text style={[st.optFmtTxt, { fontWeight: "900" }]}>{_t("B")}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={st.optFmtBtn} onPress={() => applyOptFmt(idx, "*", "*")}>
-                    <Text style={[st.optFmtTxt, { fontStyle: "italic" }]}>I</Text>
+                    <Text style={[st.optFmtTxt, { fontStyle: "italic" }]}>{_t("I")}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={st.optFmtBtn} onPress={() => applyOptFmt(idx, "__", "__")}>
-                    <Text style={[st.optFmtTxt, { textDecorationLine: "underline" }]}>U</Text>
+                    <Text style={[st.optFmtTxt, { textDecorationLine: "underline" }]}>{_t("U")}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ))}
-            <Text style={[st.sectionLabel, { marginTop: 10 }]}>Correct Answers</Text>
+            <Text style={[st.sectionLabel, { marginTop: 10 }]}>{_t("Correct Answers")}</Text>
             <TextInput
               style={st.textInput}
-              placeholder="Enter correct option letters separated by commas — e.g. A,C or A,B,D"
+              placeholder={_t("Enter correct option letters separated by commas — e.g. A,C or A,B,D")}
               placeholderTextColor="#9ca3af"
               value={answer}
               onChangeText={setAnswer}
@@ -877,12 +877,12 @@ export default function AddEditQuestionScreen({ navigation, route }) {
         {/* ── True/False ──────────────────────────────────────────── */}
         {type === "true_false" && (
           <>
-            <Text style={st.sectionLabel}>Correct Answer</Text>
+            <Text style={st.sectionLabel}>{_t("Correct Answer")}</Text>
             <View style={st.tfRow}>
               {["True", "False"].map((val, idx) => (
                 <TouchableOpacity key={val} style={[st.tfBtn, options[idx]?.isCorrect && st.tfBtnSel]}
                   onPress={() => setOptions([{ text: "True", isCorrect: idx === 0 }, { text: "False", isCorrect: idx === 1 }])}>
-                  <Text style={[st.tfTxt, options[idx]?.isCorrect && st.tfTxtSel]}>{val}</Text>
+                  <Text style={[st.tfTxt, options[idx]?.isCorrect && st.tfTxtSel]}>{_tx(val)}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -892,13 +892,13 @@ export default function AddEditQuestionScreen({ navigation, route }) {
         {/* ── Match pairs ─────────────────────────────────────────── */}
         {type === "match" && (
           <>
-            <Text style={st.sectionLabel}>Match Pairs</Text>
+            <Text style={st.sectionLabel}>{_t("Match Pairs")}</Text>
             {pairs.map((pair, idx) => (
               <View key={idx} style={st.pairRow}>
                 <Text style={st.pairNum}>{idx + 1}.</Text>
-                <TextInput style={[st.pairInput, { flex: 1 }]} placeholder="Column A" placeholderTextColor="#9ca3af" value={pair.left}  onChangeText={v => setPairField(idx, "left",  v)} />
+                <TextInput style={[st.pairInput, { flex: 1 }]} placeholder={_t("Column A")} placeholderTextColor="#9ca3af" value={pair.left}  onChangeText={v => setPairField(idx, "left",  v)} />
                 <Feather name="arrow-right" size={14} color="#9ca3af" style={{ marginHorizontal: 6 }} />
-                <TextInput style={[st.pairInput, { flex: 1 }]} placeholder="Column B" placeholderTextColor="#9ca3af" value={pair.right} onChangeText={v => setPairField(idx, "right", v)} />
+                <TextInput style={[st.pairInput, { flex: 1 }]} placeholder={_t("Column B")} placeholderTextColor="#9ca3af" value={pair.right} onChangeText={v => setPairField(idx, "right", v)} />
                 {pairs.length > 2 && (
                   <TouchableOpacity onPress={() => removePair(idx)} style={st.pairDel}>
                     <Feather name="x" size={14} color="#dc2626" />
@@ -908,7 +908,7 @@ export default function AddEditQuestionScreen({ navigation, route }) {
             ))}
             <TouchableOpacity style={st.addPairBtn} onPress={addPair}>
               <Feather name="plus" size={14} color="#2563eb" />
-              <Text style={st.addPairTxt}>Add Pair</Text>
+              <Text style={st.addPairTxt}>{_t("Add Pair")}</Text>
             </TouchableOpacity>
           </>
         )}
@@ -916,11 +916,11 @@ export default function AddEditQuestionScreen({ navigation, route }) {
         {/* ── Answer lines ────────────────────────────────────────── */}
         {(type === "short" || type === "long") && (
           <>
-            <Text style={st.sectionLabel}>Answer Lines in Print</Text>
+            <Text style={st.sectionLabel}>{_t("Answer Lines in Print")}</Text>
             <View style={st.ansRow}>
               {(type === "short" ? ["0", "4", "5", "6"] : ["0", "8", "10", "12", "15"]).map(n => (
                 <TouchableOpacity key={n} style={[st.ansChip, answerLines === n && st.ansChipSel]} onPress={() => setAnswerLines(n)}>
-                  <Text style={[st.ansChipTxt, answerLines === n && st.ansChipTxtSel]}>{n === "0" ? "No lines" : `${n} lines`}</Text>
+                  <Text style={[st.ansChipTxt, answerLines === n && st.ansChipTxtSel]}>{n === "0" ? _t("No lines") : _t("{n} lines", { n })}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -928,7 +928,7 @@ export default function AddEditQuestionScreen({ navigation, route }) {
         )}
 
         {/* Image attachment */}
-        <Text style={st.sectionLabel}>Attach Figure / Image (optional)</Text>
+        <Text style={st.sectionLabel}>{_t("Attach Figure / Image (optional)")}</Text>
         <TouchableOpacity style={st.imagePick} onPress={pickImage}>
           {imageUri ? (
             <View style={st.imagePreviewWrap}>
@@ -936,44 +936,44 @@ export default function AddEditQuestionScreen({ navigation, route }) {
               <View style={st.imageActions}>
                 <TouchableOpacity style={st.imageActionBtn} onPress={() => setShowCrop(true)}>
                   <Feather name="crop" size={16} color="#2563eb" />
-                  <Text style={st.imageActionTxt}>Crop</Text>
+                  <Text style={st.imageActionTxt}>{_t("Crop")}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[st.imageActionBtn, { borderColor: '#fca5a5' }]} onPress={() => setImageUri(null)}>
                   <Feather name="x" size={16} color="#dc2626" />
-                  <Text style={[st.imageActionTxt, { color: '#dc2626' }]}>Remove</Text>
+                  <Text style={[st.imageActionTxt, { color: '#dc2626' }]}>{_t("Remove")}</Text>
                 </TouchableOpacity>
               </View>
             </View>
           ) : (
             <View style={st.imagePlaceholder}>
               <Feather name="image" size={28} color="#9ca3af" />
-              <Text style={st.imagePlaceholderTxt}>Tap to attach a figure or diagram</Text>
+              <Text style={st.imagePlaceholderTxt}>{_t("Tap to attach a figure or diagram")}</Text>
             </View>
           )}
         </TouchableOpacity>
 
         {/* Model answer */}
-        <Text style={st.sectionLabel}>Correct Answer (for auto-scoring)</Text>
-        <TextInput style={[st.textArea, { minHeight: 70 }]} multiline placeholder="For fill-in-the-blank: enter the exact correct answer. For MCQ/Multi-correct: leave blank (isCorrect flags on options are used)." placeholderTextColor="#9ca3af" value={answer} onChangeText={setAnswer} textAlignVertical="top" />
+        <Text style={st.sectionLabel}>{_t("Correct Answer (for auto-scoring)")}</Text>
+        <TextInput style={[st.textArea, { minHeight: 70 }]} multiline placeholder={_t("For fill-in-the-blank: enter the exact correct answer. For MCQ/Multi-correct: leave blank (isCorrect flags on options are used).")} placeholderTextColor="#9ca3af" value={answer} onChangeText={setAnswer} textAlignVertical="top" />
 
         {/* Explanation */}
-        <Text style={st.sectionLabel}>Explanation (shown to student after submission)</Text>
-        <TextInput style={[st.textArea, { minHeight: 80 }]} multiline placeholder="Explain why this is the correct answer, solution steps, concept notes…" placeholderTextColor="#9ca3af" value={explanation} onChangeText={setExplanation} textAlignVertical="top" />
+        <Text style={st.sectionLabel}>{_t("Explanation (shown to student after submission)")}</Text>
+        <TextInput style={[st.textArea, { minHeight: 80 }]} multiline placeholder={_t("Explain why this is the correct answer, solution steps, concept notes…")} placeholderTextColor="#9ca3af" value={explanation} onChangeText={setExplanation} textAlignVertical="top" />
 
         {/* Metadata */}
         <View style={st.metaGrid}>
           <View style={st.metaCell}>
-            <Text style={st.metaLabel}>Marks</Text>
+            <Text style={st.metaLabel}>{_t("Marks")}</Text>
             <TextInput style={st.metaInput} keyboardType="numeric" value={marks} onChangeText={setMarks} />
           </View>
         </View>
 
         {/* Difficulty */}
-        <Text style={st.sectionLabel}>Difficulty</Text>
+        <Text style={st.sectionLabel}>{_t("Difficulty")}</Text>
         <View style={st.diffRow}>
           {DIFFICULTIES.map(d => (
             <TouchableOpacity key={d} style={[st.diffChip, difficulty === d && st.diffChipSel(d)]} onPress={() => setDifficulty(d)}>
-              <Text style={[st.diffTxt, difficulty === d && { color: "#fff", fontWeight: "700" }]}>{d}</Text>
+              <Text style={[st.diffTxt, difficulty === d && { color: "#fff", fontWeight: "700" }]}>{_tx(d)}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -982,7 +982,7 @@ export default function AddEditQuestionScreen({ navigation, route }) {
         <View style={st.footer}>
           <TouchableOpacity style={st.saveBtn} onPress={handleSave} disabled={saving}>
             {saving ? <ActivityIndicator color="#fff" /> : (
-              <><Feather name="save" size={18} color="#fff" /><Text style={st.saveTxt}>{isEdit ? "Update Question" : "Add to Question Bank"}</Text></>
+              <><Feather name="save" size={18} color="#fff" /><Text style={st.saveTxt}>{isEdit ? _t("Update Question") : _t("Add to Question Bank")}</Text></>
             )}
           </TouchableOpacity>
         </View>
@@ -1006,98 +1006,98 @@ export default function AddEditQuestionScreen({ navigation, route }) {
 
           {/* Fraction */}
           {mathModal === "fraction" && <>
-            <Text style={st.mathTitle}>Insert fraction</Text>
+            <Text style={st.mathTitle}>{_t("Insert fraction")}</Text>
             <View style={st.fracBuilder}>
               <TextInput style={st.mathInput} value={mathA} onChangeText={setMathA}
-                placeholder="Numerator" placeholderTextColor="#9ca3af" autoFocus textAlign="center" />
+                placeholder={_t("Numerator")} placeholderTextColor="#9ca3af" autoFocus textAlign="center" />
               <View style={st.fracLine} />
               <TextInput style={st.mathInput} value={mathB} onChangeText={setMathB}
-                placeholder="Denominator" placeholderTextColor="#9ca3af" textAlign="center" />
+                placeholder={_t("Denominator")} placeholderTextColor="#9ca3af" textAlign="center" />
             </View>
             {!!(mathA || mathB) && (
               <View style={st.mathLivePreview}>
                 <View style={st.fracPreview}>
-                  <Text style={st.fracPreviewNum}>{mathA || "a"}</Text>
+                  <Text style={st.fracPreviewNum}>{_tx(mathA) || "a"}</Text>
                   <View style={st.fracPreviewLine} />
-                  <Text style={st.fracPreviewDen}>{mathB || "b"}</Text>
+                  <Text style={st.fracPreviewDen}>{_tx(mathB) || "b"}</Text>
                 </View>
               </View>
             )}
-            <Text style={st.mathHint}>Will insert: $\frac&#123;{mathA || "a"}&#125;&#123;{mathB || "b"}&#125;$</Text>
+            <Text style={st.mathHint}>{_t("Will insert: $\\frac{")}{_tx(mathA) || "a"}&#125;&#123;{_tx(mathB) || "b"}&#125;$</Text>
             <View style={st.mathBtns}>
               <TouchableOpacity style={st.mathCancelBtn} onPress={() => setMathModal(null)}>
-                <Text style={st.mathCancelTxt}>Cancel</Text>
+                <Text style={st.mathCancelTxt}>{_t("Cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[st.mathInsertBtn, !(mathA && mathB) && { opacity: 0.4 }]}
                 onPress={() => mathA && mathB && insertMath(`\\frac{${mathA}}{${mathB}}`)}>
-                <Text style={st.mathInsertTxt}>Insert</Text>
+                <Text style={st.mathInsertTxt}>{_t("Insert")}</Text>
               </TouchableOpacity>
             </View>
           </>}
 
           {/* Square root */}
           {mathModal === "sqrt" && <>
-            <Text style={st.mathTitle}>Insert square / nth root</Text>
+            <Text style={st.mathTitle}>{_t("Insert square / nth root")}</Text>
             <View style={st.mathRow}>
               <Text style={st.mathSymLarge}>√</Text>
               <TextInput style={[st.mathInput, { flex: 1 }]} value={mathA} onChangeText={setMathA}
-                placeholder="Value inside root (e.g. 144 or x+1)" placeholderTextColor="#9ca3af" autoFocus />
+                placeholder={_t("Value inside root (e.g. 144 or x+1)")} placeholderTextColor="#9ca3af" autoFocus />
             </View>
-            <Text style={st.mathHint}>For cube root (³√) etc., enter the index n:</Text>
+            <Text style={st.mathHint}>{_t("For cube root (³√) etc., enter the index n:")}</Text>
             <TextInput style={st.mathInput} value={mathB} onChangeText={setMathB}
-              placeholder="Index n (leave empty for square root)" placeholderTextColor="#9ca3af"
+              placeholder={_t("Index n (leave empty for square root)")} placeholderTextColor="#9ca3af"
               keyboardType="numeric" />
             <View style={st.mathBtns}>
               <TouchableOpacity style={st.mathCancelBtn} onPress={() => setMathModal(null)}>
-                <Text style={st.mathCancelTxt}>Cancel</Text>
+                <Text style={st.mathCancelTxt}>{_t("Cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[st.mathInsertBtn, !mathA && { opacity: 0.4 }]}
                 onPress={() => mathA && insertMath(mathB ? `\\sqrt[${mathB}]{${mathA}}` : `\\sqrt{${mathA}}`)}>
-                <Text style={st.mathInsertTxt}>Insert</Text>
+                <Text style={st.mathInsertTxt}>{_t("Insert")}</Text>
               </TouchableOpacity>
             </View>
           </>}
 
           {/* Power */}
           {mathModal === "power" && <>
-            <Text style={st.mathTitle}>Insert power / exponent</Text>
+            <Text style={st.mathTitle}>{_t("Insert power / exponent")}</Text>
             <View style={st.mathRow}>
               <TextInput style={[st.mathInput, { flex: 1 }]} value={mathA} onChangeText={setMathA}
-                placeholder="Base (e.g. x or 2)" placeholderTextColor="#9ca3af" autoFocus textAlign="center" />
+                placeholder={_t("Base (e.g. x or 2)")} placeholderTextColor="#9ca3af" autoFocus textAlign="center" />
               <Text style={st.mathOp}>^</Text>
               <TextInput style={[st.mathInput, { flex: 1 }]} value={mathB} onChangeText={setMathB}
-                placeholder="Exponent (e.g. 2)" placeholderTextColor="#9ca3af" textAlign="center" />
+                placeholder={_t("Exponent (e.g. 2)")} placeholderTextColor="#9ca3af" textAlign="center" />
             </View>
-            <Text style={st.mathHint}>e.g. base x, exponent 2  →  x²</Text>
+            <Text style={st.mathHint}>{_t("e.g. base x, exponent 2  →  x²")}</Text>
             <View style={st.mathBtns}>
               <TouchableOpacity style={st.mathCancelBtn} onPress={() => setMathModal(null)}>
-                <Text style={st.mathCancelTxt}>Cancel</Text>
+                <Text style={st.mathCancelTxt}>{_t("Cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[st.mathInsertBtn, !(mathA && mathB) && { opacity: 0.4 }]}
                 onPress={() => mathA && mathB && insertMath(`${mathA}^{${mathB}}`)}>
-                <Text style={st.mathInsertTxt}>Insert</Text>
+                <Text style={st.mathInsertTxt}>{_t("Insert")}</Text>
               </TouchableOpacity>
             </View>
           </>}
 
           {/* Subscript */}
           {mathModal === "sub" && <>
-            <Text style={st.mathTitle}>Insert subscript</Text>
+            <Text style={st.mathTitle}>{_t("Insert subscript")}</Text>
             <View style={st.mathRow}>
               <TextInput style={[st.mathInput, { flex: 1 }]} value={mathA} onChangeText={setMathA}
-                placeholder="Base (e.g. a or H)" placeholderTextColor="#9ca3af" autoFocus textAlign="center" />
+                placeholder={_t("Base (e.g. a or H)")} placeholderTextColor="#9ca3af" autoFocus textAlign="center" />
               <Text style={st.mathOp}>_</Text>
               <TextInput style={[st.mathInput, { flex: 1 }]} value={mathB} onChangeText={setMathB}
-                placeholder="Subscript (e.g. n or 2)" placeholderTextColor="#9ca3af" textAlign="center" />
+                placeholder={_t("Subscript (e.g. n or 2)")} placeholderTextColor="#9ca3af" textAlign="center" />
             </View>
-            <Text style={st.mathHint}>e.g. base H, subscript 2  →  H₂</Text>
+            <Text style={st.mathHint}>{_t("e.g. base H, subscript 2  →  H₂")}</Text>
             <View style={st.mathBtns}>
               <TouchableOpacity style={st.mathCancelBtn} onPress={() => setMathModal(null)}>
-                <Text style={st.mathCancelTxt}>Cancel</Text>
+                <Text style={st.mathCancelTxt}>{_t("Cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[st.mathInsertBtn, !(mathA && mathB) && { opacity: 0.4 }]}
                 onPress={() => mathA && mathB && insertMath(`${mathA}_{${mathB}}`)}>
-                <Text style={st.mathInsertTxt}>Insert</Text>
+                <Text style={st.mathInsertTxt}>{_t("Insert")}</Text>
               </TouchableOpacity>
             </View>
           </>}

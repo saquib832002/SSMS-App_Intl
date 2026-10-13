@@ -16,6 +16,8 @@ import {
 } from "../../services/TestSeriesServiceApi";
 import { fetchBranches, fetchSessions, fetchClasses } from "../../services/SetupServiceApi";
 
+import { fmtDate } from "../../services/Locale";
+import { _t, _tx } from "../../services/i18n";
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const norm = (r) => (Array.isArray(r) ? r : Array.isArray(r?.data) ? r.data : []);
@@ -33,7 +35,7 @@ function ExamTypeBadge({ type }) {
   const c = EXAM_TYPE_COLORS[type] ?? { bg: "#f1f5f9", text: "#374151" };
   return (
     <View style={[st.badge, { backgroundColor: c.bg }]}>
-      <Text style={[st.badgeTxt, { color: c.text }]}>{type ?? "—"}</Text>
+      <Text style={[st.badgeTxt, { color: c.text }]}>{_tx(type) ?? "—"}</Text>
     </View>
   );
 }
@@ -46,7 +48,7 @@ function SheetPicker({ visible, title, items, labelKey, valueKey, selected, onSe
       <TouchableOpacity style={st.overlay} activeOpacity={1} onPress={onClose} />
       <View style={st.sheet}>
         <View style={st.sheetHandle} />
-        <Text style={st.sheetTitle}>{title}</Text>
+        <Text style={st.sheetTitle}>{_tx(title)}</Text>
         <FlatList
           data={items}
           keyExtractor={(i) => String(i[valueKey])}
@@ -58,7 +60,7 @@ function SheetPicker({ visible, title, items, labelKey, valueKey, selected, onSe
                 onPress={() => { onSelect(item); onClose(); }}
               >
                 <Text style={[st.sheetItemTxt, isSel && st.sheetItemTxtSel]}>
-                  {item[labelKey]}
+                  {_tx(item[labelKey])}
                 </Text>
                 {isSel && <Feather name="check" size={15} color="#2563eb" />}
               </TouchableOpacity>
@@ -76,8 +78,8 @@ function SheetPicker({ visible, title, items, labelKey, valueKey, selected, onSe
 // ─── Scope options ─────────────────────────────────────────────────────────────
 
 const SCOPE_OPTIONS = [
-  { value: "full_syllabus", label: "Full Syllabus",  icon: "book",    desc: "All questions for the subject" },
-  { value: "chapter_wise",  label: "Chapter-wise",   icon: "layers",  desc: "Filter questions by chapter" },
+  { value: "full_syllabus", get label() { return _t("Full Syllabus"); },  icon: "book",    get desc() { return _t("All questions for the subject"); } },
+  { value: "chapter_wise",  get label() { return _t("Chapter-wise"); },   icon: "layers",  get desc() { return _t("Filter questions by chapter"); } },
 ];
 
 function SeriesFormModal({ visible, initial, branches, sessions, classes, onSave, onClose }) {
@@ -112,7 +114,7 @@ function SeriesFormModal({ visible, initial, branches, sessions, classes, onSave
   }, [visible, initial]);
 
   const handleSave = async () => {
-    if (!title.trim()) { Alert.alert("Validation", "Title is required."); return; }
+    if (!title.trim()) { Alert.alert(_t("Validation"), _t("Title is required.")); return; }
     setSaving(true);
     try {
       await onSave({
@@ -124,15 +126,17 @@ function SeriesFormModal({ visible, initial, branches, sessions, classes, onSave
         session_id:   session?.session_id ?? "",
         class_id:     cls?.class_id ?? "",
       });
+    } catch {
+      // parent already alerted; swallow so the rejection isn't unhandled
     } finally {
       setSaving(false);
     }
   };
 
   const pickerProps = {
-    branch:  { title: "Select Branch",  items: branches, labelKey: "branch_name",  valueKey: "branch_id",  selected: branch?.branch_id,   onSelect: setBranch },
-    session: { title: "Select Session", items: sessions, labelKey: "session_name", valueKey: "session_id", selected: session?.session_id, onSelect: setSession },
-    class:   { title: "Select Class",   items: classes,  labelKey: "class_name",   valueKey: "class_id",   selected: cls?.class_id,        onSelect: setCls },
+    branch:  { title: _t("Select Branch"),  items: branches, labelKey: "branch_name",  valueKey: "branch_id",  selected: branch?.branch_id,   onSelect: setBranch },
+    session: { title: _t("Select Session"), items: sessions, labelKey: "session_name", valueKey: "session_id", selected: session?.session_id, onSelect: setSession },
+    class:   { title: _t("Select Class"),   items: classes,  labelKey: "class_name",   valueKey: "class_id",   selected: cls?.class_id,        onSelect: setCls },
   };
 
   return (
@@ -142,23 +146,23 @@ function SeriesFormModal({ visible, initial, branches, sessions, classes, onSave
         <View style={st.formSheet}>
           <View style={st.sheetHandle} />
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            <Text style={st.formTitle}>{initial ? "Edit Series" : "New Test Series"}</Text>
+            <Text style={st.formTitle}>{initial ? _t("Edit Series") : _t("New Test Series")}</Text>
 
             {/* Title */}
-            <Text style={st.label}>Title *</Text>
+            <Text style={st.label}>{_t("Title *")}</Text>
             <TextInput
               style={st.input}
-              placeholder="e.g. JEE Mains 2025 Full Course"
+              placeholder={_t("e.g. JEE Mains 2025 Full Course")}
               placeholderTextColor="#94a3b8"
               value={title}
               onChangeText={setTitle}
             />
 
             {/* Description */}
-            <Text style={st.label}>Description</Text>
+            <Text style={st.label}>{_t("Description")}</Text>
             <TextInput
               style={[st.input, st.inputMulti]}
-              placeholder="Brief description of this series…"
+              placeholder={_t("Brief description of this series…")}
               placeholderTextColor="#94a3b8"
               value={description}
               onChangeText={setDescription}
@@ -168,7 +172,7 @@ function SeriesFormModal({ visible, initial, branches, sessions, classes, onSave
             />
 
             {/* Exam Type chips */}
-            <Text style={st.label}>Exam Type</Text>
+            <Text style={st.label}>{_t("Exam Type")}</Text>
             <View style={st.chipRow}>
               {EXAM_TYPES.map((t) => (
                 <TouchableOpacity
@@ -176,13 +180,13 @@ function SeriesFormModal({ visible, initial, branches, sessions, classes, onSave
                   style={[st.chip, examType === t && st.chipSel]}
                   onPress={() => setExamType(t)}
                 >
-                  <Text style={[st.chipTxt, examType === t && st.chipTxtSel]}>{t}</Text>
+                  <Text style={[st.chipTxt, examType === t && st.chipTxtSel]}>{_tx(t)}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
             {/* Series Scope */}
-            <Text style={st.label}>Series Type</Text>
+            <Text style={st.label}>{_t("Series Type")}</Text>
             <View style={st.scopeRow}>
               {SCOPE_OPTIONS.map((opt) => {
                 const isSel = seriesScope === opt.value;
@@ -193,39 +197,39 @@ function SeriesFormModal({ visible, initial, branches, sessions, classes, onSave
                     onPress={() => setSeriesScope(opt.value)}
                   >
                     <Feather name={opt.icon} size={16} color={isSel ? "#2563eb" : "#64748b"} />
-                    <Text style={[st.scopeLabel, isSel && st.scopeLabelSel]}>{opt.label}</Text>
-                    <Text style={st.scopeDesc}>{opt.desc}</Text>
+                    <Text style={[st.scopeLabel, isSel && st.scopeLabelSel]}>{_tx(opt.label)}</Text>
+                    <Text style={st.scopeDesc}>{_tx(opt.desc)}</Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
             {/* Branch */}
-            <Text style={st.label}>Branch</Text>
+            <Text style={st.label}>{_t("Branch")}</Text>
             <TouchableOpacity style={st.selectBtn} onPress={() => setPickerTarget("branch")}>
               <Feather name="git-branch" size={14} color="#64748b" />
               <Text style={[st.selectTxt, !branch && st.selectPlaceholder]}>
-                {branch ? branch.branch_name : "Select branch…"}
+                {branch ? _tx(branch.branch_name) : _t("Select branch…")}
               </Text>
               <Feather name="chevron-down" size={14} color="#64748b" />
             </TouchableOpacity>
 
             {/* Session */}
-            <Text style={st.label}>Session</Text>
+            <Text style={st.label}>{_t("Session")}</Text>
             <TouchableOpacity style={st.selectBtn} onPress={() => setPickerTarget("session")}>
               <Feather name="calendar" size={14} color="#64748b" />
               <Text style={[st.selectTxt, !session && st.selectPlaceholder]}>
-                {session ? session.session_name : "Select session…"}
+                {session ? _tx(session.session_name) : _t("Select session…")}
               </Text>
               <Feather name="chevron-down" size={14} color="#64748b" />
             </TouchableOpacity>
 
             {/* Class */}
-            <Text style={st.label}>Class</Text>
+            <Text style={st.label}>{_t("Class")}</Text>
             <TouchableOpacity style={st.selectBtn} onPress={() => setPickerTarget("class")}>
               <Feather name="book-open" size={14} color="#64748b" />
               <Text style={[st.selectTxt, !cls && st.selectPlaceholder]}>
-                {cls ? cls.class_name : "Select class…"}
+                {cls ? _tx(cls.class_name) : _t("Select class…")}
               </Text>
               <Feather name="chevron-down" size={14} color="#64748b" />
             </TouchableOpacity>
@@ -233,12 +237,12 @@ function SeriesFormModal({ visible, initial, branches, sessions, classes, onSave
             {/* Buttons */}
             <View style={st.formBtnRow}>
               <TouchableOpacity style={st.cancelBtn} onPress={onClose} disabled={saving}>
-                <Text style={st.cancelBtnTxt}>Cancel</Text>
+                <Text style={st.cancelBtnTxt}>{_t("Cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={st.saveBtn} onPress={handleSave} disabled={saving}>
                 {saving
                   ? <ActivityIndicator color="#fff" />
-                  : <Text style={st.saveBtnTxt}>{initial ? "Update Series" : "Create Series"}</Text>
+                  : <Text style={st.saveBtnTxt}>{initial ? _t("Update Series") : _t("Create Series")}</Text>
                 }
               </TouchableOpacity>
             </View>
@@ -251,7 +255,7 @@ function SeriesFormModal({ visible, initial, branches, sessions, classes, onSave
       {pickerTarget && pickerProps[pickerTarget] && (
         <SheetPicker
           visible={!!pickerTarget}
-          title={pickerProps[pickerTarget].title}
+          title={_tx(pickerProps[pickerTarget].title)}
           items={pickerProps[pickerTarget].items}
           labelKey={pickerProps[pickerTarget].labelKey}
           valueKey={pickerProps[pickerTarget].valueKey}
@@ -299,7 +303,7 @@ export default function TestSeriesManageScreen({ navigation }) {
       const res = await getSeriesList(user);
       setSeries(norm(res) ?? []);
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load test series");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load test series"));
     } finally {
       setLoading(false);
     }
@@ -320,25 +324,25 @@ export default function TestSeriesManageScreen({ navigation }) {
       setFormVisible(false);
       load();
     } catch (e) {
-      Alert.alert("Error", e.message || "Save failed");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Save failed"));
       throw e; // re-throw so modal keeps spinner off
     }
   };
 
   const handleDelete = (item) => {
     Alert.alert(
-      "Delete Series",
-      `Delete "${item.title}"? All tests inside will also be removed.`,
+      _t("Delete Series"),
+      _t("Delete \"{title}\"? All tests inside will also be removed.", { title: item.title }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Delete", style: "destructive",
+          text: _t("Delete"), style: "destructive",
           onPress: async () => {
             try {
               await deleteSeries(user, item.id);
               load();
             } catch (e) {
-              Alert.alert("Error", e.message);
+              Alert.alert(_t("Error"), _tx(e.message));
             }
           },
         },
@@ -349,32 +353,32 @@ export default function TestSeriesManageScreen({ navigation }) {
   const renderItem = ({ item }) => (
     <View style={st.card}>
       <View style={st.cardTop}>
-        <Text style={st.cardTitle} numberOfLines={1}>{item.title}</Text>
+        <Text style={st.cardTitle} numberOfLines={1}>{_tx(item.title)}</Text>
         <ExamTypeBadge type={item.exam_type} />
       </View>
 
       {!!item.description && (
-        <Text style={st.cardDesc} numberOfLines={2}>{item.description}</Text>
+        <Text style={st.cardDesc} numberOfLines={2}>{_tx(item.description)}</Text>
       )}
 
       <View style={st.metaRow}>
         {!!item.test_count && (
-          <MetaTag icon="file-text" label={`${item.test_count} test${item.test_count !== 1 ? "s" : ""}`} />
+          <MetaTag icon="file-text" label={_t("{test_count} test{pl}", { test_count: item.test_count, pl: item.test_count !== 1 ? "s" : "" })} />
         )}
         {item.series_scope === "chapter_wise" && (
-          <MetaTag icon="layers" label="Chapter-wise" color="#6366f1" />
+          <MetaTag icon="layers" label={_t("Chapter-wise")} color="#6366f1" />
         )}
-        {!!item.branch_name   && <MetaTag icon="git-branch" label={item.branch_name} />}
-        {!!item.session_name  && <MetaTag icon="calendar"   label={item.session_name} />}
-        {!!item.class_name    && <MetaTag icon="book-open"  label={item.class_name} />}
+        {!!item.branch_name   && <MetaTag icon="git-branch" label={_tx(item.branch_name)} />}
+        {!!item.session_name  && <MetaTag icon="calendar"   label={_tx(item.session_name)} />}
+        {!!item.class_name    && <MetaTag icon="book-open"  label={_tx(item.class_name)} />}
         {!!item.series_start && (
-          <MetaTag icon="play" label={`Starts ${new Date(item.series_start).toLocaleDateString()}`} />
+          <MetaTag icon="play" label={_t("Starts {series_start}", { series_start: fmtDate(item.series_start) })} />
         )}
         {!!item.series_end && (
-          <MetaTag icon="stop-circle" label={`Ends ${new Date(item.series_end).toLocaleDateString()}`} />
+          <MetaTag icon="stop-circle" label={_t("Ends {series_end}", { series_end: fmtDate(item.series_end) })} />
         )}
         {!item.series_start && !!item.created_at && (
-          <MetaTag icon="clock" label={`Created ${new Date(item.created_at).toLocaleDateString()}`} />
+          <MetaTag icon="clock" label={_t("Created {created_at}", { created_at: fmtDate(item.created_at) })} />
         )}
       </View>
 
@@ -384,7 +388,7 @@ export default function TestSeriesManageScreen({ navigation }) {
           onPress={() => navigation.navigate("TestManage", { series: item })}
         >
           <Feather name="list" size={13} color="#2563eb" />
-          <Text style={st.manageBtnTxt}>Manage Tests</Text>
+          <Text style={st.manageBtnTxt}>{_t("Manage Tests")}</Text>
           <Feather name="arrow-right" size={13} color="#2563eb" />
         </TouchableOpacity>
 
@@ -408,8 +412,8 @@ export default function TestSeriesManageScreen({ navigation }) {
           <Feather name="arrow-left" size={20} color="#fff" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={st.headerTitle}>Test Series</Text>
-          <Text style={st.headerSub}>{series.length} series</Text>
+          <Text style={st.headerTitle}>{_t("Test Series")}</Text>
+          <Text style={st.headerSub}>{_t("{length} series", { length: series.length })}</Text>
         </View>
       </View>
 
@@ -422,7 +426,7 @@ export default function TestSeriesManageScreen({ navigation }) {
           renderItem={renderItem}
           contentContainerStyle={st.list}
           ListEmptyComponent={
-            <Text style={st.empty}>{"No test series yet.\nTap + to create your first series."}</Text>
+            <Text style={st.empty}>{_t("No test series yet.\nTap + to create your first series.")}</Text>
           }
         />
       )}
@@ -451,7 +455,7 @@ function MetaTag({ icon, label, color }) {
   return (
     <View style={[st.metaTag, color && { backgroundColor: "#ede9fe" }]}>
       <Feather name={icon} size={11} color={c} />
-      <Text style={[st.metaTagTxt, color && { color: c, fontWeight: "700" }]}>{label}</Text>
+      <Text style={[st.metaTagTxt, color && { color: c, fontWeight: "700" }]}>{_tx(label)}</Text>
     </View>
   );
 }

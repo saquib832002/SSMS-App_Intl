@@ -17,6 +17,7 @@ import {
   updateStaffCategory,
   deleteStaffCategory,
 } from "../../services/StaffServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 export default function StaffCategoryScreen() {
   const { user } = useContext(AuthContext);
@@ -35,7 +36,7 @@ export default function StaffCategoryScreen() {
       const data = await fetchStaffCategories(user);
       setCategories(Array.isArray(data) ? data : []);
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load categories");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load categories"));
     } finally {
       setLoading(false);
     }
@@ -59,7 +60,7 @@ export default function StaffCategoryScreen() {
   // ── Save ─────────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!categoryName.trim()) {
-      Alert.alert("Validation", "Category name is required.");
+      Alert.alert(_t("Validation"), _t("Category name is required."));
       return;
     }
     try {
@@ -73,9 +74,9 @@ export default function StaffCategoryScreen() {
       }
       setModalVisible(false);
       loadCategories();
-      Alert.alert("Success", editingCategory ? "Category updated." : "Category added.");
+      Alert.alert(_t("Success"), editingCategory ? _t("Category updated.") : _t("Category added."));
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to save category");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to save category"));
     } finally {
       setSaving(false);
     }
@@ -84,19 +85,19 @@ export default function StaffCategoryScreen() {
   // ── Delete ────────────────────────────────────────────────────────────────────
   const handleDelete = (item) => {
     Alert.alert(
-      "Delete Category",
-      `Delete "${item.category_name}"?`,
+      _t("Delete Category"),
+      _t("Delete \"{category_name}\"?", { category_name: item.category_name }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Delete", style: "destructive",
+          text: _t("Delete"), style: "destructive",
           onPress: async () => {
             try {
               await deleteStaffCategory(user, item.category_id);
               loadCategories();
-              Alert.alert("Deleted", "Category deleted successfully.");
+              Alert.alert(_t("Deleted"), _t("Category deleted successfully."));
             } catch (e) {
-              Alert.alert("Error", e.message || "Failed to delete category");
+              Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to delete category"));
             }
           },
         },
@@ -111,7 +112,7 @@ export default function StaffCategoryScreen() {
         <View style={st.indexBadge}>
           <Text style={st.indexTxt}>{index + 1}</Text>
         </View>
-        <Text style={st.categoryName}>{item.category_name}</Text>
+        <Text style={st.categoryName}>{_tx(item.category_name)}</Text>
       </View>
       <View style={st.actions}>
         <TouchableOpacity
@@ -136,13 +137,13 @@ export default function StaffCategoryScreen() {
 
       {/* Header */}
       <View style={st.headerBlock}>
-        <Text style={st.title}>Staff Categories</Text>
+        <Text style={st.title}>{_t("Staff Categories")}</Text>
         <Text style={st.subtitle}>
-          {categories.length} {categories.length === 1 ? "category" : "categories"}
+          {_tx(categories.length)} {categories.length === 1 ? "category" : "categories"}
         </Text>
         <TouchableOpacity style={st.addBtn} onPress={openAdd}>
           <Feather name="plus" size={16} color="#fff" />
-          <Text style={st.addBtnTxt}>Add Category</Text>
+          <Text style={st.addBtnTxt}>{_t("Add Category")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -150,7 +151,7 @@ export default function StaffCategoryScreen() {
       {loading
         ? <View style={st.loader}>
             <ActivityIndicator size="large" color="#1e40af" />
-            <Text style={st.loaderTxt}>Loading categories…</Text>
+            <Text style={st.loaderTxt}>{_t("Loading categories…")}</Text>
           </View>
         : <FlatList
             data={categories}
@@ -161,8 +162,8 @@ export default function StaffCategoryScreen() {
             ListEmptyComponent={
               <View style={st.empty}>
                 <Feather name="tag" size={40} color="#cbd5e1" />
-                <Text style={st.emptyTxt}>No categories yet</Text>
-                <Text style={st.emptySubTxt}>Tap "Add Category" to create one</Text>
+                <Text style={st.emptyTxt}>{_t("No categories yet")}</Text>
+                <Text style={st.emptySubTxt}>{_t("Tap \"Add Category\" to create one")}</Text>
               </View>
             }
           />}
@@ -175,7 +176,7 @@ export default function StaffCategoryScreen() {
             {/* Modal header */}
             <View style={st.modalHeader}>
               <Text style={st.modalTitle}>
-                {editingCategory ? "Edit Category" : "Add Category"}
+                {editingCategory ? _t("Edit Category") : _t("Add Category")}
               </Text>
               <TouchableOpacity
                 style={st.modalClose}
@@ -187,12 +188,11 @@ export default function StaffCategoryScreen() {
             </View>
 
             {/* Input */}
-            <Text style={st.fieldLabel}>
-              Category Name <Text style={{ color: "#ef4444" }}>*</Text>
+            <Text style={st.fieldLabel}>{_t("Category Name")}{" "}<Text style={{ color: "#ef4444" }}>*</Text>
             </Text>
             <TextInput
               style={st.input}
-              placeholder="e.g. Teacher, Admin, Support Staff"
+              placeholder={_t("e.g. Teacher, Admin, Support Staff")}
               placeholderTextColor="#94a3b8"
               value={categoryName}
               onChangeText={setCategoryName}
@@ -206,7 +206,7 @@ export default function StaffCategoryScreen() {
                 onPress={() => setModalVisible(false)}
                 disabled={saving}
               >
-                <Text style={st.cancelBtnTxt}>Cancel</Text>
+                <Text style={st.cancelBtnTxt}>{_t("Cancel")}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -219,7 +219,7 @@ export default function StaffCategoryScreen() {
                   : <>
                       <Feather name="check" size={15} color="#fff" />
                       <Text style={st.saveBtnTxt}>
-                        {editingCategory ? "Update" : "Save"}
+                        {editingCategory ? _t("Update") : _t("Save")}
                       </Text>
                     </>}
               </TouchableOpacity>

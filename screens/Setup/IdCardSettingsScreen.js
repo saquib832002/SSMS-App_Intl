@@ -12,73 +12,74 @@ import {
   saveIdCardConfig,
   ID_CARD_CONFIG_DEFAULTS,
 } from "../../services/SchoolSettingsServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Field definitions grouped for display ────────────────────────────────────
 const GROUPS = [
   {
-    title: "School Header",
+    get title() { return _t("School Header"); },
     icon:  "home",
     color: "#1d4ed8",
     fields: [
-      { key: "showSchoolLogo",    label: "School Logo",              desc: "School logo image in the card header" },
-      { key: "showSchoolAddress", label: "School Address",           desc: "Address line below school name" },
-      { key: "showSchoolPhone",   label: "School Phone Number",      desc: "Phone shown in card header" },
-      { key: "showTagline",       label: "School Tagline",           desc: '"Learn | Grow | Succeed" line',
+      { key: "showSchoolLogo",    get label() { return _t("School Logo"); },              get desc() { return _t("School logo image in the card header"); } },
+      { key: "showSchoolAddress", get label() { return _t("School Address"); },           get desc() { return _t("Address line below school name"); } },
+      { key: "showSchoolPhone",   get label() { return _t("School Phone Number"); },      get desc() { return _t("Phone shown in card header"); } },
+      { key: "showTagline",       get label() { return _t("School Tagline"); },           get desc() { return _t("\"Learn | Grow | Succeed\" line"); },
         textKey: "taglineText", textPlaceholder: "e.g. LEARN | GROW | SUCCEED" },
     ],
   },
   {
-    title: "Student Information",
+    get title() { return _t("Student Information"); },
     icon:  "user",
     color: "#065f46",
     fields: [
-      { key: "showStudentPhoto",  label: "Student Photo",            desc: "Student photograph on the card" },
-      { key: "showAdmissionNo",   label: "Admission Number",         desc: "Student's admission / roll number" },
-      { key: "showDateOfBirth",   label: "Date of Birth",            desc: "Student's date of birth" },
-      { key: "showBloodGroup",    label: "Blood Group",              desc: "Student's blood group" },
-      { key: "showGender",        label: "Gender",                   desc: "Male / Female / Other" },
-      { key: "showSessionYear",   label: "Academic Session",         desc: "e.g. Session 2025–26" },
+      { key: "showStudentPhoto",  get label() { return _t("Student Photo"); },            get desc() { return _t("Student photograph on the card"); } },
+      { key: "showAdmissionNo",   get label() { return _t("Admission Number"); },         get desc() { return _t("Student's admission / roll number"); } },
+      { key: "showDateOfBirth",   get label() { return _t("Date of Birth"); },            get desc() { return _t("Student's date of birth"); } },
+      { key: "showBloodGroup",    get label() { return _t("Blood Group"); },              get desc() { return _t("Student's blood group"); } },
+      { key: "showGender",        get label() { return _t("Gender"); },                   get desc() { return _t("Male / Female / Other"); } },
+      { key: "showSessionYear",   get label() { return _t("Academic Session"); },         get desc() { return _t("e.g. Session 2025–26"); } },
     ],
   },
   {
-    title: "Parent / Family",
+    get title() { return _t("Parent / Family"); },
     icon:  "users",
     color: "#7c3aed",
     fields: [
-      { key: "showFatherName",    label: "Father's Name",            desc: "Father's full name" },
-      { key: "showMotherName",    label: "Mother's Name",            desc: "Mother's full name" },
-      { key: "showParentPhone",   label: "Parent Contact Number",    desc: "Father's or mother's mobile (whichever is available)" },
-      { key: "showStudentAddress",label: "Student's Home Address",   desc: "Residential address of student" },
+      { key: "showFatherName",    get label() { return _t("Father's Name"); },            get desc() { return _t("Father's full name"); } },
+      { key: "showMotherName",    get label() { return _t("Mother's Name"); },            get desc() { return _t("Mother's full name"); } },
+      { key: "showParentPhone",   get label() { return _t("Parent Contact Number"); },    get desc() { return _t("Father's or mother's mobile (whichever is available)"); } },
+      { key: "showStudentAddress",get label() { return _t("Student's Home Address"); },   get desc() { return _t("Residential address of student"); } },
     ],
   },
   {
-    title: "Transport",
+    get title() { return _t("Transport"); },
     icon:  "truck",
     color: "#b45309",
     fields: [
-      { key: "showBusRoute",      label: "Bus Route",                desc: "Assigned school bus route" },
+      { key: "showBusRoute",      get label() { return _t("Bus Route"); },                get desc() { return _t("Assigned school bus route"); } },
     ],
   },
   {
-    title: "Card Features",
+    get title() { return _t("Card Features"); },
     icon:  "credit-card",
     color: "#0e7490",
     fields: [
-      { key: "showEstdYear",           label: "Establishment Year",       desc: 'e.g. "ESTD. 2010" badge on the card',
+      { key: "showEstdYear",           get label() { return _t("Establishment Year"); },       get desc() { return _t("e.g. \"ESTD. 2010\" badge on the card"); },
         textKey: "estdYear", textPlaceholder: "e.g. 2010" },
-      { key: "showQrCode",             label: "QR Code",                  desc: "Scannable QR code on the card" },
-      { key: "showPrincipalSignature", label: "Principal's Signature",    desc: "Signature image in card footer" },
-      { key: "showValidityYear",       label: "Card Validity Year",       desc: 'e.g. "Valid: 2025–26"' },
+      { key: "showQrCode",             get label() { return _t("QR Code"); },                  get desc() { return _t("Scannable QR code on the card"); } },
+      { key: "showPrincipalSignature", get label() { return _t("Principal's Signature"); },    get desc() { return _t("Signature image in card footer"); } },
+      { key: "showValidityYear",       get label() { return _t("Card Validity Year"); },       get desc() { return _t("e.g. \"Valid: 2025–26\""); } },
     ],
   },
   {
-    title: "Footer Bar",
+    get title() { return _t("Footer Bar"); },
     icon:  "align-justify",
     color: "#be123c",
     fields: [
-      { key: "showIfFoundBar",         label: '"If Found" Return Message', desc: '"If found, please return this card to the school"',
+      { key: "showIfFoundBar",         get label() { return _t("\"If Found\" Return Message"); }, get desc() { return _t("\"If found, please return this card to the school\""); },
         textKey: "ifFoundText", textPlaceholder: "e.g. If found, please return this card to the school." },
-      { key: "showSchoolPhoneInFooter",label: "School Phone in Footer",    desc: "Contact number appended to the If Found message" },
+      { key: "showSchoolPhoneInFooter",get label() { return _t("School Phone in Footer"); },    get desc() { return _t("Contact number appended to the If Found message"); } },
     ],
   },
 ];
@@ -97,7 +98,7 @@ export default function IdCardSettingsScreen() {
       const cfg = await fetchIdCardConfig(user);
       setConfig(cfg);
     } catch (e) {
-      Alert.alert("Error", e.message ?? "Could not load settings.");
+      Alert.alert(_t("Error"), _tx(e.message) ?? _t("Could not load settings."));
     } finally {
       setLoading(false);
     }
@@ -114,9 +115,9 @@ export default function IdCardSettingsScreen() {
     setSaving(true);
     try {
       await saveIdCardConfig(user, config);
-      Alert.alert("Saved", "ID card settings updated successfully.");
+      Alert.alert(_t("Saved"), _t("ID card settings updated successfully."));
     } catch (e) {
-      Alert.alert("Error", e.message ?? "Could not save settings.");
+      Alert.alert(_t("Error"), _tx(e.message) ?? _t("Could not save settings."));
     } finally {
       setSaving(false);
     }
@@ -127,7 +128,7 @@ export default function IdCardSettingsScreen() {
     return (
       <View style={s.center}>
         <ActivityIndicator size="large" color="#1d4ed8" />
-        <Text style={s.loadingText}>Loading settings…</Text>
+        <Text style={s.loadingText}>{_t("Loading settings…")}</Text>
       </View>
     );
   }
@@ -143,10 +144,7 @@ export default function IdCardSettingsScreen() {
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled">
 
-        <Text style={s.intro}>
-          Choose which fields appear on each student ID card. Changes apply to
-          all cards generated after saving.
-        </Text>
+        <Text style={s.intro}>{_t("Choose which fields appear on each student ID card. Changes apply to all cards generated after saving.")}</Text>
 
         {/* ── Language Picker ──────────────────────────────── */}
         <View style={s.card}>
@@ -154,13 +152,13 @@ export default function IdCardSettingsScreen() {
             <View style={[s.groupIconBox, { backgroundColor: "#0369a118" }]}>
               <Feather name="globe" size={16} color="#0369a1" />
             </View>
-            <Text style={[s.groupTitle, { color: "#0369a1" }]}>Card Language</Text>
+            <Text style={[s.groupTitle, { color: "#0369a1" }]}>{_t("Card Language")}</Text>
           </View>
           <View style={s.langRow}>
             {[
-              { code: "en", label: "English",  native: "English" },
-              { code: "hi", label: "Hindi",    native: "हिन्दी"  },
-              { code: "ur", label: "Urdu",     native: "اردو"    },
+              { code: "en", label: _t("English"),  native: "English" },
+              { code: "hi", label: _t("Hindi"),    native: "हिन्दी"  },
+              { code: "ur", label: _t("Urdu"),     native: "اردو"    },
             ].map(lang => {
               const active = config.cardLanguage === lang.code;
               return (
@@ -170,8 +168,8 @@ export default function IdCardSettingsScreen() {
                   onPress={() => setConfig(prev => ({ ...prev, cardLanguage: lang.code }))}
                   activeOpacity={0.75}
                 >
-                  <Text style={[s.langNative, active && { color: "#fff" }]}>{lang.native}</Text>
-                  <Text style={[s.langSub,    active && { color: "rgba(255,255,255,0.75)" }]}>{lang.label}</Text>
+                  <Text style={[s.langNative, active && { color: "#fff" }]}>{_tx(lang.native)}</Text>
+                  <Text style={[s.langSub,    active && { color: "rgba(255,255,255,0.75)" }]}>{_tx(lang.label)}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -185,7 +183,7 @@ export default function IdCardSettingsScreen() {
               <View style={[s.groupIconBox, { backgroundColor: group.color + "18" }]}>
                 <Feather name={group.icon} size={16} color={group.color} />
               </View>
-              <Text style={[s.groupTitle, { color: group.color }]}>{group.title}</Text>
+              <Text style={[s.groupTitle, { color: group.color }]}>{_tx(group.title)}</Text>
             </View>
 
             {/* Fields */}
@@ -194,8 +192,8 @@ export default function IdCardSettingsScreen() {
                 {/* Toggle row */}
                 <View style={[s.row, (!field.textKey || !config[field.key]) && idx < group.fields.length - 1 && s.rowBorder]}>
                   <View style={s.rowText}>
-                    <Text style={s.rowLabel}>{field.label}</Text>
-                    <Text style={s.rowDesc}>{field.desc}</Text>
+                    <Text style={s.rowLabel}>{_tx(field.label)}</Text>
+                    <Text style={s.rowDesc}>{_tx(field.desc)}</Text>
                   </View>
                   <Switch
                     value={!!config[field.key]}
@@ -208,14 +206,12 @@ export default function IdCardSettingsScreen() {
                 {/* Inline text input — shown when toggle is ON and field has a textKey */}
                 {field.textKey && config[field.key] && (
                   <View style={[s.textInputWrap, idx < group.fields.length - 1 && s.rowBorder]}>
-                    <Text style={[s.textInputLabel, { color: group.color }]}>
-                      Custom text
-                    </Text>
+                    <Text style={[s.textInputLabel, { color: group.color }]}>{_t("Custom text")}</Text>
                     <TextInput
                       style={s.textInput}
                       value={config[field.textKey] ?? ""}
                       onChangeText={v => setConfig(prev => ({ ...prev, [field.textKey]: v }))}
-                      placeholder={field.textPlaceholder}
+                      placeholder={_tx(field.textPlaceholder)}
                       placeholderTextColor="#9ca3af"
                       maxLength={300}
                       returnKeyType="done"
@@ -244,7 +240,7 @@ export default function IdCardSettingsScreen() {
             : (
               <>
                 <Feather name="save" size={18} color="#fff" style={{ marginRight: 8 }} />
-                <Text style={s.saveTxt}>Save Settings</Text>
+                <Text style={s.saveTxt}>{_t("Save Settings")}</Text>
               </>
             )
           }

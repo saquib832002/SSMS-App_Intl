@@ -26,9 +26,12 @@ import { fetchStudentFeeData } from "../services/FeeServiceApi";
 import { getStudentHomework } from "../services/HomeworkServiceApi";
 import { fetchNotices } from "../services/NoticeServiceApi";
 import { fetchUpcomingEvents } from "../services/SchoolEventsServiceApi";
+import { getUpcoming, eventsAsUpcoming, UPCOMING_STYLE, upcomingTitle, upcomingTarget } from "../services/CalendarApi";
 import { fetchGalleryPhotos } from "../services/GalleryServiceApi";
 import { fetchInstituteDetails } from "../services/UserServiceApi";
 
+import { fmtDate as fmtLocalDate, fmtMoney, fmtTime } from "../services/Locale";
+import { _t, _tx } from "../services/i18n";
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const greeting = () => {
   const h = new Date().getHours();
@@ -41,7 +44,7 @@ const fmtDate = (d) => {
   if (!d) return "";
   const dt = new Date(String(d).replace(" ", "T"));
   if (isNaN(dt.getTime())) return d;
-  return dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+  return fmtLocalDate(dt, "dayMonth");
 };
 
 const PRIORITY_DOT = { urgent: "#dc2626", important: "#f59e0b", normal: "#3b82f6" };
@@ -56,24 +59,30 @@ function QuickTile({ icon, label, color, bg, onPress, screen }) {
         <Feather name={icon} size={20} color={locked ? "#94a3b8" : color} />
         {locked && <LockBadge />}
       </View>
-      <Text style={[s.tileLabel, { color }]}>{label}</Text>
+      <Text style={[s.tileLabel, { color }]}>{_tx(label)}</Text>
     </TouchableOpacity>
   );
 }
 
 // ── Section card wrapper ──────────────────────────────────────────────────────
-function SectionCard({ icon, title, accent = "#1e40af", onViewAll, children }) {
+function SectionCard({ icon, title, accent = "#1e40af", onViewAll, action, children }) {
   return (
     <View style={s.card}>
       <View style={s.cardHead}>
         <View style={s.cardHeadLeft}>
           <Feather name={icon} size={14} color={accent} />
-          <Text style={[s.cardTitle, { color: accent }]}>{title}</Text>
+          <Text style={[s.cardTitle, { color: accent }]}>{_tx(title)}</Text>
         </View>
         {onViewAll && (
           <TouchableOpacity onPress={onViewAll} style={s.viewAllBtn}>
-            <Text style={[s.viewAllTxt, { color: accent }]}>View All</Text>
+            <Text style={[s.viewAllTxt, { color: accent }]}>{_t("View All")}</Text>
             <Feather name="chevron-right" size={12} color={accent} />
+          </TouchableOpacity>
+        )}
+        {!!action && (
+          <TouchableOpacity onPress={action.onPress} style={s.viewAllBtn}>
+            <Feather name={action.icon} size={12} color={accent} />
+            <Text style={[s.viewAllTxt, { color: accent }]}>{action.label}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -133,7 +142,7 @@ export default function StudentDashboardScreen({ navigation }) {
   // Subscription schools only load the modules they have; legacy schools
   // always pass these hasModule() checks (unchanged behaviour).
   const loadAttendance = useCallback(async () => {
-    if (!effectiveUser?.token) return;
+    if (!effectiveUser?.token) { setAttLoading(false); return; }
     if (!hasModule("attendance")) { setAttendance(null); setAttLoading(false); return; }
     try {
       setAttLoading(true);
@@ -158,7 +167,7 @@ export default function StudentDashboardScreen({ navigation }) {
   }, [effectiveUser, hasModule]);
 
   const loadFees = useCallback(async () => {
-    if (!effectiveUser?.token || !enrollmentId) return;
+    if (!effectiveUser?.token || !enrollmentId) { setFeeLoading(false); return; }
     if (!hasModule("fees")) { setFees([]); setFeeLoading(false); return; }
     try {
       setFeeLoading(true);
@@ -175,7 +184,7 @@ export default function StudentDashboardScreen({ navigation }) {
   }, [effectiveUser, enrollmentId, hasModule]);
 
   const loadHomework = useCallback(async () => {
-    if (!effectiveUser?.token || !enrollmentId) return;
+    if (!effectiveUser?.token || !enrollmentId) { setHwLoading(false); return; }
     if (!hasModule("academics")) { setHomework([]); setHwLoading(false); return; }
     try {
       setHwLoading(true);
@@ -187,12 +196,12 @@ export default function StudentDashboardScreen({ navigation }) {
   }, [effectiveUser, enrollmentId, hasModule]);
 
   const loadNotices = useCallback(async () => {
-    if (!effectiveUser?.token) return;
+    if (!effectiveUser?.token) { setNotLoading(false); return; }
     if (hasModule("notices")) {
       try {
         setNotLoading(true);
         const data = await fetchNotices(effectiveUser, { limit: 4 });
-        setNotices(data);
+        setNotices(Array.isArray(data) ? data : []);
       } catch { setNotices([]); }
       finally { setNotLoading(false); }
     } else {
@@ -201,7 +210,7 @@ export default function StudentDashboardScreen({ navigation }) {
     // Gallery — non-critical, silent fail
     if (hasModule("communication")) {
       fetchGalleryPhotos(effectiveUser)
-        .then(({ photos }) => setGallery(photos.slice(0, 6)))
+        .then((g) => setGallery(Array.isArray(g?.photos) ? g.photos.slice(0, 6) : []))
         .catch(() => {});
     } else {
       setGallery([]);
@@ -209,15 +218,18 @@ export default function StudentDashboardScreen({ navigation }) {
   }, [effectiveUser, hasModule]);
 
   const loadEvents = useCallback(async () => {
-    if (!effectiveUser?.token) return;
+    if (!effectiveUser?.token) { setEvLoading(false); return; }
     if (!hasModule("notices")) { setEvents([]); setEvLoading(false); return; }
     try {
       setEvLoading(true);
-      const data = await fetchUpcomingEvents(effectiveUser, 6);
-      setEvents(data);
+      // events and holidays with this child's exams and booked parent–teacher meetings
+      let data;
+      try { data = await getUpcoming(effectiveUser, { limit: 8, child: activeEnrollmentId || undefined }); }
+      catch { data = eventsAsUpcoming((await fetchUpcomingEvents(effectiveUser, 6)) ?? []).filter((e) => Number(e.event?.is_public ?? 1) === 1); }   // older server
+      setEvents(Array.isArray(data) ? data : []);
     } catch { setEvents([]); }
     finally { setEvLoading(false); }
-  }, [effectiveUser, hasModule]);
+  }, [effectiveUser, hasModule, activeEnrollmentId]);
 
   useEffect(() => {
     loadAttendance();
@@ -244,8 +256,8 @@ export default function StudentDashboardScreen({ navigation }) {
       try {
         const students = await fetchLinkedStudents(user); // use raw user (parent's own identity)
         if (cancelled) return;
-        setLinkedStudents(students);
-        if (!activeEnrollmentId) {
+        setLinkedStudents(Array.isArray(students) ? students : []);
+        if (!activeEnrollmentId && Array.isArray(students)) {
           if (students.length === 1) {
             // Only one child — select automatically, no picker needed
             setActiveEnrollmentId(students[0].enrollment_id);
@@ -263,7 +275,8 @@ export default function StudentDashboardScreen({ navigation }) {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([
+    // allSettled: one failing widget must never leave the pull-to-refresh spinner stuck
+    await Promise.allSettled([
       loadAttendance(), loadFees(), loadHomework(), loadNotices(), loadEvents(),
     ]);
     setRefreshing(false);
@@ -307,11 +320,11 @@ export default function StudentDashboardScreen({ navigation }) {
           <View style={{ flex: 1 }}>
             <Text style={s.greetingTxt}>{greeting()},</Text>
             <Text style={s.nameTxt} numberOfLines={1}>
-              {classInfo?.student_name || firstName}
+              {_tx(classInfo?.student_name) || _tx(firstName)}
             </Text>
             <View style={s.rolePill}>
-              <Text style={s.rolePillTxt}>{isParent ? "Parent" : "Student"}</Text>
-              {!!enrollmentId && <Text style={s.enrollTxt}>  ·  {enrollmentId}</Text>}
+              <Text style={s.rolePillTxt}>{isParent ? _t("Parent") : _t("Student")}</Text>
+              {!!enrollmentId && <Text style={s.enrollTxt}>  ·  {_tx(enrollmentId)}</Text>}
             </View>
             {/* Class / Section / Session row */}
             {classInfo && (
@@ -319,19 +332,19 @@ export default function StudentDashboardScreen({ navigation }) {
                 {!!classInfo.class_name && (
                   <View style={s.classChip}>
                     <Feather name="book-open" size={10} color="#1e40af" />
-                    <Text style={s.classChipTxt}>{classInfo.class_name}</Text>
+                    <Text style={s.classChipTxt}>{_tx(classInfo.class_name)}</Text>
                   </View>
                 )}
                 {!!classInfo.section_name && (
                   <View style={s.classChip}>
                     <Feather name="users" size={10} color="#7c3aed" />
-                    <Text style={[s.classChipTxt, { color: "#7c3aed" }]}>{classInfo.section_name}</Text>
+                    <Text style={[s.classChipTxt, { color: "#7c3aed" }]}>{_tx(classInfo.section_name)}</Text>
                   </View>
                 )}
                 {!!classInfo.session_name && (
                   <View style={s.classChip}>
                     <Feather name="calendar" size={10} color="#0369a1" />
-                    <Text style={[s.classChipTxt, { color: "#0369a1" }]}>{classInfo.session_name}</Text>
+                    <Text style={[s.classChipTxt, { color: "#0369a1" }]}>{_tx(classInfo.session_name)}</Text>
                   </View>
                 )}
               </View>
@@ -344,7 +357,7 @@ export default function StudentDashboardScreen({ navigation }) {
                 activeOpacity={0.75}
               >
                 <Feather name="repeat" size={11} color="#1e40af" />
-                <Text style={s.switchTxt}>Switch Student</Text>
+                <Text style={s.switchTxt}>{_t("Switch Student")}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -352,15 +365,15 @@ export default function StudentDashboardScreen({ navigation }) {
 
         {/* ── 2. Quick links ── */}
         <View style={s.tilesRow}>
-          <QuickTile icon="check-square" label="Attendance" color="#16a34a" bg="#f0fdf4" screen="MyAttendance"
+          <QuickTile icon="check-square" label={_t("Attendance")} color="#16a34a" bg="#f0fdf4" screen="MyAttendance"
             onPress={() => navigation.navigate("MyAttendance")} />
-          <QuickTile icon="file-text"   label="View Marks" color="#7c3aed" bg="#faf5ff" screen="MyMarksheet"
+          <QuickTile icon="file-text"   label={_t("View Marks")} color="#7c3aed" bg="#faf5ff" screen="MyMarksheet"
             onPress={() => navigation.navigate("MyMarksheet")} />
-          <QuickTile icon="book"        label="Homework"   color="#0369a1" bg="#f0f9ff" screen="MyHomework"
+          <QuickTile icon="book"        label={_t("Homework")}   color="#0369a1" bg="#f0f9ff" screen="MyHomework"
             onPress={() => navigation.navigate("My Portal", { screen: "MyHomework" })} />
-          <QuickTile icon="dollar-sign" label="Fee"        color="#b45309" bg="#fffbeb" screen="MyFee"
+          <QuickTile icon="dollar-sign" label={_t("Fee")}        color="#b45309" bg="#fffbeb" screen="MyFee"
             onPress={() => navigation.navigate("MyFee")} />
-          <QuickTile icon="layers"      label="My Tests"  color="#0891b2" bg="#f0f9ff" screen="MyTestSeries"
+          <QuickTile icon="layers"      label={_t("My Tests")}  color="#0891b2" bg="#f0f9ff" screen="MyTestSeries"
             onPress={() => navigation.navigate("My Portal", { screen: "MyTestSeries" })} />
         </View>
 
@@ -375,11 +388,11 @@ export default function StudentDashboardScreen({ navigation }) {
               <Text style={s.waEmoji}>💬</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.waBannerTitle}>Join our WhatsApp Community</Text>
-              <Text style={s.waBannerSub}>Stay updated with school announcements</Text>
+              <Text style={s.waBannerTitle}>{_t("Join our WhatsApp Community")}</Text>
+              <Text style={s.waBannerSub}>{_t("Stay updated with school announcements")}</Text>
             </View>
             <View style={s.waJoinBtn}>
-              <Text style={s.waJoinTxt}>Join</Text>
+              <Text style={s.waJoinTxt}>{_t("Join")}</Text>
               <Feather name="arrow-right" size={12} color="#fff" />
             </View>
           </TouchableOpacity>
@@ -396,28 +409,28 @@ export default function StudentDashboardScreen({ navigation }) {
               <Text style={s.waEmoji}>📢</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.waChBannerTitle}>Follow our WhatsApp Channel</Text>
-              <Text style={s.waChBannerSub}>Get school updates & announcements</Text>
+              <Text style={s.waChBannerTitle}>{_t("Follow our WhatsApp Channel")}</Text>
+              <Text style={s.waChBannerSub}>{_t("Get school updates & announcements")}</Text>
             </View>
             <View style={s.waChFollowBtn}>
-              <Text style={s.waChFollowTxt}>Follow</Text>
+              <Text style={s.waChFollowTxt}>{_t("Follow")}</Text>
               <Feather name="arrow-right" size={12} color="#fff" />
             </View>
           </TouchableOpacity>
         )}
 
         {/* ── 3. Attendance stat ── */}
-        <SectionCard icon="bar-chart-2" title="My Attendance" accent="#16a34a"
+        <SectionCard icon="bar-chart-2" title={_t("My Attendance")} accent="#16a34a"
           onViewAll={() => navigation.navigate("MyAttendance")}>
           {attLoading ? (
             <ActivityIndicator color="#16a34a" style={{ paddingVertical: 16 }} />
           ) : attendance?.pct == null ? (
-            <Text style={s.emptyTxt}>No attendance data available</Text>
+            <Text style={s.emptyTxt}>{_t("No attendance data available")}</Text>
           ) : (
             <View style={s.attRow}>
               <View style={s.attCircle}>
-                <Text style={[s.attPct, { color: attColor }]}>{attendance.pct}%</Text>
-                <Text style={s.attLabel}>Last 30 days</Text>
+                <Text style={[s.attPct, { color: attColor }]}>{_tx(attendance.pct)}%</Text>
+                <Text style={s.attLabel}>{_t("Last 30 days")}</Text>
               </View>
               <View style={{ flex: 1 }}>
                 <View style={s.attBar}>
@@ -425,16 +438,16 @@ export default function StudentDashboardScreen({ navigation }) {
                 </View>
                 <View style={s.attCounts}>
                   <View style={s.attStat}>
-                    <Text style={[s.attStatNum, { color: "#16a34a" }]}>{attendance.present}</Text>
-                    <Text style={s.attStatLabel}>Present</Text>
+                    <Text style={[s.attStatNum, { color: "#16a34a" }]}>{_tx(attendance.present)}</Text>
+                    <Text style={s.attStatLabel}>{_t("Present")}</Text>
                   </View>
                   <View style={s.attStat}>
                     <Text style={[s.attStatNum, { color: "#dc2626" }]}>{attendance.total - attendance.present}</Text>
-                    <Text style={s.attStatLabel}>Absent</Text>
+                    <Text style={s.attStatLabel}>{_t("Absent")}</Text>
                   </View>
                   <View style={s.attStat}>
-                    <Text style={[s.attStatNum, { color: "#64748b" }]}>{attendance.total}</Text>
-                    <Text style={s.attStatLabel}>Total</Text>
+                    <Text style={[s.attStatNum, { color: "#64748b" }]}>{_tx(attendance.total)}</Text>
+                    <Text style={s.attStatLabel}>{_t("Total")}</Text>
                   </View>
                 </View>
               </View>
@@ -443,7 +456,7 @@ export default function StudentDashboardScreen({ navigation }) {
         </SectionCard>
 
         {/* ── 4. Fee alert ── */}
-        <SectionCard icon="dollar-sign" title="Fee Status" accent="#b45309"
+        <SectionCard icon="dollar-sign" title={_t("Fee Status")} accent="#b45309"
           onViewAll={() => navigation.navigate("MyFee")}>
           {feeLoading ? (
             <ActivityIndicator color="#b45309" style={{ paddingVertical: 16 }} />
@@ -451,38 +464,38 @@ export default function StudentDashboardScreen({ navigation }) {
             <TouchableOpacity style={s.feeAlert} onPress={() => navigation.navigate("MyFee")} activeOpacity={0.8}>
               <Feather name="alert-circle" size={20} color="#dc2626" />
               <View style={{ flex: 1 }}>
-                <Text style={s.feeAlertTitle}>Outstanding Fee</Text>
-                <Text style={s.feeAlertAmt}>₹ {totalDue.toLocaleString("en-IN")}</Text>
+                <Text style={s.feeAlertTitle}>{_t("Outstanding Fee")}</Text>
+                <Text style={s.feeAlertAmt}>{fmtMoney(totalDue)}</Text>
               </View>
               <View style={s.feePayBtn}>
-                <Text style={s.feePayTxt}>View</Text>
+                <Text style={s.feePayTxt}>{_t("View")}</Text>
                 <Feather name="arrow-right" size={12} color="#fff" />
               </View>
             </TouchableOpacity>
           ) : (
             <View style={s.feeAllClear}>
               <Feather name="check-circle" size={20} color="#16a34a" />
-              <Text style={s.feeAllClearTxt}>No outstanding dues — you're all clear!</Text>
+              <Text style={s.feeAllClearTxt}>{_t("No outstanding dues — you're all clear!")}</Text>
             </View>
           )}
         </SectionCard>
 
         {/* ── 5. Recent homework ── */}
-        <SectionCard icon="book" title="Recent Homework" accent="#0369a1"
+        <SectionCard icon="book" title={_t("Recent Homework")} accent="#0369a1"
           onViewAll={() => navigation.navigate("My Portal", { screen: "MyHomework" })}>
           {hwLoading ? (
             <ActivityIndicator color="#0369a1" style={{ paddingVertical: 16 }} />
           ) : homework.length === 0 ? (
-            <Text style={s.emptyTxt}>No homework assigned yet</Text>
+            <Text style={s.emptyTxt}>{_t("No homework assigned yet")}</Text>
           ) : (
             homework.map((hw, i) => (
               <View key={String(hw.homework_id ?? i)} style={[s.hwRow, i < homework.length - 1 && s.hwRowBorder]}>
                 <View style={[s.hwSubjectDot, { backgroundColor: "#0369a1" }]} />
                 <View style={{ flex: 1 }}>
-                  <Text style={s.hwTitle} numberOfLines={1}>{hw.title ?? hw.homework_title ?? "Homework"}</Text>
+                  <Text style={s.hwTitle} numberOfLines={1}>{_tx(hw.title) ?? _tx(hw.homework_title) ?? _t("Homework")}</Text>
                   <Text style={s.hwMeta}>
-                    {hw.subject_name ?? ""}
-                    {hw.due_date ? `  ·  Due ${fmtDate(hw.due_date)}` : ""}
+                    {_tx(hw.subject_name) ?? ""}
+                    {hw.due_date ? `  ${_t("·  Due {due_date}", { due_date: fmtDate(hw.due_date) })}` : ""}
                   </Text>
                 </View>
                 {hw.status && (
@@ -498,12 +511,12 @@ export default function StudentDashboardScreen({ navigation }) {
         </SectionCard>
 
         {/* ── 6. Notices ── */}
-        <SectionCard icon="bell" title="Notices & Circulars" accent="#7c3aed"
+        <SectionCard icon="bell" title={_t("Notices & Circulars")} accent="#7c3aed"
           onViewAll={() => navigation.navigate("NoticeBoard")}>
           {notLoading ? (
             <ActivityIndicator color="#7c3aed" style={{ paddingVertical: 16 }} />
           ) : notices.length === 0 ? (
-            <Text style={s.emptyTxt}>No notices posted yet</Text>
+            <Text style={s.emptyTxt}>{_t("No notices posted yet")}</Text>
           ) : (
             notices.map((n, i) => (
               <TouchableOpacity key={String(n.notice_id ?? i)}
@@ -511,8 +524,8 @@ export default function StudentDashboardScreen({ navigation }) {
                 onPress={() => navigation.navigate("NoticeBoard")} activeOpacity={0.7}>
                 <View style={[s.noticeDot, { backgroundColor: PRIORITY_DOT[n.priority] ?? "#3b82f6" }]} />
                 <View style={{ flex: 1 }}>
-                  <Text style={s.noticeTitle} numberOfLines={2}>{n.title}</Text>
-                  <Text style={s.noticeMeta}>{n.category}  ·  {fmtDate(n.created_at)}</Text>
+                  <Text style={s.noticeTitle} numberOfLines={2}>{_tx(n.title)}</Text>
+                  <Text style={s.noticeMeta}>{_tx(n.category)}  ·  {fmtDate(n.created_at)}</Text>
                 </View>
                 {n.is_pinned == 1 && <Feather name="bookmark" size={11} color="#b45309" />}
               </TouchableOpacity>
@@ -526,14 +539,14 @@ export default function StudentDashboardScreen({ navigation }) {
             <View style={s.galHead}>
               <View style={s.galHeadLeft}>
                 <Feather name="image" size={15} color="#db2777" />
-                <Text style={s.galHeadTitle}>School Gallery</Text>
+                <Text style={s.galHeadTitle}>{_t("School Gallery")}</Text>
               </View>
               <TouchableOpacity
                 style={s.galViewAll}
                 onPress={() => navigation.navigate("SchoolMemories")}
                 activeOpacity={0.7}
               >
-                <Text style={s.galViewAllTxt}>See all</Text>
+                <Text style={s.galViewAllTxt}>{_t("See all")}</Text>
                 <Feather name="chevron-right" size={12} color="#db2777" />
               </TouchableOpacity>
             </View>
@@ -556,38 +569,39 @@ export default function StudentDashboardScreen({ navigation }) {
         )}
 
         {/* ── 8. Events & holidays ── */}
-        <SectionCard icon="calendar" title="Upcoming Events & Holidays" accent="#0891b2">
+        <SectionCard icon="calendar" title={_t("Upcoming events, exams & meetings")} accent="#0891b2"
+          action={{ icon: "refresh-cw", label: _t("Sync to my calendar"), onPress: () => navigation.navigate("CalendarSync") }}>
           {evLoading ? (
             <ActivityIndicator color="#0891b2" style={{ paddingVertical: 16 }} />
           ) : events.length === 0 ? (
-            <Text style={s.emptyTxt}>No upcoming events</Text>
+            <Text style={s.emptyTxt}>{_t("No upcoming events")}</Text>
           ) : (
-            events.map((ev, i) => {
-              const isHol = ev.event_type === "holiday";
+            events.map((it, i) => {
+              const look = UPCOMING_STYLE[it.kind] ?? UPCOMING_STYLE.event;
+              const d = new Date(`${it.date}T00:00:00`);
+              const target = upcomingTarget(it, true);
+              const Row = target ? TouchableOpacity : View;
               return (
-                <View key={String(ev.event_id ?? i)} style={[s.evRow, i < events.length - 1 && s.evRowBorder]}>
-                  <View style={[s.evDateBox, { backgroundColor: isHol ? "#fef9c3" : "#e0f2fe" }]}>
-                    <Text style={[s.evDay,  { color: isHol ? "#b45309" : "#0369a1" }]}>
-                      {new Date(String(ev.event_date).replace(" ", "T")).getDate()}
-                    </Text>
-                    <Text style={[s.evMon,  { color: isHol ? "#b45309" : "#0369a1" }]}>
-                      {MONTHS[new Date(String(ev.event_date).replace(" ", "T")).getMonth()]}
-                    </Text>
+                <Row key={`${it.kind}-${it.event?.event_id ?? i}-${it.date}`} style={[s.evRow, i < events.length - 1 && s.evRowBorder]}
+                  {...(target ? { onPress: () => { try { navigation.navigate(target[0], target[1]); } catch { /* not available */ } }, activeOpacity: 0.7 } : {})}>
+                  <View style={[s.evDateBox, { backgroundColor: look.bg }]}>
+                    <Text style={[s.evDay, { color: look.color }]}>{d.getDate()}</Text>
+                    <Text style={[s.evMon, { color: look.color }]}>{_tx(MONTHS[d.getMonth()])}</Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={s.evTitle} numberOfLines={1}>{ev.event_title}</Text>
+                    <Text style={s.evTitle} numberOfLines={2}>{_tx(upcomingTitle(it))}</Text>
                     <View style={s.evBadges}>
-                      <View style={[s.evBadge, { backgroundColor: isHol ? "#fef9c3" : "#e0f2fe" }]}>
-                        <Text style={[s.evBadgeTxt, { color: isHol ? "#b45309" : "#0369a1" }]}>
-                          {isHol ? "Holiday" : "Event"}
-                        </Text>
+                      <View style={[s.evBadge, { backgroundColor: look.bg }]}>
+                        <Text style={[s.evBadgeTxt, { color: look.color }]}>{look.label}</Text>
                       </View>
-                      {!!ev.event_category && (
-                        <Text style={s.evCat}>{ev.event_category}</Text>
-                      )}
+                      {!!it.start && <Text style={s.evCat}>{fmtTime(it.start)}{it.end ? `–${fmtTime(it.end)}` : ""}</Text>}
+                      {!!it.end_date && it.end_date !== it.date && <Text style={s.evCat}>{_t("until {date}", { date: fmtLocalDate(it.end_date, "dayMonth") })}</Text>}
+                      {!!it.event?.event_category && <Text style={s.evCat}>{_tx(it.event.event_category)}</Text>}
+                      {!!it.where && !it.event && <Text style={s.evCat} numberOfLines={1}>{it.where}</Text>}
                     </View>
                   </View>
-                </View>
+                  {!!target && <Feather name="chevron-right" size={14} color="#cbd5e1" />}
+                </Row>
               );
             })
           )}

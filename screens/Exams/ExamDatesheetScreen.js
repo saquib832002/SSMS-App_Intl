@@ -25,6 +25,8 @@ import {
   fetchDatesheet, saveDatesheet, togglePublish, fetchAllDatesheets,
 } from "../../services/DatesheetServiceApi";
 
+import { fmtDate as fmtLocalDate , fmtTime as fmtLocalTime } from "../../services/Locale";
+import { _t, _th, _tx } from "../../services/i18n";
 // ── tiny helpers ──────────────────────────────────────────────────────────────
 
 const DAYS   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -56,8 +58,7 @@ function to24H(display, period) {
 
 function fmtDate(ymd) {
   if (!ymd) return null;
-  const d = new Date(ymd + "T00:00:00");
-  return `${DAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  return fmtLocalDate(ymd, "long");   // Region & formats
 }
 
 function today() {
@@ -132,7 +133,7 @@ function CalendarPicker({ visible, onClose, value, onChange, minDate }) {
               <Feather name="chevron-left" size={18} color="#1e40af" />
             </TouchableOpacity>
             <Text style={cal.navTxt}>
-              {MONTHS[viewMonth]} {viewYear}
+              {_tx(MONTHS[viewMonth])} {_tx(viewYear)}
             </Text>
             <TouchableOpacity onPress={nextMonth} style={cal.navBtn}>
               <Feather name="chevron-right" size={18} color="#1e40af" />
@@ -141,7 +142,7 @@ function CalendarPicker({ visible, onClose, value, onChange, minDate }) {
           {/* Day headers */}
           <View style={cal.row}>
             {DAYS.map(d => (
-              <Text key={d} style={cal.dayHead}>{d}</Text>
+              <Text key={d} style={cal.dayHead}>{_tx(d)}</Text>
             ))}
           </View>
           {/* Date grid */}
@@ -158,7 +159,7 @@ function CalendarPicker({ visible, onClose, value, onChange, minDate }) {
                     activeOpacity={0.75}
                   >
                     <Text style={[cal.cellTxt, selected && cal.cellTxtSel, disabled && cal.cellTxtDis]}>
-                      {day}
+                      {_tx(day)}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -166,7 +167,7 @@ function CalendarPicker({ visible, onClose, value, onChange, minDate }) {
             </View>
           ))}
           <TouchableOpacity style={cal.clearBtn} onPress={() => { onChange(null); onClose(); }}>
-            <Text style={cal.clearTxt}>Clear date</Text>
+            <Text style={cal.clearTxt}>{_t("Clear date")}</Text>
           </TouchableOpacity>
         </TouchableOpacity>
       </TouchableOpacity>
@@ -190,11 +191,11 @@ function DropdownPicker({ icon, label, value, displayValue, options, onSelect, p
       >
         <View style={dp.left}>
           <Feather name={icon} size={14} color="#64748b" />
-          <Text style={dp.rowLabel}>{label}</Text>
+          <Text style={dp.rowLabel}>{_tx(label)}</Text>
         </View>
         <View style={dp.right}>
           <Text style={[dp.rowValue, !displayValue && dp.rowPlaceholder]} numberOfLines={1}>
-            {displayValue || placeholder}
+            {_tx(displayValue) || _tx(placeholder)}
           </Text>
           {canOpen && <Feather name="chevron-down" size={15} color="#94a3b8" style={{ marginLeft: 4 }} />}
         </View>
@@ -203,7 +204,7 @@ function DropdownPicker({ icon, label, value, displayValue, options, onSelect, p
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={dp.overlay} activeOpacity={1} onPress={() => setOpen(false)}>
           <View style={dp.sheet}>
-            <Text style={dp.sheetTitle}>{placeholder}</Text>
+            <Text style={dp.sheetTitle}>{_tx(placeholder)}</Text>
             <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
               {options.map(opt => {
                 const active = opt.key === value;
@@ -213,7 +214,7 @@ function DropdownPicker({ icon, label, value, displayValue, options, onSelect, p
                     style={[dp.option, active && dp.optionActive]}
                     onPress={() => { onSelect(opt); setOpen(false); }}
                   >
-                    <Text style={[dp.optionTxt, active && dp.optionActiveTxt]}>{opt.label}</Text>
+                    <Text style={[dp.optionTxt, active && dp.optionActiveTxt]}>{_tx(opt.label)}</Text>
                     {active && <Feather name="check" size={14} color="#1e40af" />}
                   </TouchableOpacity>
                 );
@@ -258,13 +259,13 @@ function TimeField({ value24h, onChange24h, placeholder }) {
         value={display}
         onChangeText={setDisplay}
         onBlur={() => commit(display, period)}
-        placeholder={placeholder}
+        placeholder={_tx(placeholder)}
         placeholderTextColor="#cbd5e1"
         keyboardType="numbers-and-punctuation"
         maxLength={5}
       />
       <TouchableOpacity style={ss.ampmBtn} onPress={togglePeriod}>
-        <Text style={ss.ampmTxt}>{period}</Text>
+        <Text style={ss.ampmTxt}>{_tx(period)}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -282,7 +283,7 @@ function SubjectSlot({ item, onChange }) {
       {/* Subject name row */}
       <View style={ss.nameRow}>
         <View style={ss.subjectDot} />
-        <Text style={ss.subjectName}>{item.subject_name}</Text>
+        <Text style={ss.subjectName}>{_tx(item.subject_name)}</Text>
         {hasDate && <Feather name="check-circle" size={14} color="#16a34a" style={{ marginLeft: 4 }} />}
       </View>
 
@@ -290,7 +291,7 @@ function SubjectSlot({ item, onChange }) {
       <TouchableOpacity style={ss.field} onPress={() => setCalOpen(true)} activeOpacity={0.8}>
         <Feather name="calendar" size={14} color={hasDate ? "#1e40af" : "#94a3b8"} />
         <Text style={[ss.fieldTxt, !hasDate && ss.fieldPlaceholder]}>
-          {hasDate ? fmtDate(item.exam_date) : "Tap to set date"}
+          {hasDate ? fmtDate(item.exam_date) : _t("Tap to set date")}
         </Text>
         <Feather name="chevron-down" size={13} color="#94a3b8" />
       </TouchableOpacity>
@@ -298,14 +299,14 @@ function SubjectSlot({ item, onChange }) {
       {/* Time row — 12h with AM/PM toggles */}
       <View style={ss.timeRow}>
         <Feather name="clock" size={13} color="#64748b" style={{ marginRight: 6 }} />
-        <Text style={ss.timeLabel}>From</Text>
+        <Text style={ss.timeLabel}>{_t("From")}</Text>
         <TimeField
           value24h={item.start_time}
           onChange24h={v => onChange({ ...item, start_time: v })}
           placeholder="9:00"
         />
         <Text style={ss.timeSep}>–</Text>
-        <Text style={ss.timeLabel}>To</Text>
+        <Text style={ss.timeLabel}>{_t("To")}</Text>
         <TimeField
           value24h={item.end_time}
           onChange24h={v => onChange({ ...item, end_time: v })}
@@ -318,7 +319,7 @@ function SubjectSlot({ item, onChange }) {
         style={ss.venueInput}
         value={item.venue ?? ""}
         onChangeText={v => onChange({ ...item, venue: v })}
-        placeholder="Venue / Hall (optional)"
+        placeholder={_t("Venue / Hall (optional)")}
         placeholderTextColor="#cbd5e1"
       />
 
@@ -361,9 +362,12 @@ export default function ExamDatesheetScreen({ navigation }) {
   useFocusEffect(useCallback(() => {
     (async () => {
       try {
+        // Per-call catch: a 403 on one list must not leave the others empty
+        let loadErr = null;
+        const keep = (e) => { if (!loadErr) loadErr = e; return []; };
         const [ex, cl, br, se] = await Promise.all([
-          fetchExams(user),
-          fetchClasses(user),
+          fetchExams(user).catch(keep),
+          fetchClasses(user).catch(keep),
           fetchBranches(user).then(d => (Array.isArray(d?.data) ? d.data : Array.isArray(d) ? d : [])).catch(() => []),
           fetchSessions(user).then(d => (Array.isArray(d?.data) ? d.data : Array.isArray(d) ? d : [])).catch(() => []),
         ]);
@@ -382,8 +386,9 @@ export default function ExamDatesheetScreen({ navigation }) {
           const current = activeSessions.find(s => s.is_current === 'Y') ?? activeSessions[0];
           setSelectedSession(current);
         }
+        if (loadErr) Alert.alert(_t("Error"), _tx(loadErr.message) || _t("Failed to load data."));
       } catch (e) {
-        Alert.alert("Error", e.message || "Failed to load data.");
+        Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load data."));
       }
     })();
   }, [user]));
@@ -427,10 +432,10 @@ export default function ExamDatesheetScreen({ navigation }) {
         const result = await fetchDatesheet(
           user, selectedExam.exam_id, selectedClass.class_id, branchId, sessionId
         );
-        setEntries(result.entries ?? []);
-        setIsPublished(result.is_published ?? false);
+        setEntries(Array.isArray(result?.entries) ? result.entries : []);
+        setIsPublished(result?.is_published ?? false);
       } catch (e) {
-        Alert.alert("Error", e.message || "Failed to load date sheet.");
+        Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load date sheet."));
       } finally {
         setLoading(false);
       }
@@ -448,11 +453,11 @@ export default function ExamDatesheetScreen({ navigation }) {
   const handleSave = async () => {
     const filled = entries.filter(e => e.exam_date);
     if (!filled.length) {
-      Alert.alert("Nothing to save", "Please set at least one exam date.");
+      Alert.alert(_t("Nothing to save"), _t("Please set at least one exam date."));
       return;
     }
     if (!selectedSession) {
-      Alert.alert("No Session", "Please wait for session data to load or select a session.");
+      Alert.alert(_t("No Session"), _t("Please wait for session data to load or select a session."));
       return;
     }
     try {
@@ -464,9 +469,9 @@ export default function ExamDatesheetScreen({ navigation }) {
         session_id: sessionId,
         entries:    filled,
       });
-      Alert.alert("Saved", "Date sheet saved successfully.");
+      Alert.alert(_t("Saved"), _t("Date sheet saved successfully."));
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to save.");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to save."));
     } finally {
       setSaving(false);
     }
@@ -476,12 +481,12 @@ export default function ExamDatesheetScreen({ navigation }) {
   const handlePublish = async () => {
     const action = isPublished ? "Unpublish" : "Publish";
     Alert.alert(
-      `${action} Date Sheet`,
+      _t("{action} Date Sheet", { action }),
       isPublished
-        ? "Students will no longer see this date sheet."
-        : "Students and parents will be able to view this date sheet.",
+        ? _t("Students will no longer see this date sheet.")
+        : _t("Students and parents will be able to view this date sheet."),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
           text: action,
           style: isPublished ? "destructive" : "default",
@@ -490,9 +495,9 @@ export default function ExamDatesheetScreen({ navigation }) {
               setPublishing(true);
               const res = await togglePublish(user, selectedExam.exam_id, selectedClass.class_id, branchId, sessionId);
               setIsPublished(res.is_published ?? !isPublished);
-              Alert.alert("Done", res.message ?? `Date sheet ${action.toLowerCase()}ed.`);
+              Alert.alert(_t("Done"), _tx(res.message) ?? _t("Date sheet {v}ed.", { v: action.toLowerCase() }));
             } catch (e) {
-              Alert.alert("Error", e.message || "Failed.");
+              Alert.alert(_t("Error"), _tx(e.message) || _t("Failed."));
             } finally {
               setPublishing(false);
             }
@@ -505,14 +510,14 @@ export default function ExamDatesheetScreen({ navigation }) {
   // ── Print / PDF (landscape matrix: classes × dates) ──────────────────────
   const handlePrint = async () => {
     if (!selectedExam) {
-      Alert.alert("Select Exam", "Please select an exam first.");
+      Alert.alert(_t("Select Exam"), _t("Please select an exam first."));
       return;
     }
     try {
       setPrinting(true);
       const data = await fetchAllDatesheets(user, selectedExam.exam_id, branchId, sessionId);
-      if (!data.classes || data.classes.length === 0) {
-        Alert.alert("Nothing to print", "No published date sheets found for this exam.");
+      if (!Array.isArray(data?.classes) || data.classes.length === 0) {
+        Alert.alert(_t("Nothing to print"), _t("No published date sheets found for this exam."));
         return;
       }
 
@@ -522,16 +527,11 @@ export default function ExamDatesheetScreen({ navigation }) {
       const fmtDateShort = (ymd) => {
         if (!ymd) return "";
         const d = new Date(ymd + "T00:00:00");
-        return `${DAYS_SHORT[d.getDay()]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`;
+        return `${_tx(DAYS_SHORT[d.getDay()])} ${d.getDate()} ${_tx(MONTHS_SHORT[d.getMonth()])}`;
       };
       const fmtTime12 = (t24) => {
         if (!t24) return "";
-        const [hStr, mStr] = t24.split(":");
-        let h = parseInt(hStr, 10);
-        if (isNaN(h)) return "";
-        const ap = h >= 12 ? "PM" : "AM";
-        if (h === 0) h = 12; else if (h > 12) h -= 12;
-        return `${h}:${(mStr ?? "00").padStart(2,"0")} ${ap}`;
+        return fmtLocalTime(t24);   // the school's 12/24-hour setting and language
       };
 
       // ── build matrix data ──
@@ -600,7 +600,7 @@ export default function ExamDatesheetScreen({ navigation }) {
 
       const branchLabel  = selectedBranch?.branch_name  ?? "All Branches";
       const sessionLabel = selectedSession?.session_name ?? "All Sessions";
-      const generatedOn  = new Date().toLocaleDateString("en-GB", { day:"2-digit", month:"short", year:"numeric" });
+      const generatedOn  = fmtLocalDate(new Date(), "medium");
 
       const logoHtml = schoolInfo?.logo
         ? `<img src="${schoolInfo.logo}" style="width:60px;height:60px;object-fit:contain;"/>`
@@ -704,14 +704,14 @@ export default function ExamDatesheetScreen({ navigation }) {
   </div>
 </body></html>`;
 
-      const { uri } = await Print.printToFileAsync({ html, base64: false });
+      const { uri } = await Print.printToFileAsync({ html: _th(html), base64: false });
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, { mimeType: "application/pdf", dialogTitle: `${data.exam_name} Date Sheet` });
+        await Sharing.shareAsync(uri, { mimeType: "application/pdf", dialogTitle: _t("{exam_name} Date Sheet", { exam_name: data.exam_name }) });
       } else {
-        Alert.alert("PDF saved", uri);
+        Alert.alert(_t("PDF saved"), _tx(uri));
       }
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to generate PDF.");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to generate PDF."));
     } finally {
       setPrinting(false);
     }
@@ -731,7 +731,7 @@ export default function ExamDatesheetScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={st.backBtn}>
           <Feather name="arrow-left" size={20} color="#1e40af" />
         </TouchableOpacity>
-        <Text style={st.headerTitle}>Exam Date Sheet</Text>
+        <Text style={st.headerTitle}>{_t("Exam Date Sheet")}</Text>
         <TouchableOpacity
           style={[st.printBtn, printing && { opacity: 0.5 }]}
           onPress={handlePrint}
@@ -748,7 +748,7 @@ export default function ExamDatesheetScreen({ navigation }) {
         >
           {saving
             ? <ActivityIndicator size="small" color="#fff" />
-            : <Text style={st.saveBtnTxt}>Save</Text>}
+            : <Text style={st.saveBtnTxt}>{_t("Save")}</Text>}
         </TouchableOpacity>
       </View>
 
@@ -758,20 +758,20 @@ export default function ExamDatesheetScreen({ navigation }) {
         <View style={st.filterCard}>
           <DropdownPicker
             icon="file-text"
-            label="Exam"
+            label={_t("Exam")}
             value={selectedExam?.exam_id}
             displayValue={selectedExam?.exam_name}
-            placeholder="Select Exam"
+            placeholder={_t("Select Exam")}
             options={exams.map(e => ({ key: e.exam_id, label: e.exam_name, data: e }))}
             onSelect={opt => setSelectedExam(opt.data)}
           />
           <View style={st.filterDivider} />
           <DropdownPicker
             icon="layers"
-            label="Grade / Class"
+            label={_t("Grade / Class")}
             value={selectedClass?.class_id}
             displayValue={selectedClass?.class_name}
-            placeholder="Select Class"
+            placeholder={_t("Select Class")}
             options={classes.map(c => ({ key: c.class_id, label: c.class_name, data: c }))}
             onSelect={opt => setSelectedClass(opt.data)}
           />
@@ -780,12 +780,12 @@ export default function ExamDatesheetScreen({ navigation }) {
               <View style={st.filterDivider} />
               <DropdownPicker
                 icon="git-branch"
-                label="Branch"
+                label={_t("Branch")}
                 value={selectedBranch?.branch_id ?? 0}
                 displayValue={selectedBranch?.branch_name ?? "All Branches"}
-                placeholder="Select Branch"
+                placeholder={_t("Select Branch")}
                 options={[
-                  { key: 0, label: "All Branches", data: null },
+                  { key: 0, label: _t("All Branches"), data: null },
                   ...branches.map(b => ({ key: b.branch_id, label: b.branch_name, data: b })),
                 ]}
                 onSelect={opt => setSelectedBranch(opt.data)}
@@ -797,10 +797,10 @@ export default function ExamDatesheetScreen({ navigation }) {
               <View style={st.filterDivider} />
               <DropdownPicker
                 icon="calendar"
-                label="Session"
+                label={_t("Session")}
                 value={selectedSession?.session_id}
                 displayValue={selectedSession?.session_name}
-                placeholder="Select Session"
+                placeholder={_t("Select Session")}
                 options={sessions.map(s => ({ key: s.session_id, label: s.session_name, data: s }))}
                 onSelect={opt => setSelectedSession(opt.data)}
               />
@@ -813,11 +813,9 @@ export default function ExamDatesheetScreen({ navigation }) {
           <View style={st.statusBar}>
             <View style={[st.statusDot, { backgroundColor: isPublished ? "#16a34a" : "#f59e0b" }]} />
             <Text style={st.statusTxt}>
-              {isPublished ? "Published — visible to students" : "Draft — not visible to students"}
+              {isPublished ? _t("Published — visible to students") : _t("Draft — not visible to students")}
             </Text>
-            <Text style={st.statusCount}>
-              {datesSet}/{totalSubj} set
-            </Text>
+            <Text style={st.statusCount}>{_t("{datesSet}/{totalSubj} set", { datesSet, totalSubj })}</Text>
           </View>
         )}
 
@@ -830,8 +828,8 @@ export default function ExamDatesheetScreen({ navigation }) {
               <Feather name="alert-circle" size={32} color="#94a3b8" />
               <Text style={st.emptyTxt}>
                 {selectedExam && selectedClass
-                  ? "No subjects assigned to this class.\nGo to Setup → Class Subjects to add subjects."
-                  : "Select an exam and class to start."}
+                  ? _t("No subjects assigned to this class.\nGo to Setup → Class Subjects to add subjects.")
+                  : _t("Select an exam and class to start.")}
               </Text>
             </View>
           ) : (
@@ -864,15 +862,13 @@ export default function ExamDatesheetScreen({ navigation }) {
                     style={{ marginRight: 8 }}
                   />
                   <Text style={st.publishBtnTxt}>
-                    {isPublished ? "Unpublish Date Sheet" : "Publish to Students"}
+                    {isPublished ? _t("Unpublish Date Sheet") : _t("Publish to Students")}
                   </Text>
                 </>
               )}
             </TouchableOpacity>
             {!allSet && !isPublished && (
-              <Text style={st.publishHint}>
-                Save all {totalSubj} subject dates before publishing.
-              </Text>
+              <Text style={st.publishHint}>{_t("Save all {totalSubj} subject dates before publishing.", { totalSubj })}</Text>
             )}
           </View>
         )}

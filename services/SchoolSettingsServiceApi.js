@@ -1,5 +1,6 @@
 import { BASE_URL } from "../Environment/EnvironmentConfig";
 import { safeFetch } from "./apiInterceptor";
+import { _t } from "./i18n";
 
 const buildHeaders = (user) => ({
   Accept:         "application/json",
@@ -55,7 +56,7 @@ export const fetchSchoolSettings = async (user) => {
     headers: { ...buildHeaders(user), Accept: "application/json" },
   });
   const json = await res.json();
-  if (!json.status) throw new Error(json.message ?? "Failed to load settings");
+  if (!json.status) throw new Error(json.message ?? _t("Failed to load settings"));
   return json.data;
 };
 
@@ -91,7 +92,7 @@ export const saveSchoolSettings = async (user, payload, signatureAsset = null) =
     body:    form,
   });
   const json = await res.json();
-  if (!json.status) throw new Error(json.message ?? "Failed to save settings");
+  if (!json.status) throw new Error(json.message ?? _t("Failed to save settings"));
   return json;
 };
 
@@ -105,7 +106,7 @@ export const fetchIdCardConfig = async (user) => {
     headers: { ...buildHeaders(user), Accept: "application/json" },
   });
   const json = await res.json();
-  if (!json.status) throw new Error(json.message ?? "Failed to load ID card config");
+  if (!json.status) throw new Error(json.message ?? _t("Failed to load ID card config"));
   return { ...ID_CARD_CONFIG_DEFAULTS, ...json.config };
 };
 
@@ -126,6 +127,6 @@ export const saveIdCardConfig = async (user, config) => {
     body:    form,
   });
   const json = await res.json();
-  if (!json.status) throw new Error(json.message ?? "Failed to save ID card config");
+  if (!json.status) throw new Error(json.message ?? _t("Failed to save ID card config"));
   return json;
 };

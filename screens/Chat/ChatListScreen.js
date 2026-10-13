@@ -31,7 +31,7 @@ const C = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function initials(name = '') {
-  return name
+  return (name ?? '')
     .split(' ')
     .filter(Boolean)
     .slice(0, 2)
@@ -44,18 +44,18 @@ function roleLabel(role = '') {
     admin: 'Admin', owner: 'Owner', teacher: 'Teacher',
     accountant: 'Accountant', user: 'Staff', student: 'Student',
   };
-  return map[role.toLowerCase()] ?? role;
+  return map[(role ?? '').toLowerCase()] ?? role;
 }
 
 // ── Avatar ────────────────────────────────────────────────────────────────────
 function Avatar({ name, isOnline, size = 46 }) {
   const init   = initials(name);
-  const hue    = (name.charCodeAt(0) ?? 65) % 360;
+  const hue    = ((name ?? '').charCodeAt(0) || 65) % 360;
   const bgColor = `hsl(${hue}, 55%, 50%)`;
   return (
     <View style={{ width: size, height: size }}>
       <View style={[S.avatarCircle, { width: size, height: size, borderRadius: size / 2, backgroundColor: bgColor }]}>
-        <Text style={[S.avatarTxt, { fontSize: size * 0.38 }]}>{init}</Text>
+        <Text style={[S.avatarTxt, { fontSize: size * 0.38 }]}>{_tx(init)}</Text>
       </View>
       <View style={[S.onlineDot, isOnline ? S.dotOnline : S.dotOffline]} />
     </View>
@@ -68,7 +68,7 @@ function UserRow({ item, onPress }) {
     <TouchableOpacity style={S.row} onPress={() => onPress(item)} activeOpacity={0.7}>
       <Avatar name={item.display_name} isOnline={!!item.is_online} />
       <View style={S.rowMid}>
-        <Text style={S.rowName} numberOfLines={1}>{item.display_name}</Text>
+        <Text style={S.rowName} numberOfLines={1}>{_tx(item.display_name)}</Text>
         <View style={S.rowSub}>
           <Feather
             name="circle"
@@ -77,7 +77,7 @@ function UserRow({ item, onPress }) {
             style={{ marginRight: 4, marginTop: 1 }}
           />
           <Text style={[S.rowStatus, { color: item.is_online ? C.online : C.offline }]}>
-            {item.is_online ? 'Online' : 'Offline'}
+            {item.is_online ? _t("Online") : _t("Offline")}
           </Text>
           <Text style={S.rowDot}> · </Text>
           <Text style={S.rowRole}>{roleLabel(item.role)}</Text>
@@ -86,7 +86,7 @@ function UserRow({ item, onPress }) {
       {item.unread_count > 0 && (
         <View style={S.badge}>
           <Text style={S.badgeTxt}>
-            {item.unread_count > 99 ? '99+' : item.unread_count}
+            {item.unread_count > 99 ? '99+' : _tx(item.unread_count)}
           </Text>
         </View>
       )}
@@ -99,10 +99,10 @@ function UserRow({ item, onPress }) {
 function SectionHead({ label, count }) {
   return (
     <View style={S.sectionHead}>
-      <Text style={S.sectionTxt}>{label}</Text>
+      <Text style={S.sectionTxt}>{_tx(label)}</Text>
       {count != null && (
         <View style={S.sectionBadge}>
-          <Text style={S.sectionBadgeTxt}>{count}</Text>
+          <Text style={S.sectionBadgeTxt}>{_tx(count)}</Text>
         </View>
       )}
     </View>
@@ -117,15 +117,21 @@ export default function ChatListScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search,  setSearch]  = useState('');
+  const [loadErr, setLoadErr] = useState(null);
+  const failedRef = useRef(false);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else           setLoading(true);
     try {
       const data = await fetchChatUsers(user);
-      setUsers(data);
+      setUsers(Array.isArray(data) ? data : []);
+      failedRef.current = false;
+      setLoadErr(null);
     } catch (e) {
       console.warn('[ChatList] load error', e.message);
+      failedRef.current = true;
+      setLoadErr(e.message || null);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -135,7 +141,8 @@ export default function ChatListScreen({ navigation }) {
   useEffect(() => {
     load();
     // Refresh list every 15 s so online status stays current
-    const t = setInterval(() => load(true), 15_000);
+    // (skipped after a failed load, e.g. no permission – pull to refresh retries)
+    const t = setInterval(() => { if (!failedRef.current) load(true); }, 15_000);
     return () => clearInterval(t);
   }, [load]);
 
@@ -151,8 +158,8 @@ export default function ChatListScreen({ navigation }) {
   // Filter by search
   const filtered = search.trim()
     ? users.filter(u =>
-        u.display_name.toLowerCase().includes(search.toLowerCase()) ||
-        u.username.toLowerCase().includes(search.toLowerCase())
+        (u.display_name ?? '').toLowerCase().includes(search.toLowerCase()) ||
+        (u.username ?? '').toLowerCase().includes(search.toLowerCase())
       )
     : users;
 
@@ -162,17 +169,17 @@ export default function ChatListScreen({ navigation }) {
   // Flatten into a single list with section headers
   const listData = [];
   if (onlineUsers.length) {
-    listData.push({ type: 'header', key: 'h-online',  label: 'Online Now', count: onlineUsers.length });
+    listData.push({ type: 'header', key: 'h-online',  label: _t("Online Now"), count: onlineUsers.length });
     onlineUsers.forEach(u  => listData.push({ type: 'user', ...u, key: `u-${u.username}` }));
   }
   if (offlineUsers.length) {
-    listData.push({ type: 'header', key: 'h-offline', label: 'Offline',    count: offlineUsers.length });
+    listData.push({ type: 'header', key: 'h-offline', label: _t("Offline"),    count: offlineUsers.length });
     offlineUsers.forEach(u => listData.push({ type: 'user', ...u, key: `u-${u.username}` }));
   }
 
   const renderItem = ({ item }) => {
     if (item.type === 'header') {
-      return <SectionHead label={item.label} count={item.count} />;
+      return <SectionHead label={_tx(item.label)} count={item.count} />;
     }
     return <UserRow item={item} onPress={openChat} />;
   };
@@ -193,10 +200,8 @@ export default function ChatListScreen({ navigation }) {
           <Feather name="arrow-left" size={22} color="#fff" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={S.headerTitle}>Messages</Text>
-          <Text style={S.headerSub}>
-            {onlineUsers.length} online · {users.length} total
-          </Text>
+          <Text style={S.headerTitle}>{_t("Messages")}</Text>
+          <Text style={S.headerSub}>{_t("{length} online · {length2} total", { length: onlineUsers.length, length2: users.length })}</Text>
         </View>
       </View>
 
@@ -209,7 +214,7 @@ export default function ChatListScreen({ navigation }) {
       {listData.length === 0 ? (
         <View style={S.center}>
           <Feather name="users" size={48} color={C.border} />
-          <Text style={S.emptyTxt}>No users found</Text>
+          <Text style={S.emptyTxt}>{_tx(loadErr) || _t("No users found")}</Text>
         </View>
       ) : (
         <FlatList
@@ -228,13 +233,14 @@ export default function ChatListScreen({ navigation }) {
 
 // ── Inline TextInput (avoids import clutter above) ────────────────────────────
 import { TextInput } from 'react-native';
+import { _t, _tx } from "../../services/i18n";
 function SearchInput({ value, onChange }) {
   return (
     <TextInput
       style={S.searchTxt}
       value={value}
       onChangeText={onChange}
-      placeholder="Search people…"
+      placeholder={_t("Search people…")}
       placeholderTextColor={C.offline}
       returnKeyType="search"
       clearButtonMode="while-editing"

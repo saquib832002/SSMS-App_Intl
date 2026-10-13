@@ -4,6 +4,7 @@
  */
 import { BASE_URL } from "../Environment/EnvironmentConfig";
 import { safeFetch } from "./apiInterceptor";
+import { _t } from "./i18n";
 
 const buildHeaders = (user) => ({
   Accept:         "application/json",
@@ -19,7 +20,7 @@ const buildHeaders = (user) => ({
 const handleResponse = async (res) => {
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.status === false)
-    throw new Error(json.message ?? `HTTP ${res.status}`);
+    throw new Error(json.message ?? _t("HTTP {status}", { status: res.status }));
   return json;
 };
 

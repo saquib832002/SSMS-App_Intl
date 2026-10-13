@@ -604,7 +604,7 @@ class LibraryProgramApiController extends AppController
             return;
         }
 
-        $readDate = $this->dateOrNull($body, 'read_date') ?? date('Y-m-d');
+        $readDate = $this->dateOrNull($body, 'read_date') ?? $this->schoolToday();
 
         // The same book logged twice against one programme inflates progress and
         // is nearly always a double-tap rather than a genuine reread.

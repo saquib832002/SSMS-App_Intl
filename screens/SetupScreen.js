@@ -8,86 +8,92 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { AuthContext } from "../context/AuthContext";
 import { useFeatureLock, LockBadge } from "../components/FeatureLock";
+import { ROUTE_MODULES, ROUTE_KIND } from "../constants/RouteModules";
+import { _t, _tx } from "../services/i18n";
 
 // ── Menu structure ────────────────────────────────────────────────────────────
 const SECTIONS = [
   {
     id:          "school",
-    label:       "School Setup",
-    description: "Branches, sessions, classes and users",
+    get label() { return _t("School Setup"); },
+    get description() { return _t("Branches, sessions, classes and users"); },
     icon:        "settings",
     accent:      "#1d4ed8",
     tint:        "#dbeafe",
     items: [
-      { label: "School Settings",    screen: "SchoolSettings",    icon: "sliders",    desc: "Working days, session & timings"    },
-      { label: "ID Card Layout",     screen: "IdCardSettings",    icon: "credit-card", desc: "Choose fields shown on student ID cards" },
-      { label: "Institute Details",  screen: "InstituteDetails",  icon: "home",       desc: "Institute profile & logo"           },
-      { label: "Branches",           screen: "BranchSetup",       icon: "git-branch", desc: "Manage school branches"             },
-      { label: "Sessions",           screen: "SessionSetup",      icon: "calendar",   desc: "Academic year sessions"             },
-      { label: "Classes",            screen: "ClassSetup",        icon: "book-open",  desc: "Grade & class management"           },
-      { label: "Sections",           screen: "SectionSetup",      icon: "layers",     desc: "Section & staff assignment"         },
-      { label: "Users",              screen: "UserSetup",         icon: "users",      desc: "Roles & access control"             },
-      { label: "Staff Categories",   screen: "StaffCategory",     icon: "tag",        desc: "Manage staff categories"            },
-      { label: "Subjects",           screen: "SubjectSetup",      icon: "book",       desc: "School-wide subject catalogue"      },
-      { label: "Class Subjects",     screen: "ClassSubject",      icon: "copy",       desc: "Assign subjects to classes"         },
+      { get label() { return _t("School Settings"); },    screen: "SchoolSettings",    icon: "sliders",    get desc() { return _t("Working days, session & timings"); }    },
+      { get label() { return _t("Region & Formats"); },   screen: "RegionFormats",     icon: "globe",      get desc() { return _t("Currency, dates, time zone, tax name"); } },
+      { get label() { return _t("Notifications"); },      screen: "NotificationSettings", icon: "bell",    get desc() { return _t("Absence, homework, notices, fees, results – phone & e-mail"); } },
+      { get label() { return _t("ID Card Layout"); },     screen: "IdCardSettings",    icon: "credit-card", get desc() { return _t("Choose fields shown on student ID cards"); } },
+      { get label() { return _t("Institute Details"); },  screen: "InstituteDetails",  icon: "home",       get desc() { return _t("Institute profile & logo"); }           },
+      { get label() { return _t("Branches"); },           screen: "BranchSetup",       icon: "git-branch", get desc() { return _t("Manage school branches"); }             },
+      { get label() { return _t("Sessions"); },           screen: "SessionSetup",      icon: "calendar",   get desc() { return _t("Academic year sessions"); }             },
+      { get label() { return _t("Classes"); },            screen: "ClassSetup",        icon: "book-open",  get desc() { return _t("Grade & class management"); }           },
+      { get label() { return _t("Sections"); },           screen: "SectionSetup",      icon: "layers",     get desc() { return _t("Section & staff assignment"); }         },
+      { get label() { return _t("Student Fields"); },     screen: "StudentFields",     icon: "list",       get desc() { return _t("Extra fields your school keeps per student"); } },
+      { get label() { return _t("Users"); },              screen: "UserSetup",         icon: "users",      get desc() { return _t("Roles & access control"); }             },
+      { get label() { return _t("Staff Categories"); },   screen: "StaffCategory",     icon: "tag",        get desc() { return _t("Manage staff categories"); }            },
+      { get label() { return _t("Subjects"); },           screen: "SubjectSetup",      icon: "book",       get desc() { return _t("School-wide subject catalogue"); }      },
+      { get label() { return _t("Class Subjects"); },     screen: "ClassSubject",      icon: "copy",       get desc() { return _t("Assign subjects to classes"); }         },
       // { label: "Max Marks",          screen: "SubjectMaxMarks",   icon: "edit-3",     desc: "Define max marks per subject"       },
-      { label: "Periods",            screen: "PeriodSetup",       icon: "clock",      desc: "Define school periods & breaks"     },
-      { label: "Timetable",          screen: "Timetable",         icon: "grid",       desc: "Manage class timetable"             },
-      { label: "Teacher Schedule",   screen: "TeacherTimetable",  icon: "user",       desc: "Teacher's weekly schedule"          },
-      { label: "Master Timetable",   screen: "MasterTimetable",   icon: "align-left", desc: "School-wide schedule overview"      },
+      { get label() { return _t("Periods"); },            screen: "PeriodSetup",       icon: "clock",      get desc() { return _t("Define school periods & breaks"); }     },
+      { get label() { return _t("Timetable"); },          screen: "Timetable",         icon: "grid",       get desc() { return _t("Manage class timetable"); }             },
+      { get label() { return _t("Teacher Schedule"); },   screen: "TeacherTimetable",  icon: "user",       get desc() { return _t("Teacher's weekly schedule"); }          },
+      { get label() { return _t("Master Timetable"); },   screen: "MasterTimetable",   icon: "align-left", get desc() { return _t("School-wide schedule overview"); }      },
     ],
   },
   {
     id:          "hostel",
-    label:       "Hostel",
-    description: "Buildings, rooms, seats and enrollments",
+    get label() { return _t("Hostel"); },
+    get description() { return _t("Buildings, rooms, seats and enrollments"); },
     icon:        "home",
     accent:      "#065f46",
     tint:        "#d1fae5",
     items: [
-      { label: "Buildings", screen: "HostelBuildings", icon: "grid", desc: "Buildings → Rooms → Seats" },
+      { get label() { return _t("Buildings"); }, screen: "HostelBuildings", icon: "grid", get desc() { return _t("Buildings → Rooms → Seats"); } },
     ],
   },
   {
     id:          "fees",
-    label:       "Fee Management",
-    description: "Structure, collection and reporting",
+    get label() { return _t("Fee Management"); },
+    get description() { return _t("Structure, collection and reporting"); },
     icon:        "dollar-sign",
     accent:      "#92400e",
     tint:        "#fef3c7",
     financeOnly: true,
     items: [
-      { label: "Fee Items",       screen: "FeeItem",                icon: "tag",          desc: "Define fee categories"   },
-      { label: "Class Fees",      screen: "ClassFeeStructure",      icon: "list",         desc: "Fee structure by class"  },
-      { label: "Hostel Fees",     screen: "HostelFeeStructure",     icon: "home",         desc: "Hostel fee structure"    },
-      { label: "Transport Fees",  screen: "TransportFeeStructure",  icon: "truck",        desc: "Transport fee structure" },
-      { label: "Demand Slip",     screen: "FeeDemandSlip",          icon: "file-text",    desc: "Generate demand slips"   },
-      { label: "Approvals",       screen: "FeeCollectionApproval",  icon: "check-circle", desc: "Approve collections"     },
+      { get label() { return _t("Fee Items"); },       screen: "FeeItem",                icon: "tag",          get desc() { return _t("Define fee categories"); }   },
+      { get label() { return _t("Class Fees"); },      screen: "ClassFeeStructure",      icon: "list",         get desc() { return _t("Fee structure by class"); }  },
+      { get label() { return _t("Hostel Fees"); },     screen: "HostelFeeStructure",     icon: "home",         get desc() { return _t("Hostel fee structure"); }    },
+      { get label() { return _t("Transport Fees"); },  screen: "TransportFeeStructure",  icon: "truck",        get desc() { return _t("Transport fee structure"); } },
+      { get label() { return _t("Demand Slip"); },     screen: "FeeDemandSlip",          icon: "file-text",    get desc() { return _t("Generate demand slips"); }   },
+      { get label() { return _t("Approvals"); },       screen: "FeeCollectionApproval",  icon: "check-circle", get desc() { return _t("Approve collections"); }     },
+      { get label() { return _t("Online Payments"); }, screen: "OnlinePayments",         icon: "credit-card",  get desc() { return _t("Parents pay fees online"); } },
     ],
   },
   {
     id:          "exams",
-    label:       "Examinations",
-    description: "Question bank and question paper generation",
+    get label() { return _t("Examinations"); },
+    get description() { return _t("Question bank and question paper generation"); },
     icon:        "file-text",
     accent:      "#7c3aed",
     tint:        "#ede9fe",
     items: [
-      { label: "Question Bank",    screen: "QuestionBank",    icon: "database",  desc: "Add & manage reusable questions"        },
-      { label: "Chapters",         screen: "ChapterManage",   icon: "book",      desc: "Manage chapters for chapter-wise tests" },
-      { label: "Question Papers",  screen: "PaperList",       icon: "file-text", desc: "Build, preview & export papers"          },
-      { label: "Test Series",      screen: "TestSeriesManage", icon: "layers",    desc: "Create & manage online test series"      },
+      { get label() { return _t("Question Bank"); },    screen: "QuestionBank",    icon: "database",  get desc() { return _t("Add & manage reusable questions"); }        },
+      { get label() { return _t("Chapters"); },         screen: "ChapterManage",   icon: "book",      get desc() { return _t("Manage chapters for chapter-wise tests"); } },
+      { get label() { return _t("Question Papers"); },  screen: "PaperList",       icon: "file-text", get desc() { return _t("Build, preview & export papers"); }          },
+      { get label() { return _t("Test Series"); },      screen: "TestSeriesManage", icon: "layers",    get desc() { return _t("Create & manage online test series"); }      },
     ],
   },
   {
     id:          "guides",
-    label:       "References & Guides",
-    description: "Role permissions and system documentation",
+    get label() { return _t("References & Guides"); },
+    get description() { return _t("Role permissions and system documentation"); },
     icon:        "book-open",
     accent:      "#475569",
     tint:        "#f1f5f9",
     items: [
-      { label: "Role Guide", screen: "RoleGuide", icon: "shield", desc: "What each role can access" },
+      { get label() { return _t("Role Guide"); }, screen: "RoleGuide", icon: "shield", get desc() { return _t("What each role can access"); } },
     ],
   },
 ];
@@ -100,11 +106,11 @@ function SectionHeader({ section }) {
         <Feather name={section.icon} size={18} color={section.accent} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={sc.sectionLabel}>{section.label}</Text>
-        <Text style={sc.sectionDesc}>{section.description}</Text>
+        <Text style={sc.sectionLabel}>{_tx(section.label)}</Text>
+        <Text style={sc.sectionDesc}>{_tx(section.description)}</Text>
       </View>
       <View style={sc.sectionCountBadge}>
-        <Text style={sc.sectionCountTxt}>{section.items.length}</Text>
+        <Text style={sc.sectionCountTxt}>{_tx(section.items.length)}</Text>
       </View>
     </View>
   );
@@ -125,7 +131,7 @@ function ItemTile({ item, section, navigation }) {
         {locked && <LockBadge />}
       </View>
       <Text style={[sc.tileLabel, locked && { color: "#94a3b8" }]} numberOfLines={2}>
-        {item.label}
+        {_tx(item.label)}
       </Text>
     </TouchableOpacity>
   );
@@ -152,15 +158,17 @@ function Section({ section, navigation }) {
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function SetUpScreen({ navigation }) {
-  const { user } = useContext(AuthContext);
+  const { user, can } = useContext(AuthContext);
   const role = (user?.ssmsUserRole ?? user?.role ?? '').toLowerCase().trim();
   const isAccountant        = role === 'accountant';
   const isAccountantOrOwner = role === 'accountant' || role === 'owner';
 
+  // Roles & permissions: hide items the person's role can't open
+  const allowed = (screen) => { const m = ROUTE_MODULES[screen]; return !m || !can || can(m, ROUTE_KIND[screen] ?? "view"); };
   const visibleSections = SECTIONS.filter(s => {
     if (isAccountant) return s.financeOnly === true;
     return !s.financeOnly || isAccountantOrOwner;
-  });
+  }).map(s => ({ ...s, items: s.items.filter(i => allowed(i.screen)) })).filter(s => s.items.length > 0);
 
   return (
     <SafeAreaView style={sc.safe} edges={["bottom"]}>

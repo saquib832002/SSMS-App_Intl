@@ -809,7 +809,7 @@ class LibraryFacilityApiController extends AppController
                 "UPDATE lib_computer_bookings
                  SET status = 'Cancelled', notes = CONCAT(COALESCE(notes, ''), ?)
                  WHERE id = ? AND ssms_client_code = ?",
-                ["\n" . date('Y-m-d') . ' — cancelled' . ($reason ? ': ' . $reason : ''), $bookingId, $clientCode]
+                ["\n" . $this->schoolToday() . ' — cancelled' . ($reason ? ': ' . $reason : ''), $bookingId, $clientCode]
             );
 
             if ($bk['status'] === 'Active') {

@@ -18,6 +18,7 @@ import { AuthContext } from "../../context/AuthContext";
 import { fetchExams, fetchClassMarksMatrix, fetchSchoolInfo } from "../../services/ExamServiceApi";
 import { fetchBranches, fetchClasses, fetchSections, fetchSessions } from "../../services/SetupServiceApi";
 import { BASE_URL, HOST_NAME } from "../../Environment/EnvironmentConfig";
+import { _t, _th, _tx } from "../../services/i18n";
 
 const PURPLE  = "#6b21a8";
 const SNO_W   = 36;   // serial number column
@@ -39,7 +40,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
         activeOpacity={0.75}
       >
         <Text style={[S.ddTxt, !sel?.value && S.ddPh]} numberOfLines={1}>
-          {loading ? "Loading…" : (sel?.label ?? label)}
+          {loading ? _t("Loading…") : (_tx(sel?.label) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={13} color="#94a3b8" />
       </TouchableOpacity>
@@ -47,7 +48,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
         <TouchableOpacity style={S.ddOverlay} activeOpacity={1} onPress={() => setOpen(false)}>
           <View style={S.ddSheet}>
             <View style={S.ddHead}>
-              <Text style={S.ddTitle}>{label}</Text>
+              <Text style={S.ddTitle}>{_tx(label)}</Text>
               <TouchableOpacity onPress={() => setOpen(false)} style={S.ddClose}>
                 <Feather name="x" size={14} color="#64748b" />
               </TouchableOpacity>
@@ -61,7 +62,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[S.ddOptTxt, String(o.value) === String(value) && S.ddOptTxtAct]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) &&
                     <Feather name="check" size={13} color={PURPLE} />}
@@ -400,7 +401,7 @@ export default function StudentMarksScreen({ navigation }) {
     setSelClass(""); setSelSection(""); setSelExam(""); setSubjects([]); setStudents([]);
     setLoadingClasses(true);
     fetchClasses(user, selBranch || null)
-      .then(d => setClasses([{ label: "Select Class", value: "" }, ...(d ?? []).map(c => ({ label: c.class_name, value: String(c.class_id) }))]))
+      .then(d => setClasses([{ label: _t("Select Class"), value: "" }, ...(d ?? []).map(c => ({ label: c.class_name, value: String(c.class_id) }))]))
       .catch(() => {}).finally(() => setLoadingClasses(false));
   }, [selBranch]);
 
@@ -419,7 +420,7 @@ export default function StudentMarksScreen({ navigation }) {
 
     setLoadingExams(true);
     fetchExams(user)
-      .then(d => setExams([{ label: "Select Exam", value: "" }, ...(d ?? []).map(e => ({ label: e.exam_name, value: String(e.exam_id) }))]))
+      .then(d => setExams([{ label: _t("Select Exam"), value: "" }, ...(d ?? []).map(e => ({ label: e.exam_name, value: String(e.exam_id) }))]))
       .catch(() => {}).finally(() => setLoadingExams(false));
   }, [selClass]);
 
@@ -427,7 +428,7 @@ export default function StudentMarksScreen({ navigation }) {
   const handleSearch = useCallback(async () => {
     if (!user) return;
     if (!selClass || !selExam) {
-      Alert.alert("Required", "Please select a Class and Exam.");
+      Alert.alert(_t("Required"), _t("Please select a Class and Exam."));
       return;
     }
     setLoadingMatrix(true);
@@ -440,13 +441,15 @@ export default function StudentMarksScreen({ navigation }) {
         sectionId: selSection  || null,
         branchId:  selBranch   || null,
       });
-      if (!stus.length) {
-        Alert.alert("No Data", "No marks found for the selected filters.");
+      const subList = Array.isArray(subs) ? subs : [];
+      const stuList = Array.isArray(stus) ? stus : [];
+      if (!stuList.length) {
+        Alert.alert(_t("No Data"), _t("No marks found for the selected filters."));
       }
-      setSubjects(subs);
-      setStudents(stus);
+      setSubjects(subList);
+      setStudents(stuList);
     } catch (err) {
-      Alert.alert("Error", err.message ?? "Could not load marks.");
+      Alert.alert(_t("Error"), _tx(err.message) ?? _t("Could not load marks."));
     } finally {
       setLoadingMatrix(false);
     }
@@ -468,7 +471,7 @@ export default function StudentMarksScreen({ navigation }) {
       const sectionName = sections.find(s => String(s.value) === String(selSection))?.label ?? "";
       const html = buildMatrixHTML(subjectCols, students, examName, schoolInfo, className, sectionName);
       const { uri } = await Print.printToFileAsync({
-        html,
+        html: _th(html),
         base64: false,
         // Zero top/bottom margins so the header starts at the very top of the page
         // and more rows fit per page (left/right handled by the CSS @page rule above)
@@ -477,10 +480,10 @@ export default function StudentMarksScreen({ navigation }) {
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, { mimeType: "application/pdf", dialogTitle: "Export Marks Sheet" });
       } else {
-        Alert.alert("Exported", `PDF saved:\n${uri}`);
+        Alert.alert(_t("Exported"), _t("PDF saved:\n{uri}", { uri }));
       }
     } catch (err) {
-      Alert.alert("Export Failed", err.message ?? "Could not generate PDF.");
+      Alert.alert(_t("Export Failed"), _tx(err.message) ?? _t("Could not generate PDF."));
     } finally {
       setExporting(false);
     }
@@ -501,10 +504,10 @@ export default function StudentMarksScreen({ navigation }) {
         if (m.practical_max > 0) hasPractical = true;
       });
       const cols = [];
-      if (hasTheory)    cols.push({ key: 'theory',    label: 'Th',  max_key: 'theory_max'    });
-      if (hasInternal)  cols.push({ key: 'internal',  label: 'Int', max_key: 'internal_max'  });
-      if (hasPractical) cols.push({ key: 'practical', label: 'Pr',  max_key: 'practical_max' });
-      if (!cols.length) cols.push({ key: 'total',     label: 'Marks', max_key: 'max'         });
+      if (hasTheory)    cols.push({ key: 'theory',    label: _t("Th"),  max_key: 'theory_max'    });
+      if (hasInternal)  cols.push({ key: 'internal',  label: _t("Int"), max_key: 'internal_max'  });
+      if (hasPractical) cols.push({ key: 'practical', label: _t("Pr"),  max_key: 'practical_max' });
+      if (!cols.length) cols.push({ key: 'total',     label: _t("Marks"), max_key: 'max'         });
       return { ...s, cols };
     });
   }, [subjects, students]);
@@ -537,8 +540,8 @@ export default function StudentMarksScreen({ navigation }) {
           <Feather name="arrow-left" size={20} color={PURPLE} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={S.pageTitle}>Student Marks</Text>
-          <Text style={S.pageSubtitle}>Subject-wise marks by class &amp; exam</Text>
+          <Text style={S.pageTitle}>{_t("Student Marks")}</Text>
+          <Text style={S.pageSubtitle}>{_t("Subject-wise marks by class & exam")}</Text>
         </View>
         {students.length > 0 && (
           <TouchableOpacity
@@ -549,7 +552,7 @@ export default function StudentMarksScreen({ navigation }) {
             {exporting
               ? <ActivityIndicator color="#fff" size="small" />
               : <Feather name="download" size={15} color="#fff" />}
-            <Text style={S.exportBtnTxt}>{exporting ? "…" : "PDF"}</Text>
+            <Text style={S.exportBtnTxt}>{exporting ? "…" : _t("PDF")}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -561,37 +564,37 @@ export default function StudentMarksScreen({ navigation }) {
       >
         {/* Filter card */}
         <View style={S.filterCard}>
-          <Text style={S.filterHeading}>Filters</Text>
+          <Text style={S.filterHeading}>{_t("Filters")}</Text>
 
           <View style={S.filterRow}>
             <View style={{ flex: 1, marginRight: 8 }}>
-              <Text style={S.filterLbl}>Branch</Text>
-              <Dropdown label="Select Branch" value={selBranch} options={branches}
+              <Text style={S.filterLbl}>{_t("Branch")}</Text>
+              <Dropdown label={_t("Select Branch")} value={selBranch} options={branches}
                 onChange={setSelBranch} loading={loadingBranches} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={S.filterLbl}>Session</Text>
-              <Dropdown label="Select Session" value={selSession} options={sessions}
+              <Text style={S.filterLbl}>{_t("Session")}</Text>
+              <Dropdown label={_t("Select Session")} value={selSession} options={sessions}
                 onChange={setSelSession} loading={loadingSessions} />
             </View>
           </View>
 
           <View style={S.filterRow}>
             <View style={{ flex: 1, marginRight: 8 }}>
-              <Text style={S.filterLbl}>Class *</Text>
-              <Dropdown label="Select Class" value={selClass} options={classes}
+              <Text style={S.filterLbl}>{_t("Class *")}</Text>
+              <Dropdown label={_t("Select Class")} value={selClass} options={classes}
                 onChange={setSelClass} disabled={!classes.length} loading={loadingClasses} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={S.filterLbl}>Section</Text>
-              <Dropdown label="Select Section" value={selSection} options={sections}
+              <Text style={S.filterLbl}>{_t("Section")}</Text>
+              <Dropdown label={_t("Select Section")} value={selSection} options={sections}
                 onChange={setSelSection} disabled={!selClass} loading={loadingSections} />
             </View>
           </View>
 
           <View>
-            <Text style={S.filterLbl}>Exam *</Text>
-            <Dropdown label="Select Exam" value={selExam} options={exams}
+            <Text style={S.filterLbl}>{_t("Exam *")}</Text>
+            <Dropdown label={_t("Select Exam")} value={selExam} options={exams}
               onChange={v => { setSelExam(v); setSubjects([]); setStudents([]); }}
               disabled={!selClass} loading={loadingExams} />
           </View>
@@ -605,7 +608,7 @@ export default function StudentMarksScreen({ navigation }) {
               ? <ActivityIndicator color="#fff" size="small" />
               : <Feather name="search" size={15} color="#fff" />}
             <Text style={S.searchBtnTxt}>
-              {loadingMatrix ? "Loading…" : "Load Marks"}
+              {loadingMatrix ? _t("Loading…") : _t("Load Marks")}
             </Text>
           </TouchableOpacity>
         </View>
@@ -613,10 +616,7 @@ export default function StudentMarksScreen({ navigation }) {
         {/* Marks matrix table */}
         {students.length > 0 && (
           <View style={S.tableWrap}>
-            <Text style={S.tableCaption}>
-              {students.length} student{students.length !== 1 ? "s" : ""}  ·  {subjects.length} subject{subjects.length !== 1 ? "s" : ""}
-              {examName ? "  ·  " + examName : ""}
-            </Text>
+            <Text style={S.tableCaption}>{_t("{length} student{pl}  ·  {length2} subject{pl2}{v}", { length: students.length, pl: students.length !== 1 ? "s" : "", length2: subjects.length, pl2: subjects.length !== 1 ? "s" : "", v: examName ? "  ·  " + examName : "" })}</Text>
 
             {/* Horizontal scroll for the whole table (no-op when table fills screen) */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -625,25 +625,25 @@ export default function StudentMarksScreen({ navigation }) {
                 {/* ── Header row 1 — subject group names ── */}
                 <View style={S.tblHeadRow}>
                   <View style={[S.tblHeadCell, { width: w.sno, borderRightWidth: 1, borderRightColor: "#7c3aed" }]}>
-                    <Text style={S.tblHeadTxt}>S.{"\n"}No.</Text>
+                    <Text style={S.tblHeadTxt}>{_t("S.\nNo.")}</Text>
                   </View>
                   <View style={[S.tblHeadCell, { width: w.name, borderRightWidth: 1, borderRightColor: "#7c3aed" }]}>
-                    <Text style={S.tblHeadTxt}>Student Name</Text>
+                    <Text style={S.tblHeadTxt}>{_t("Student Name")}</Text>
                   </View>
                   <View style={[S.tblHeadCell, { width: w.roll, borderRightWidth: 2, borderRightColor: "#7c3aed" }]}>
-                    <Text style={S.tblHeadTxt}>Roll{"\n"}No.</Text>
+                    <Text style={S.tblHeadTxt}>{_t("Roll\nNo.")}</Text>
                   </View>
                   {subjectCols.map(s => (
                     <View key={s.subject_id} style={[S.tblHeadCell, { width: s.cols.length * w.mark, borderRightWidth: 2, borderRightColor: "#7c3aed" }]}>
-                      <Text style={S.tblHeadTxt} numberOfLines={2}>{s.subject_name}</Text>
-                      {s.subject_code ? <Text style={S.tblHeadSub}>{s.subject_code}</Text> : null}
+                      <Text style={S.tblHeadTxt} numberOfLines={2}>{_tx(s.subject_name)}</Text>
+                      {s.subject_code ? <Text style={S.tblHeadSub}>{_tx(s.subject_code)}</Text> : null}
                     </View>
                   ))}
                   <View style={[S.tblHeadCell, { width: w.total, borderRightWidth: 1, borderRightColor: "#7c3aed" }]}>
-                    <Text style={S.tblHeadTxt}>Total</Text>
+                    <Text style={S.tblHeadTxt}>{_t("Total")}</Text>
                   </View>
                   <View style={[S.tblHeadCell, { width: w.pct }]}>
-                    <Text style={S.tblHeadTxt}>Pct.</Text>
+                    <Text style={S.tblHeadTxt}>{_t("Pct.")}</Text>
                   </View>
                 </View>
 
@@ -658,14 +658,14 @@ export default function StudentMarksScreen({ navigation }) {
                         style={[S.tblSubHeadCell, { width: w.mark,
                           borderRightWidth: ci === s.cols.length - 1 ? 2 : 1,
                           borderRightColor: ci === s.cols.length - 1 ? "#4338ca" : "#4f46e5" }]}>
-                        <Text style={S.tblSubHeadTxt}>{col.label}</Text>
+                        <Text style={S.tblSubHeadTxt}>{_tx(col.label)}</Text>
                       </View>
                     )))}
                     <View style={[S.tblSubHeadCell, { width: w.total, borderRightWidth: 1, borderRightColor: "#4338ca" }]}>
-                      <Text style={S.tblSubHeadTxt}>Marks</Text>
+                      <Text style={S.tblSubHeadTxt}>{_t("Marks")}</Text>
                     </View>
                     <View style={[S.tblSubHeadCell, { width: w.pct }]}>
-                      <Text style={S.tblSubHeadTxt}>Score</Text>
+                      <Text style={S.tblSubHeadTxt}>{_t("Score")}</Text>
                     </View>
                   </View>
                 )}
@@ -685,12 +685,12 @@ export default function StudentMarksScreen({ navigation }) {
 
                       {/* Name */}
                       <View style={[S.tblNameCell, { width: w.name }]}>
-                        <Text style={S.nameText} numberOfLines={2}>{stu.student_name}</Text>
+                        <Text style={S.nameText} numberOfLines={2}>{_tx(stu.student_name)}</Text>
                       </View>
 
                       {/* Roll No. */}
                       <View style={[S.tblRollCell, { width: w.roll }]}>
-                        <Text style={S.rollText}>{stu.roll_number ?? "—"}</Text>
+                        <Text style={S.rollText}>{_tx(stu.roll_number) ?? "—"}</Text>
                       </View>
 
                       {/* Sub-columns per subject */}
@@ -711,9 +711,9 @@ export default function StudentMarksScreen({ navigation }) {
                               {m == null ? (
                                 <Text style={S.markAbsent}>—</Text>
                               ) : compAbsent ? (
-                                <Text style={[S.markVal, { color: "#ef4444", fontWeight: "800" }]}>A</Text>
+                                <Text style={[S.markVal, { color: "#ef4444", fontWeight: "800" }]}>{_t("A")}</Text>
                               ) : (
-                                <Text style={S.markVal}>{obtained}</Text>
+                                <Text style={S.markVal}>{_tx(obtained)}</Text>
                               )}
                             </View>
                           );
@@ -723,13 +723,13 @@ export default function StudentMarksScreen({ navigation }) {
                       {/* Total */}
                       <View style={[S.tblCell, { width: w.total, borderRightWidth: 1, borderRightColor: "#ddd6fe",
                         backgroundColor: isEven ? "#ede9fe" : "#f3e8ff" }]}>
-                        <Text style={S.totalVal}>{stu.total_obtained}</Text>
+                        <Text style={S.totalVal}>{_tx(stu.total_obtained)}</Text>
                       </View>
 
                       {/* Percentage */}
                       <View style={[S.tblCell, { width: w.pct,
                         backgroundColor: isEven ? "#f0fdf4" : "#f7fee7" }]}>
-                        <Text style={[S.totalVal, { color: "#16a34a", fontSize: 13 }]}>{pct}%</Text>
+                        <Text style={[S.totalVal, { color: "#16a34a", fontSize: 13 }]}>{_tx(pct)}%</Text>
                       </View>
                     </View>
                   );
@@ -759,18 +759,18 @@ export default function StudentMarksScreen({ navigation }) {
           return (
             <View style={S.top3Card}>
               <View style={S.top3Header}>
-                <Text style={S.top3HeaderTxt}>🏆  Top Performers</Text>
+                <Text style={S.top3HeaderTxt}>{_t("🏆  Top Performers")}</Text>
               </View>
               <View style={S.top3Row}>
                 {top3Screen.map((stu, i) => {
                   const pct = ((stu.total_obtained / stu.total_max) * 100).toFixed(1);
                   return (
                     <View key={stu.enrollment_id} style={[S.top3Cell, { backgroundColor: MEDAL_BG[i], borderColor: MEDAL_BORDER[i] }]}>
-                      <Text style={S.top3Medal}>{MEDAL_ICON[i]}</Text>
-                      <Text style={S.top3Name} numberOfLines={2}>{stu.student_name}</Text>
-                      {stu.roll_number ? <Text style={S.top3Roll}>Roll {stu.roll_number}</Text> : null}
-                      <Text style={[S.top3Pct, { color: MEDAL_COLOR[i] }]}>{pct}%</Text>
-                      <Text style={S.top3Marks}>{stu.total_obtained} / {stu.total_max}</Text>
+                      <Text style={S.top3Medal}>{_tx(MEDAL_ICON[i])}</Text>
+                      <Text style={S.top3Name} numberOfLines={2}>{_tx(stu.student_name)}</Text>
+                      {stu.roll_number ? <Text style={S.top3Roll}>{_t("Roll {roll_number}", { roll_number: stu.roll_number })}</Text> : null}
+                      <Text style={[S.top3Pct, { color: MEDAL_COLOR[i] }]}>{_tx(pct)}%</Text>
+                      <Text style={S.top3Marks}>{_tx(stu.total_obtained)} / {_tx(stu.total_max)}</Text>
                     </View>
                   );
                 })}

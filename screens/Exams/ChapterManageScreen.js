@@ -17,6 +17,7 @@ import { fetchClassSubjects } from "../../services/SubjectServiceApi";
 import {
   fetchChapters, createChapter, updateChapter, deleteChapter,
 } from "../../services/TestSeriesServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -40,7 +41,7 @@ function ChapterFormModal({ visible, initial, onSave, onClose }) {
   }, [visible, initial]);
 
   const handleSave = async () => {
-    if (!chapterName.trim()) { Alert.alert("Validation", "Chapter name is required."); return; }
+    if (!chapterName.trim()) { Alert.alert(_t("Validation"), _t("Chapter name is required.")); return; }
     setSaving(true);
     try {
       await onSave({
@@ -48,6 +49,8 @@ function ChapterFormModal({ visible, initial, onSave, onClose }) {
         chapter_name: chapterName.trim(),
         unit_name:    unitName.trim() || null,
       });
+    } catch {
+      // parent already alerted; swallow so the rejection isn't unhandled
     } finally {
       setSaving(false);
     }
@@ -60,31 +63,31 @@ function ChapterFormModal({ visible, initial, onSave, onClose }) {
         <View style={st.formSheet}>
           <View style={st.sheetHandle} />
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            <Text style={st.formTitle}>{initial ? "Edit Chapter" : "Add Chapter"}</Text>
+            <Text style={st.formTitle}>{initial ? _t("Edit Chapter") : _t("Add Chapter")}</Text>
 
-            <Text style={st.label}>Chapter No.</Text>
+            <Text style={st.label}>{_t("Chapter No.")}</Text>
             <TextInput
               style={st.input}
-              placeholder="e.g. 1"
+              placeholder={_t("e.g. 1")}
               placeholderTextColor="#94a3b8"
               keyboardType="numeric"
               value={chapterNo}
               onChangeText={setChapterNo}
             />
 
-            <Text style={st.label}>Chapter Name *</Text>
+            <Text style={st.label}>{_t("Chapter Name *")}</Text>
             <TextInput
               style={st.input}
-              placeholder="e.g. Electric Charges and Fields"
+              placeholder={_t("e.g. Electric Charges and Fields")}
               placeholderTextColor="#94a3b8"
               value={chapterName}
               onChangeText={setChapterName}
             />
 
-            <Text style={st.label}>Unit Name (optional)</Text>
+            <Text style={st.label}>{_t("Unit Name (optional)")}</Text>
             <TextInput
               style={st.input}
-              placeholder="e.g. Unit 1: Electrostatics"
+              placeholder={_t("e.g. Unit 1: Electrostatics")}
               placeholderTextColor="#94a3b8"
               value={unitName}
               onChangeText={setUnitName}
@@ -92,12 +95,12 @@ function ChapterFormModal({ visible, initial, onSave, onClose }) {
 
             <View style={st.formBtnRow}>
               <TouchableOpacity style={st.cancelBtn} onPress={onClose} disabled={saving}>
-                <Text style={st.cancelBtnTxt}>Cancel</Text>
+                <Text style={st.cancelBtnTxt}>{_t("Cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={st.saveBtn} onPress={handleSave} disabled={saving}>
                 {saving
                   ? <ActivityIndicator color="#fff" />
-                  : <Text style={st.saveBtnTxt}>{initial ? "Update" : "Add Chapter"}</Text>
+                  : <Text style={st.saveBtnTxt}>{initial ? _t("Update") : _t("Add Chapter")}</Text>
                 }
               </TouchableOpacity>
             </View>
@@ -117,7 +120,7 @@ function SheetPicker({ visible, title, items, labelKey, valueKey, selected, onSe
       <TouchableOpacity style={st.overlay} activeOpacity={1} onPress={onClose} />
       <View style={st.sheet}>
         <View style={st.sheetHandle} />
-        <Text style={st.sheetTitle}>{title}</Text>
+        <Text style={st.sheetTitle}>{_tx(title)}</Text>
         <FlatList
           data={items}
           keyExtractor={(i) => String(i[valueKey])}
@@ -128,7 +131,7 @@ function SheetPicker({ visible, title, items, labelKey, valueKey, selected, onSe
                 style={[st.sheetItem, isSel && st.sheetItemSel]}
                 onPress={() => { onSelect(item); onClose(); }}
               >
-                <Text style={[st.sheetItemTxt, isSel && st.sheetItemTxtSel]}>{item[labelKey]}</Text>
+                <Text style={[st.sheetItemTxt, isSel && st.sheetItemTxtSel]}>{_tx(item[labelKey])}</Text>
                 {isSel && <Feather name="check" size={15} color="#2563eb" />}
               </TouchableOpacity>
             );
@@ -179,9 +182,10 @@ export default function ChapterManageScreen({ navigation }) {
     setLoading(true);
     try {
       const res = await fetchChapters(user, selectedClass.class_id, selectedSubject.subject_id);
-      setChapters(res);
+      setChapters(norm(res));
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load chapters");
+      setChapters([]);
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load chapters"));
     } finally {
       setLoading(false);
     }
@@ -194,7 +198,7 @@ export default function ChapterManageScreen({ navigation }) {
 
   const handleSave = async (data) => {
     if (!selectedClass || !selectedSubject) {
-      Alert.alert("Select class and subject first.");
+      Alert.alert(_t("Select class and subject first."));
       return;
     }
     try {
@@ -211,25 +215,25 @@ export default function ChapterManageScreen({ navigation }) {
       setFormVisible(false);
       loadChapters();
     } catch (e) {
-      Alert.alert("Error", e.message || "Save failed");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Save failed"));
       throw e;
     }
   };
 
   const handleDelete = (item) => {
     Alert.alert(
-      "Delete Chapter",
-      `Delete "${item.chapter_name}"? Questions tagged to this chapter will become untagged.`,
+      _t("Delete Chapter"),
+      _t("Delete \"{chapter_name}\"? Questions tagged to this chapter will become untagged.", { chapter_name: item.chapter_name }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Delete", style: "destructive",
+          text: _t("Delete"), style: "destructive",
           onPress: async () => {
             try {
               await deleteChapter(user, item.id);
               loadChapters();
             } catch (e) {
-              Alert.alert("Error", e.message);
+              Alert.alert(_t("Error"), _tx(e.message));
             }
           },
         },
@@ -241,12 +245,12 @@ export default function ChapterManageScreen({ navigation }) {
     <View style={st.card}>
       <View style={st.cardLeft}>
         <View style={st.chNoCircle}>
-          <Text style={st.chNoTxt}>{item.chapter_no || "—"}</Text>
+          <Text style={st.chNoTxt}>{_tx(item.chapter_no) || "—"}</Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={st.chName}>{item.chapter_name}</Text>
+          <Text style={st.chName}>{_tx(item.chapter_name)}</Text>
           {!!item.unit_name && (
-            <Text style={st.unitName}>{item.unit_name}</Text>
+            <Text style={st.unitName}>{_tx(item.unit_name)}</Text>
           )}
         </View>
       </View>
@@ -271,8 +275,8 @@ export default function ChapterManageScreen({ navigation }) {
           <Feather name="arrow-left" size={20} color="#fff" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={st.headerTitle}>Chapter Manager</Text>
-          <Text style={st.headerSub}>Add chapters for chapter-wise test series</Text>
+          <Text style={st.headerTitle}>{_t("Chapter Manager")}</Text>
+          <Text style={st.headerSub}>{_t("Add chapters for chapter-wise test series")}</Text>
         </View>
       </View>
 
@@ -284,7 +288,7 @@ export default function ChapterManageScreen({ navigation }) {
         >
           <Feather name="book-open" size={13} color="#64748b" />
           <Text style={[st.selTxt, !selectedClass && st.selPlaceholder]} numberOfLines={1}>
-            {selectedClass ? selectedClass.class_name : "Select Class"}
+            {selectedClass ? _tx(selectedClass.class_name) : _t("Select Class")}
           </Text>
           <Feather name="chevron-down" size={13} color="#64748b" />
         </TouchableOpacity>
@@ -295,7 +299,7 @@ export default function ChapterManageScreen({ navigation }) {
         >
           <Feather name="layers" size={13} color="#64748b" />
           <Text style={[st.selTxt, !selectedSubject && st.selPlaceholder]} numberOfLines={1}>
-            {selectedSubject ? selectedSubject.subject_name : "Select Subject"}
+            {selectedSubject ? _tx(selectedSubject.subject_name) : _t("Select Subject")}
           </Text>
           <Feather name="chevron-down" size={13} color="#64748b" />
         </TouchableOpacity>
@@ -305,7 +309,7 @@ export default function ChapterManageScreen({ navigation }) {
       {!canAdd ? (
         <View style={st.emptyWrap}>
           <Feather name="book" size={40} color="#cbd5e1" />
-          <Text style={st.emptyTxt}>Select a class and subject{"\n"}to manage its chapters.</Text>
+          <Text style={st.emptyTxt}>{_t("Select a class and subject\nto manage its chapters.")}</Text>
         </View>
       ) : loading ? (
         <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 60 }} />
@@ -317,8 +321,8 @@ export default function ChapterManageScreen({ navigation }) {
           contentContainerStyle={st.list}
           ListEmptyComponent={
             <Text style={st.empty}>
-              {"No chapters yet.\nTap + to add chapters for\n"}
-              {selectedSubject?.subject_name} → {selectedClass?.class_name}
+              {("" + _t("No chapters yet.\nTap + to add chapters for") + "\n")}
+              {_tx(selectedSubject?.subject_name)} → {_tx(selectedClass?.class_name)}
             </Text>
           }
         />
@@ -342,7 +346,7 @@ export default function ChapterManageScreen({ navigation }) {
       {/* Pickers */}
       <SheetPicker
         visible={pickerTarget === "class"}
-        title="Select Class"
+        title={_t("Select Class")}
         items={classes}
         labelKey="class_name"
         valueKey="class_id"
@@ -352,7 +356,7 @@ export default function ChapterManageScreen({ navigation }) {
       />
       <SheetPicker
         visible={pickerTarget === "subject"}
-        title="Select Subject"
+        title={_t("Select Subject")}
         items={subjects}
         labelKey="subject_name"
         valueKey="subject_id"

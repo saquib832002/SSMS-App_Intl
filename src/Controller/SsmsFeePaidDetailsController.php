@@ -2132,12 +2132,26 @@ class SsmsFeePaidDetailsController extends AppController
                     } else {
                         $amount = (float)($amounts[$fid] ?? 0);
                         if ($amount <= 0) continue;
-                        $db->execute(
-                            "INSERT INTO ssms_fee_structure (fee_item_id, fee_amount, due_date, class_id, session_id, branch_id, month_no, ssms_client_code, status, created, modified)
-                             VALUES (?,?,CURDATE(),?,?,?,'Apr',?,'Active',?,?)
-                             ON DUPLICATE KEY UPDATE fee_amount=VALUES(fee_amount), modified=VALUES(modified)",
-                            [$fid, $amount, $classId, $sessionId, $branchId, $clientCode, $now, $now]
-                        );
+                        // One-time fee → session's first month (School Settings); reuse an older 'Apr' row.
+                        $otMonth = \App\Service\SessionCalendar::startMonthName($clientCode);
+                        $otDue   = \App\Service\SessionCalendar::dueDate($otMonth, $clientCode, $sessionId);
+                        $otRow   = $db->execute(
+                            "SELECT MIN(fee_id) AS fee_id FROM ssms_fee_structure
+                             WHERE fee_item_id=? AND class_id=? AND session_id=? AND branch_id=? AND ssms_client_code=?",
+                            [$fid, $classId, $sessionId, $branchId, $clientCode]
+                        )->fetch('assoc');
+                        if (!empty($otRow['fee_id'])) {
+                            $db->execute(
+                                "UPDATE ssms_fee_structure SET fee_amount=?, month_no=?, due_date=?, modified=? WHERE fee_id=?",
+                                [$amount, $otMonth, $otDue, $now, $otRow['fee_id']]
+                            );
+                        } else {
+                            $db->execute(
+                                "INSERT INTO ssms_fee_structure (fee_item_id, fee_amount, due_date, class_id, session_id, branch_id, month_no, ssms_client_code, status, created, modified)
+                                 VALUES (?,?,?,?,?,?,?,?,'Active',?,?)",
+                                [$fid, $amount, $otDue, $classId, $sessionId, $branchId, $otMonth, $clientCode, $now, $now]
+                            );
+                        }
                     }
                 }
                 $this->Flash->success('Fee structure saved.');

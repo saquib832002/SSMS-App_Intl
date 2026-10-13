@@ -445,7 +445,7 @@ class LibrarySerialApiController extends AppController
             'issue_no'         => $issue ?: null,
             'publication_date' => $this->dateOrNull($body, 'publication_date'),
             'received_date'    => $this->dateOrNull($body, 'received_date')
-                ?? ($status === 'Available' ? date('Y-m-d') : null),
+                ?? ($status === 'Available' ? $this->schoolToday() : null),
             'status'           => $status,
             'location'         => $this->str($body, 'location') ?: null,
         ];
@@ -625,7 +625,7 @@ class LibrarySerialApiController extends AppController
 
         $expected = [];
         $cursor   = strtotime($interval, $latest);
-        $today    = strtotime(date('Y-m-d'));
+        $today    = strtotime($this->schoolToday());
         $guard    = 0;
 
         while ($cursor !== false && $cursor <= $today && $guard++ < 24) {

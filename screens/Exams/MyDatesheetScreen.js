@@ -13,6 +13,8 @@ import { useFocusEffect } from "@react-navigation/native";
 import { MaterialIcons, Feather } from "@expo/vector-icons";
 import { AuthContext }        from "../../context/AuthContext";
 import { fetchMyDatesheet }   from "../../services/DatesheetServiceApi";
+import { _t, _tx } from "../../services/i18n";
+import { fmtDate as fmtLocalDate, fmtTime as fmtLocalTime } from "../../services/Locale";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -22,16 +24,12 @@ const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov
 function fmtDate(ymd) {
   if (!ymd) return "—";
   const d = new Date(ymd + "T00:00:00");
-  return `${DAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  return `${_tx(DAYS[d.getDay()])}, ${d.getDate()} ${_tx(MONTHS[d.getMonth()])} ${d.getFullYear()}`;
 }
 
 function fmtTime(t) {
   if (!t) return null;
-  // Convert 24h "09:00" → "9:00 AM"
-  const [hh, mm] = t.split(":").map(Number);
-  const ampm = hh >= 12 ? "PM" : "AM";
-  const h    = hh % 12 || 12;
-  return `${h}:${String(mm ?? 0).padStart(2,"0")} ${ampm}`;
+  return fmtLocalTime(t);   // the school's 12/24-hour setting and language
 }
 
 function daysUntil(ymd) {
@@ -70,7 +68,7 @@ function SubjectRow({ entry, idx, isNext }) {
               {new Date(entry.exam_date + "T00:00:00").getDate()}
             </Text>
             <Text style={[dr.dateMon, { color: isPast ? "#94a3b8" : accent }]}>
-              {MONTHS[new Date(entry.exam_date + "T00:00:00").getMonth()]}
+              {_tx(MONTHS[new Date(entry.exam_date + "T00:00:00").getMonth()])}
             </Text>
           </>
         ) : (
@@ -81,10 +79,10 @@ function SubjectRow({ entry, idx, isNext }) {
       {/* Right: info */}
       <View style={dr.info}>
         <Text style={[dr.subjectName, isPast && { color: "#94a3b8" }]} numberOfLines={2}>
-          {entry.subject_name}
+          {_tx(entry.subject_name)}
         </Text>
         <Text style={dr.dayName}>
-          {entry.exam_date ? new Date(entry.exam_date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long" }) : ""}
+          {entry.exam_date ? fmtLocalDate(entry.exam_date, "weekday") : ""}
         </Text>
         {(entry.start_time || entry.end_time) && (
           <View style={dr.timeRow}>
@@ -99,7 +97,7 @@ function SubjectRow({ entry, idx, isNext }) {
         {entry.venue ? (
           <View style={dr.timeRow}>
             <Feather name="map-pin" size={12} color="#64748b" />
-            <Text style={dr.timeTxt}>{entry.venue}</Text>
+            <Text style={dr.timeTxt}>{_tx(entry.venue)}</Text>
           </View>
         ) : null}
       </View>
@@ -108,13 +106,13 @@ function SubjectRow({ entry, idx, isNext }) {
       {!isPast && days !== null && (
         <View style={[dr.badge, { backgroundColor: days === 0 ? "#dc2626" : days <= 3 ? "#f59e0b" : "#e0f2fe" }]}>
           <Text style={[dr.badgeTxt, { color: days === 0 ? "#fff" : days <= 3 ? "#fff" : "#0369a1" }]}>
-            {days === 0 ? "Today" : `${days}d`}
+            {days === 0 ? _t("Today") : _t("{days}d", { days })}
           </Text>
         </View>
       )}
       {isPast && (
         <View style={[dr.badge, { backgroundColor: "#f1f5f9" }]}>
-          <Text style={[dr.badgeTxt, { color: "#94a3b8" }]}>Done</Text>
+          <Text style={[dr.badgeTxt, { color: "#94a3b8" }]}>{_t("Done")}</Text>
         </View>
       )}
     </View>
@@ -130,15 +128,18 @@ export default function MyDatesheetScreen({ navigation }) {
   const [activeIdx,   setActiveIdx]   = useState(0);
   const [loading,     setLoading]     = useState(true);
   const [refreshing,  setRefreshing]  = useState(false);
+  const [loadError,   setLoadError]   = useState("");
 
   const load = useCallback(async (isRefresh = false) => {
     try {
       if (isRefresh) setRefreshing(true); else setLoading(true);
       const data = await fetchMyDatesheet(user);
+      setLoadError("");
       setExams(Array.isArray(data) ? data : []);
       setActiveIdx(0);
     } catch (e) {
-      // Silently fail — show empty state
+      // Show empty state with the server's reason (e.g. no permission)
+      setLoadError(e?.message || "");
       setExams([]);
     } finally {
       setLoading(false);
@@ -151,7 +152,8 @@ export default function MyDatesheetScreen({ navigation }) {
   const activeExam = exams[activeIdx] ?? null;
 
   // Find next upcoming exam slot
-  const nextEntry = activeExam?.entries?.find(e => {
+  const activeEntries = Array.isArray(activeExam?.entries) ? activeExam.entries : [];
+  const nextEntry = activeEntries.find(e => {
     const d = daysUntil(e.exam_date);
     return d !== null && d >= 0;
   }) ?? null;
@@ -163,7 +165,7 @@ export default function MyDatesheetScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={st.backBtn}>
           <Feather name="arrow-left" size={20} color="#1e40af" />
         </TouchableOpacity>
-        <Text style={st.headerTitle}>My Exam Schedule</Text>
+        <Text style={st.headerTitle}>{_t("My Exam Schedule")}</Text>
       </View>
 
       {loading ? (
@@ -171,9 +173,9 @@ export default function MyDatesheetScreen({ navigation }) {
       ) : exams.length === 0 ? (
         <View style={st.empty}>
           <MaterialIcons name="event-note" size={52} color="#c7d2fe" />
-          <Text style={st.emptyTitle}>No Date Sheet Yet</Text>
+          <Text style={st.emptyTitle}>{loadError ? _t("Couldn't load date sheet") : _t("No Date Sheet Yet")}</Text>
           <Text style={st.emptySubtitle}>
-            Your school hasn't published an exam schedule yet. Check back soon.
+            {_tx(loadError) || _t("Your school hasn't published an exam schedule yet. Check back soon.")}
           </Text>
         </View>
       ) : (
@@ -190,7 +192,7 @@ export default function MyDatesheetScreen({ navigation }) {
                 onPress={() => setActiveIdx(i)}
               >
                 <Text style={[st.examTabTxt, i === activeIdx && st.examTabTxtActive]}>
-                  {ex.exam_name}
+                  {_tx(ex.exam_name)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -200,8 +202,8 @@ export default function MyDatesheetScreen({ navigation }) {
           {nextEntry && (
             <View style={st.nextBanner}>
               <View style={st.nextLeft}>
-                <Text style={st.nextLabel}>NEXT EXAM</Text>
-                <Text style={st.nextSubject}>{nextEntry.subject_name}</Text>
+                <Text style={st.nextLabel}>{_t("NEXT EXAM")}</Text>
+                <Text style={st.nextSubject}>{_tx(nextEntry.subject_name)}</Text>
                 <Text style={st.nextDate}>{fmtDate(nextEntry.exam_date)}</Text>
                 {nextEntry.start_time && (
                   <Text style={st.nextTime}>
@@ -212,17 +214,15 @@ export default function MyDatesheetScreen({ navigation }) {
               </View>
               <View style={st.countdownBox}>
                 <Text style={st.countdownNum}>{daysUntil(nextEntry.exam_date)}</Text>
-                <Text style={st.countdownLabel}>days{"\n"}to go</Text>
+                <Text style={st.countdownLabel}>{_t("days\nto go")}</Text>
               </View>
             </View>
           )}
 
           {/* Full schedule list */}
           <View style={{ paddingHorizontal: 12, paddingTop: 6, paddingBottom: 32 }}>
-            <Text style={st.scheduleTitle}>
-              Full Schedule  ·  {activeExam?.entries?.length ?? 0} subjects
-            </Text>
-            {activeExam?.entries?.map((entry, idx) => (
+            <Text style={st.scheduleTitle}>{_t("Full Schedule  ·  {length} subjects", { length: activeEntries.length })}</Text>
+            {activeEntries.map((entry, idx) => (
               <SubjectRow
                 key={entry.subject_id}
                 entry={entry}

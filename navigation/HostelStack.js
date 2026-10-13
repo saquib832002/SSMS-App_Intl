@@ -6,6 +6,7 @@
 import React from "react";
 import { featureScreenLayout } from "../components/FeatureGate";
 import { createStackNavigator } from "@react-navigation/stack";
+import { _t } from "../services/i18n";
 
 const Stack = createStackNavigator();
 
@@ -30,7 +31,7 @@ export default function HostelStack() {
       />
       <Stack.Screen name="HostelFee" getComponent={() => require("../screens/Finance/HostelFeeScreen").default}
       />
-     <Stack.Screen name="FeeCollectionApproval" getComponent={() => require("../screens/Finance/FeeCollectionApprovalScreen").default} options={{ title: "Collection Approval", headerShown: false }} />
+     <Stack.Screen name="FeeCollectionApproval" getComponent={() => require("../screens/Finance/FeeCollectionApprovalScreen").default} options={{ title: _t("Collection Approval"), headerShown: false }} />
 
     </Stack.Navigator>
   );

@@ -408,7 +408,7 @@ class LibraryAcquisitionApiController extends AppController
             $fields['approved_at'] = date('Y-m-d H:i:s');
         }
         if ($status === 'Ordered') {
-            $fields['order_date']    = $this->dateOrNull($body, 'order_date') ?? date('Y-m-d');
+            $fields['order_date']    = $this->dateOrNull($body, 'order_date') ?? $this->schoolToday();
             $fields['expected_date'] = $this->dateOrNull($body, 'expected_date') ?? $row['expected_date'];
             if (($v = $this->str($body, 'vendor')) !== '') {
                 $fields['vendor'] = $v;
@@ -419,7 +419,7 @@ class LibraryAcquisitionApiController extends AppController
         }
         if ($remarks !== '') {
             $fields['notes'] = trim((string)($row['notes'] ?? '') . "\n"
-                . date('Y-m-d') . ' — ' . $status . ': ' . $remarks);
+                . $this->schoolToday() . ' — ' . $status . ': ' . $remarks);
         }
 
         $set = implode(', ', array_map(fn($k) => "`{$k}` = ?", array_keys($fields)));
@@ -625,7 +625,7 @@ class LibraryAcquisitionApiController extends AppController
                     $unitCost = number_format((float)$acq['estimated_cost'], 2, '.', '');
                 }
 
-                $received = $this->dateOrNull($body, 'received_date') ?? date('Y-m-d');
+                $received = $this->dateOrNull($body, 'received_date') ?? $this->schoolToday();
                 $shelf    = $this->str($body, 'shelf_location') ?: null;
                 $grade    = $this->str($body, 'condition_grade') ?: 'New';
                 $copies   = [];

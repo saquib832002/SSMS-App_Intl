@@ -137,11 +137,14 @@ class FeeApiController extends AppController
                         'feeId' => $fee['feeId'] ?? null,
                         'fee_item_id' => $fee['feeItemId'] ?? null,
                         'fee_amount' => $fee['amount'] ?? '',
-                        'due_date' => date('Y-m-d'),
+                        // One-time fees fall due in the session's first month
+                        // (Apr for Indian schools, Aug for a US school, …).
+                        'due_date' => $this->getDueDateFromMonth($this->sessionStartMonthName(), $sessionId),
                         'class_id' => $classId,
                         'session_id' => $sessionId,
                         'branch_id' => $branchId,
-                        'month_no' => 'Apr',
+                        'month_no' => $this->sessionStartMonthName(), // one-time → session's first month
+                        '_oneTime' => true,
                         'ssms_client_code' => $clientCode,
                         'status' => 'Active',
                     ]);
@@ -152,11 +155,14 @@ class FeeApiController extends AppController
                         'feeId' => $fee['feeId'] ?? null,
                         'fee_item_id' => $fee['feeItemId'] ?? null,
                         'fee_amount' => $fee['amount'] ?? '',
-                        'due_date' => date('Y-m-d'),
+                        // One-time fees fall due in the session's first month
+                        // (Apr for Indian schools, Aug for a US school, …).
+                        'due_date' => $this->getDueDateFromMonth($this->sessionStartMonthName(), $sessionId),
                         'class_id' => $classId,
                         'session_id' => $sessionId,
                         'branch_id' => $branchId,
-                        'month_no' => 'Apr',
+                        'month_no' => $this->sessionStartMonthName(), // one-time → session's first month
+                        '_oneTime' => true,
                         'ssms_client_code' => $clientCode,
                         'status' => 'Active',
                     ]);
@@ -168,7 +174,7 @@ class FeeApiController extends AppController
                             'feeId' => $details['feeId'] ?? null,
                             'fee_item_id' => $fee['feeItemId'] ?? $fee['id'] ?? null,
                             'fee_amount' => $details['amount'] ?? '',
-                            'due_date' => $this->getDueDateFromMonth($monthName),
+                            'due_date' => $this->getDueDateFromMonth($monthName, $sessionId),
                             'class_id' => $classId,
                             'session_id' => $sessionId,
                             'branch_id' => $branchId,
@@ -185,7 +191,7 @@ class FeeApiController extends AppController
                             'feeId' => $details['feeId'] ?? null,
                             'fee_item_id' => $fee['feeItemId'] ?? $fee['id'] ?? null,
                             'fee_amount' => $details['amount'] ?? '',
-                            'due_date' => $this->getDueDateFromMonth($monthName),
+                            'due_date' => $this->getDueDateFromMonth($monthName, $sessionId),
                             'class_id' => $classId,
                             'session_id' => $sessionId,
                             'branch_id' => $branchId,
@@ -246,6 +252,13 @@ class FeeApiController extends AppController
             if (!empty($classId)) {
                 $conditions['SsmsFeeStructure.class_id'] = $classId;
             }
+            // Optional fee category (Academic screen vs Transport screen).
+            $category = trim((string)($this->request->getQuery('category') ?? ''));
+            if ($category !== '') {
+                $conditions[] = strcasecmp($category, 'Academic') === 0
+                    ? ['OR' => ['SsmsFeeItems.category' => $category, 'SsmsFeeItems.category IS' => null, 'SsmsFeeItems.category =' => '']]
+                    : ['SsmsFeeItems.category' => $category];
+            }
 
             $rows = $FeeStructureTable->find()
                 ->select([
@@ -293,8 +306,9 @@ class FeeApiController extends AppController
             }
             $feeId = $row['feeId'] ?? null;
             $amount = $row['fee_amount'] ?? '';
+            $oneTime = !empty($row['_oneTime']);
 
-            unset($row['feeId']);
+            unset($row['feeId'], $row['_oneTime']);
 
             if (!empty($feeId)) {
                 $existing = $FeeStructureTable->find()
@@ -318,15 +332,21 @@ class FeeApiController extends AppController
                 return;
             }
 
+            $dupWhere = [
+                'fee_item_id' => $row['fee_item_id'],
+                'class_id' => $row['class_id'],
+                'session_id' => $row['session_id'],
+                'branch_id' => $row['branch_id'],
+                'ssms_client_code' => $row['ssms_client_code'],
+            ];
+            if (!$oneTime) {
+                // A one-time fee has a single row whatever month it was saved under
+                // (older rows say 'Apr') – only monthly fees are matched by month.
+                $dupWhere['month_no IS'] = $row['month_no'];
+            }
             $duplicate = $FeeStructureTable->find()
-                ->where([
-                    'fee_item_id' => $row['fee_item_id'],
-                    'class_id' => $row['class_id'],
-                    'session_id' => $row['session_id'],
-                    'branch_id' => $row['branch_id'],
-                    'month_no IS' => $row['month_no'],
-                    'ssms_client_code' => $row['ssms_client_code'],
-                ])
+                ->where($dupWhere)
+                ->orderBy(['fee_id' => 'ASC'])
                 ->first();
 
             if ($duplicate) {
@@ -340,32 +360,50 @@ class FeeApiController extends AppController
         }
 
     
-    private function getDueDateFromMonth(string $monthName): string
+    /** School's session start month (1-12) from School Settings; April if not set. */
+    private function sessionStartMonth(): int
+    {
+        return \App\Service\SessionCalendar::startMonth($this->request->getHeaderLine('ssmsClientCode'));
+    }
+
+    /** 'Apr', 'Aug', … for the school's session start month. */
+    private function sessionStartMonthName(): string
+    {
+        return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][$this->sessionStartMonth() - 1];
+    }
+
+    /**
+     * Due date (1st of the month) for a month name in the current session.
+     * Months before the session's start month fall in the next calendar year,
+     * e.g. start = Aug: Aug–Dec 2026, Jan–Jul 2027.
+     */
+    private function getDueDateFromMonth(string $monthName, $sessionId = null): string
         {
-            $currentYear = (int)date('Y');
-
             $monthMap = [
-                'Apr' => '04',
-                'May' => '05',
-                'Jun' => '06',
-                'Jul' => '07',
-                'Aug' => '08',
-                'Sep' => '09',
-                'Oct' => '10',
-                'Nov' => '11',
-                'Dec' => '12',
-                'Jan' => '01',
-                'Feb' => '02',
-                'Mar' => '03',
+                'Jan' => 1, 'Feb' => 2, 'Mar' => 3, 'Apr' => 4, 'May' => 5, 'Jun' => 6,
+                'Jul' => 7, 'Aug' => 8, 'Sep' => 9, 'Oct' => 10, 'Nov' => 11, 'Dec' => 12,
             ];
+            $start  = $this->sessionStartMonth();
+            $month  = $monthMap[ucfirst(strtolower(substr(trim($monthName), 0, 3)))] ?? $start;
 
-            $monthNumber = $monthMap[$monthName] ?? '04';
+            // Year the session starts: first 4-digit year in the session name
+            // ("2026-27", "2026-2027"), otherwise the current year.
+            $startYear = (int)$this->schoolToday('Y');
+            if (!empty($sessionId)) {
+                try {
+                    $row = \Cake\Datasource\ConnectionManager::get('default')->execute(
+                        'SELECT session_name FROM ssms_sessions WHERE session_id = ? LIMIT 1',
+                        [$sessionId]
+                    )->fetch('assoc');
+                    if ($row && preg_match('/(19|20)\d{2}/', (string)$row['session_name'], $m)) {
+                        $startYear = (int)$m[0];
+                    }
+                } catch (\Throwable $e) {
+                }
+            }
+            $year = $month >= $start ? $startYear : $startYear + 1;
 
-            $year = in_array($monthName, ['Jan', 'Feb', 'Mar'], true)
-                ? $currentYear + 1
-                : $currentYear;
-
-            return sprintf('%04d-%s-01', $year, $monthNumber);
+            return sprintf('%04d-%02d-01', $year, $month);
         }
     public function updateFeeItem($id)
         {
@@ -602,7 +640,10 @@ class FeeApiController extends AppController
 
             $conditions = ['ssms_client_code' => $clientCode];
             if ($category !== '') {
-                $conditions['category'] = $category;
+                // Older items saved without a category count as Academic.
+                $conditions[] = strcasecmp($category, 'Academic') === 0
+                    ? ['OR' => ['category' => $category, 'category IS' => null, 'category =' => '']]
+                    : ['category' => $category];
             }
 
             $items = $FeeItemsTable->find()
@@ -909,7 +950,7 @@ class FeeApiController extends AppController
 
     $FeePaidTable = $this->fetchTable('SsmsFeePaidDetails');
 
-    $today = date('Y-m-d');
+    $today = $this->schoolToday();
 
     $fees = $FeePaidTable->find()
         ->select([
@@ -1038,7 +1079,7 @@ class FeeApiController extends AppController
         // If NO payment rows exist at all for the enrollment, COALESCE returns 0
         // so balance_due = full fee_amount — the student owes everything.
         // ─────────────────────────────────────────────────────────────────────
-        $today = date('Y-m-d');
+        $today = $this->schoolToday();
         $dueQuery = "
             SELECT
                 fs.fee_id,
@@ -1521,7 +1562,7 @@ class FeeApiController extends AppController
         // If NO payment rows exist at all for the enrollment, COALESCE returns 0
         // so balance_due = full fee_amount — the student owes everything.
         // ─────────────────────────────────────────────────────────────────────
-        $today = date('Y-m-d');
+        $today = $this->schoolToday();
         $dueQuery = "
             SELECT
                 fs.fee_id,
@@ -1932,7 +1973,7 @@ class FeeApiController extends AppController
         // If NO payment rows exist at all for the enrollment, COALESCE returns 0
         // so balance_due = full fee_amount — the student owes everything.
         // ─────────────────────────────────────────────────────────────────────
-        $today = date('Y-m-d');
+        $today = $this->schoolToday();
         $dueQuery = "
             SELECT
                 fs.fee_id,
@@ -2607,6 +2648,8 @@ class FeeApiController extends AppController
         // email_address can come directly from the request, or we fall back to
         // fetching it from the students table using enrollment_id.
         $emailAddress = trim((string)($data['email_address'] ?? ''));
+        // the school's own currency symbol (Region & formats); the query below may refine it
+        $schoolCurrency = \App\Service\Locale::get((string)$ssmsClientCode)['currency_symbol'];
  
         if (empty($emailAddress) && !empty($enrollmentId)) {
             // Look up student email from enrollment → students join
@@ -2629,7 +2672,7 @@ class FeeApiController extends AppController
                     $schoolState = trim($row['ssms_client_state']);
                     $schoolZip = trim($row['ssms_client_zip']);
                     $schoolEmailAddress = trim($row['ssms_client_email']);
-                    $schoolCurrency= trim($row['currency']);
+                    $schoolCurrency = trim((string)($row['currency'] ?? '')) ?: $schoolCurrency;
                 }
                 
             } catch (\Exception $e) {
@@ -2678,6 +2721,7 @@ class FeeApiController extends AppController
                 'schoolZip'          => $schoolZip,
                 'schoolEmailAddress' => $schoolEmailAddress,
                 'schoolCurrency'   => $schoolCurrency,
+                'client_code'      => (string)$ssmsClientCode,
                 
             ]);
         } else {
@@ -2918,7 +2962,7 @@ class FeeApiController extends AppController
         $adminUser      = $this->request->getHeaderLine('ssmsUserName');
         $clientCode     = $this->request->getHeaderLine('ssmsClientCode');
         $today          = date('Y-m-d H:i:s');
-        $todayDate      = date('Y-m-d');
+        $todayDate      = $this->schoolToday();
  
         if (empty($receiptNumbers)) {
             $this->response = $this->response->withStatus(422);
@@ -3191,12 +3235,14 @@ class FeeApiController extends AppController
                         ? $params['schoolEmailAddress']
                         : env('EMAIL_FROM_ADDRESS', 'admin@sawera.info');
         $fromName    = $schoolName;
+        // the family's own language (their account's choice), else the school's
+        $__prevLang = \App\Service\Locale::useLang(\App\Service\Locale::langForEmail((string)($params['client_code'] ?? ''), $email, $params['enrollment_id'] ?? null));
         try {
             $mailer = new \Cake\Mailer\Mailer('default');
             $mailer
                 ->setFrom([$fromAddress => $fromName])
                 ->setTo([$email => $studentName])
-                ->setSubject("Fee Receipt #{$receiptNo} — {$schoolName}")
+                ->setSubject(\App\Service\Locale::t((string)($params['client_code'] ?? ''), 'Fee Receipt #{no} — {school}', ['no' => $receiptNo, 'school' => $schoolName]))
                 ->setEmailFormat('html')
                 ->viewBuilder()
                     ->setTemplate('fee_receipt')
@@ -3210,6 +3256,8 @@ class FeeApiController extends AppController
                         'schoolCity'     => $params['schoolCity']         ?? '',
                         'schoolState'    => $params['schoolState']        ?? '',
                         'schoolZip'      => $params['schoolZip']          ?? '',
+                        'schoolCurrency' => $params['schoolCurrency']     ?? '',
+                        'schoolClientCode' => (string)($params['client_code'] ?? ''),
 
                         // Receipt header
                         'receiptNo'     => $receiptNo,
@@ -3223,7 +3271,7 @@ class FeeApiController extends AppController
                         'totalLateFee'  => (float)($params['totalLateFee']     ?? 0),
                         // Payment metadata
                         'paymentDate'   => !empty($params['payment_date'])
-                                            ? $params['payment_date'] : date('Y-m-d'),
+                                            ? $params['payment_date'] : $this->schoolToday(),
                         'paymentMethod' => $params['payment_method'] ?? 'Cash',
                         'adminUser'     => $params['admin_user']     ?? '',
  
@@ -3231,7 +3279,7 @@ class FeeApiController extends AppController
                         'feeItems'      => (array)($params['fee_items'] ?? []),
  
                         // Timestamp
-                        'generatedOn'   => date('d M Y \at h:i A'),
+                        'generatedOn'   => ($__gc = (string)($params['client_code'] ?? '')) !== '' ? \App\Service\Locale::date($__gc, \App\Service\Locale::today($__gc), 'medium') . ', ' . \App\Service\Locale::time($__gc, \App\Service\Locale::now($__gc, 'H:i')) : date('d M Y \at h:i A'),
                     ]);
  
             $mailer->send();
@@ -3242,6 +3290,8 @@ class FeeApiController extends AppController
         } catch (\Exception $e) {
             Log::error("_dispatchReceiptEmail failed [{$email} / #{$receiptNo}]: " . $e->getMessage());
             return false;
+        } finally {
+            \App\Service\Locale::endLang($__prevLang);
         }
     }
     
@@ -3286,7 +3336,7 @@ class FeeApiController extends AppController
         $schoolState        = '';
         $schoolZip          = '';
         $schoolEmailAddress = env('EMAIL_FROM_ADDRESS', 'admin@sawera.info');
-        $schoolCurrency     = '₹';
+        $schoolCurrency     = \App\Service\Locale::get((string)$ssmsClientCode)['currency_symbol'];
         $fromAddress        = env('EMAIL_FROM_ADDRESS', 'admin@sawera.info');//$schoolEmailAddress; // defined here, updated from DB below
 
         if (!empty($enrollmentId)) {
@@ -3314,7 +3364,7 @@ class FeeApiController extends AppController
                     $schoolState        = trim($row['ssms_client_state']       ?? '');
                     $schoolZip          = trim($row['ssms_client_zip']         ?? '');
                     $schoolEmailAddress = trim($row['ssms_client_email']       ?? $schoolEmailAddress);
-                    $schoolCurrency     = trim($row['currency']                ?? '₹');
+                    $schoolCurrency     = trim((string)($row['currency'] ?? '')) ?: $schoolCurrency;
                     //$fromAddress        = !empty($schoolEmailAddress)
                     //                      ? $schoolEmailAddress
                     //                      : env('EMAIL_FROM_ADDRESS', 'admin@sawera.info');
@@ -3324,12 +3374,13 @@ class FeeApiController extends AppController
             }
         }
 
+        $__prevLang = \App\Service\Locale::useLang(\App\Service\Locale::langForEmail((string)$ssmsClientCode, $email, $enrollmentId));   // the family's own language
         try {
             $mailer = new \Cake\Mailer\Mailer('default');
             $mailer
                 ->setFrom([$fromAddress => $schoolName])
                 ->setTo([$email => $studentName])
-                ->setSubject("Fee Receipt #{$receiptNo} — {$schoolName}")
+                ->setSubject(\App\Service\Locale::t((string)$ssmsClientCode, 'Fee Receipt #{no} — {school}', ['no' => $receiptNo, 'school' => $schoolName]))
                 ->setEmailFormat('html')
                 ->viewBuilder()
                     ->setTemplate('fee_receipt')
@@ -3345,6 +3396,7 @@ class FeeApiController extends AppController
                         'schoolZip'          => $schoolZip,
                         'schoolEmailAddress' => $schoolEmailAddress,
                         'schoolCurrency'     => $schoolCurrency,
+                        'schoolClientCode'   => (string)$ssmsClientCode,
                         // Receipt header
                         'receiptNo'     => $receiptNo,
                         'studentName'   => $studentName,
@@ -3357,7 +3409,7 @@ class FeeApiController extends AppController
  
                         // Payment metadata
                         'paymentDate'   => !empty($data['payment_date'])
-                                            ? $data['payment_date'] : date('Y-m-d'),
+                                            ? $data['payment_date'] : $this->schoolToday(),
                         'paymentMethod' => $data['payment_method'] ?? 'Cash',
                         'adminUser'     => $data['admin_user']     ?? '',
  
@@ -3365,7 +3417,7 @@ class FeeApiController extends AppController
                         'feeItems'      => (array)($data['fee_items'] ?? []),
  
                         // Generated timestamp
-                        'generatedOn'   => date('d M Y \\a\\t h:i A'),
+                        'generatedOn'   => \App\Service\Locale::date((string)$ssmsClientCode, \App\Service\Locale::today((string)$ssmsClientCode), 'medium') . ', ' . \App\Service\Locale::time((string)$ssmsClientCode, \App\Service\Locale::now((string)$ssmsClientCode, 'H:i')),
                     ]);
  
             $mailer->send();
@@ -3379,6 +3431,8 @@ class FeeApiController extends AppController
             $this->response = $this->response->withStatus(502);
             $this->set(['success' => false, 'message' => 'Email send failed: ' . $e->getMessage()]);
             $this->viewBuilder()->setOption('serialize', ['success', 'message']);
+        } finally {
+            \App\Service\Locale::endLang($__prevLang);
         }
     }
     
@@ -3401,7 +3455,7 @@ class FeeApiController extends AppController
         }
 
         $db    = $this->getTableLocator()->get('SsmsFeePaidDetails')->getConnection();
-        $today = date('Y-m-d');
+        $today = $this->schoolToday();
 
         // Map category param to category label and value
         $categoryMap = [

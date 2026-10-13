@@ -25,17 +25,19 @@ import {
   fetchStudentTransportEnrollment,
 } from "../../services/TransportServiceApi";
 
+import { fmtMoney } from "../../services/Locale";
+import { _t, _tx } from "../../services/i18n";
 // ── Small helpers ─────────────────────────────────────────────────────────────
 const Badge = ({ label, color = "#2563eb" }) => (
   <View style={[s.badge, { backgroundColor: color + "18", borderColor: color + "40" }]}>
-    <Text style={[s.badgeTxt, { color }]}>{label}</Text>
+    <Text style={[s.badgeTxt, { color }]}>{_tx(label)}</Text>
   </View>
 );
 
 const Row = ({ label, value }) => (
   <View style={s.detailRow}>
-    <Text style={s.detailLabel}>{label}</Text>
-    <Text style={s.detailValue}>{value || "—"}</Text>
+    <Text style={s.detailLabel}>{_tx(label)}</Text>
+    <Text style={s.detailValue}>{_tx(value) || "—"}</Text>
   </View>
 );
 
@@ -50,14 +52,14 @@ function Dropdown({ label, value, options, onChange, disabled }) {
         onPress={() => !disabled && setOpen(true)}
         activeOpacity={0.75}>
         <Text style={[s.ddBtnTxt, !sel?.value && { color: "#94a3b8" }]} numberOfLines={1}>
-          {sel?.label ?? label}
+          {_tx(sel?.label) ?? _tx(label)}
         </Text>
         <Feather name="chevron-down" size={14} color="#64748b" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable style={s.ddOverlay} onPress={() => setOpen(false)}>
           <View style={s.ddSheet}>
-            <Text style={s.ddTitle}>{label}</Text>
+            <Text style={s.ddTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={(o, i) => String(o.value) + i}
@@ -67,7 +69,7 @@ function Dropdown({ label, value, options, onChange, disabled }) {
                   style={[s.ddOpt, String(o.value) === String(value) && s.ddOptActive]}
                   onPress={() => { onChange(o.value); setOpen(false); }}>
                   <Text style={[s.ddOptTxt, String(o.value) === String(value) && s.ddOptTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) && (
                     <Feather name="check" size={14} color="#2563eb" />
@@ -134,7 +136,7 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
       const sess = sessR.status === "fulfilled" ? (Array.isArray(sessR.value) ? sessR.value : sessR.value?.data ?? []) : [];
       const br   = brR.status   === "fulfilled" ? (Array.isArray(brR.value)   ? brR.value   : brR.value?.data   ?? []) : [];
       const cl   = clR.status   === "fulfilled" ? (Array.isArray(clR.value)   ? clR.value   : clR.value?.data   ?? []) : [];
-      const rts  = rtsR.status  === "fulfilled" ? rtsR.value : [];
+      const rts  = rtsR.status  === "fulfilled" && Array.isArray(rtsR.value) ? rtsR.value : [];
       const enr  = enrR.status  === "fulfilled" ? enrR.value : null;
 
       //console.log("[TransportEnrollment] sessions:", sessR.status, sess.length);
@@ -142,10 +144,14 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
       //console.log("[TransportEnrollment] classes:",  clR.status, cl.length, clR.status === "rejected" ? clR.reason?.message : "");
       //console.log("[TransportEnrollment] routes:",   rtsR.status, rts.length);
 
-      setSessions(sess);
-      setBranches(br);
-      setClasses(cl);
+      setSessions(Array.isArray(sess) ? sess : []);
+      setBranches(Array.isArray(br) ? br : []);
+      setClasses(Array.isArray(cl) ? cl : []);
       setRoutes(rts);
+
+      // One alert (server message, e.g. NO_PERMISSION) instead of silently empty lists
+      const failMsg = results.map(r => (r.status === "rejected" ? r.reason?.message : r.value?.status === false ? r.value?.message : null)).find(Boolean);
+      if (failMsg) Alert.alert(_t("Error"), _tx(failMsg));
 
      // console.log("[TransportEnrollment] enr:", JSON.stringify(enr));
       if (enr) {
@@ -164,7 +170,7 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
         setRouteId(String(enr.route_id      ?? "")); // triggers useEffect below
       }
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e?.message) || _t("Failed to load transport data."));
     } finally {
       setLoading(false);
     }
@@ -180,7 +186,7 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
     fetchStops(user, routeId)
       .then(st => {
         //console.log("[TransportEnrollment] stops loaded:", st.length, "pendingStops:", JSON.stringify(pendingStops.current));
-        setStops(st);
+        setStops(Array.isArray(st) ? st : []);
         if (pendingStops.current) {
           // Restore stop IDs from initial load — do NOT wipe them
           setStopId(pendingStops.current.stopId);
@@ -192,43 +198,43 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
           setStopId(""); setPickupStopId(""); setDropoffStopId("");
         }
       })
-      .catch(e => Alert.alert("Error loading stops", e.message))
+      .catch(e => Alert.alert(_t("Error loading stops"), _tx(e?.message) || _t("Failed to load stops.")))
       .finally(() => setLoadingStops(false));
   }, [routeId]);
 
   // ── Derived options ───────────────────────────────────────────────────────
   const sessionOpts = useMemo(() => [
-    { label: "Select session", value: "" },
+    { label: _t("Select session"), value: "" },
     ...sessions.map(s => ({ label: s.session_name ?? s.session_year ?? String(s.session_id), value: String(s.session_id) })),
   ], [sessions]);
 
   const branchOpts = useMemo(() => [
-    { label: "Select branch", value: "" },
+    { label: _t("Select branch"), value: "" },
     ...branches.map(b => ({ label: b.branch_name, value: String(b.branch_id) })),
   ], [branches]);
 
   const classOpts = useMemo(() => [
-    { label: "Select class", value: "" },
+    { label: _t("Select class"), value: "" },
     ...classes.map(c => ({ label: c.class_name, value: String(c.class_id) })),
   ], [classes]);
 
   const routeOpts = useMemo(() => [
-    { label: "Select route", value: "" },
+    { label: _t("Select route"), value: "" },
     ...routes.map(r => ({
-      label: r.route_name + (r.monthly_fare > 0 ? `  ·  ₹${r.monthly_fare}/mo` : ""),
+      label: r.route_name + (r.monthly_fare > 0 ? `  ·  ${fmtMoney(r.monthly_fare)}/mo` : ""),
       value: String(r.route_id),
     })),
   ], [routes]);
 
   const stopOpts = useMemo(() => [
-    { label: "Select stop", value: "" },
+    { label: _t("Select stop"), value: "" },
     ...stops.map(s => ({ label: `${s.stop_order ?? ""} ${s.stop_name}${s.pickup_time ? "  🕐 " + s.pickup_time : ""}`, value: String(s.stop_id) })),
   ], [stops]);
 
   const typeOpts = [
-    { label: "Both (Pickup & Drop-off)", value: "both" },
-    { label: "Pickup only",              value: "pickup" },
-    { label: "Drop-off only",            value: "dropoff" },
+    { label: _t("Both (Pickup & Drop-off)"), value: "both" },
+    { label: _t("Pickup only"),              value: "pickup" },
+    { label: _t("Drop-off only"),            value: "dropoff" },
   ];
 
   // ── Map region ────────────────────────────────────────────────────────────
@@ -252,9 +258,9 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
 
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!routeId)   { Alert.alert("Required", "Please select a route.");   return; }
-    if (!stopId)    { Alert.alert("Required", "Please select a stop.");    return; }
-    if (!sessionId) { Alert.alert("Required", "Please select a session."); return; }
+    if (!routeId)   { Alert.alert(_t("Required"), _t("Please select a route."));   return; }
+    if (!stopId)    { Alert.alert(_t("Required"), _t("Please select a stop."));    return; }
+    if (!sessionId) { Alert.alert(_t("Required"), _t("Please select a session.")); return; }
 
     setSaving(true);
     try {
@@ -270,11 +276,11 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
         transport_type:  transportType,
         monthly_fare:    selectedRoute?.monthly_fare ?? 0,
       });
-      Alert.alert("✓ Saved", "Transport enrollment saved successfully.", [
-        { text: "OK", onPress: () => navigation.goBack() },
+      Alert.alert(_t("✓ Saved"), _t("Transport enrollment saved successfully."), [
+        { text: _t("OK"), onPress: () => navigation.goBack() },
       ]);
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     } finally {
       setSaving(false);
     }
@@ -283,19 +289,19 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
   // ── Remove ────────────────────────────────────────────────────────────────
   const handleRemove = () => {
     Alert.alert(
-      "Remove Enrollment",
-      `Remove transport enrollment for ${student?.firstName} ${student?.lastName}?`,
+      _t("Remove Enrollment"),
+      _t("Remove transport enrollment for {firstName} {lastName}?", { firstName: student?.firstName, lastName: student?.lastName }),
       [
-        { text: "Cancel", style: "cancel" },
-        { text: "Remove", style: "destructive", onPress: async () => {
+        { text: _t("Cancel"), style: "cancel" },
+        { text: _t("Remove"), style: "destructive", onPress: async () => {
           setRemoving(true);
           try {
             await removeTransportEnrollment(user, existing.transport_enrollment_id);
-            Alert.alert("Removed", "Transport enrollment removed.", [
-              { text: "OK", onPress: () => navigation.goBack() },
+            Alert.alert(_t("Removed"), _t("Transport enrollment removed."), [
+              { text: _t("OK"), onPress: () => navigation.goBack() },
             ]);
           } catch (e) {
-            Alert.alert("Error", e.message);
+            Alert.alert(_t("Error"), _tx(e.message));
           } finally {
             setRemoving(false);
           }
@@ -310,7 +316,7 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
       <SafeAreaView style={s.safe}>
         <View style={s.loadWrap}>
           <ActivityIndicator color="#0f766e" size="large" />
-          <Text style={s.loadTxt}>Loading transport data…</Text>
+          <Text style={s.loadTxt}>{_t("Loading transport data…")}</Text>
         </View>
       </SafeAreaView>
     );
@@ -330,21 +336,21 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
           </View>
           <View style={{ flex: 1 }}>
             <Text style={s.studentName}>
-              {student?.firstName} {student?.lastName}
+              {_tx(student?.firstName)} {_tx(student?.lastName)}
             </Text>
             <Text style={s.studentMeta}>
-              {student?.className ?? ""}
-              {student?.enrollmentId ? `  ·  #${student.enrollmentId}` : ""}
+              {_tx(student?.className) ?? ""}
+              {student?.enrollmentId ? `  ·  #${_tx(student.enrollmentId)}` : ""}
             </Text>
           </View>
-          {existing && <Badge label="Enrolled" color="#0f766e" />}
+          {existing && <Badge label={_t("Enrolled")} color="#0f766e" />}
         </View>
 
         {/* ── Current enrollment summary (if exists) ── */}
         {existing && (
           <View style={s.card}>
             <View style={s.cardHeaderRow}>
-              <Text style={s.sectionTitle}>CURRENT ENROLLMENT</Text>
+              <Text style={s.sectionTitle}>{_t("CURRENT ENROLLMENT")}</Text>
               <TouchableOpacity
                 style={s.removeBtn}
                 onPress={handleRemove}
@@ -352,57 +358,53 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
                 {removing
                   ? <ActivityIndicator size="small" color="#dc2626" />
                   : <><Feather name="trash-2" size={13} color="#dc2626" />
-                     <Text style={s.removeBtnTxt}>Remove</Text></>}
+                     <Text style={s.removeBtnTxt}>{_t("Remove")}</Text></>}
               </TouchableOpacity>
             </View>
-            <Row label="Route"       value={existing.route_name} />
-            <Row label="Stop"        value={existing.stop_name} />
-            <Row label="Type"        value={existing.transport_type} />
-            <Row label="Monthly Fare" value={existing.monthly_fare > 0 ? `₹${existing.monthly_fare}` : "—"} />
+            <Row label={_t("Route")}       value={existing.route_name} />
+            <Row label={_t("Stop")}        value={existing.stop_name} />
+            <Row label={_t("Type")}        value={existing.transport_type} />
+            <Row label={_t("Monthly Fare")} value={existing.monthly_fare > 0 ? fmtMoney(existing.monthly_fare) : "—"} />
           </View>
         )}
 
         {/* ── Form card ── */}
         <View style={s.card}>
           <Text style={s.sectionTitle}>
-            {existing ? "UPDATE ENROLLMENT" : "NEW ENROLLMENT"}
+            {existing ? _t("UPDATE ENROLLMENT") : _t("NEW ENROLLMENT")}
           </Text>
 
           {/* Session */}
-          <Text style={s.fieldLabel}>Academic Session *</Text>
+          <Text style={s.fieldLabel}>{_t("Academic Session *")}</Text>
           <Dropdown
-            label="Select session"
+            label={_t("Select session")}
             value={sessionId}
             options={sessionOpts}
             onChange={setSessionId}
           />
 
           {/* Branch */}
-          <Text style={[s.fieldLabel, { marginTop: 14 }]}>
-            Branch {branches.length === 0 ? "(no branches loaded)" : `(${branches.length})`}
-          </Text>
+          <Text style={[s.fieldLabel, { marginTop: 14 }]}>{_t("Branch {v}", { v: branches.length === 0 ? _t("(no branches loaded)") : `(${branches.length})` })}</Text>
           <Dropdown
-            label="Select branch"
+            label={_t("Select branch")}
             value={branchId}
             options={branchOpts}
             onChange={setBranchId}
           />
 
           {/* Class */}
-          <Text style={[s.fieldLabel, { marginTop: 14 }]}>
-            Class {classes.length === 0 ? "(no classes loaded)" : `(${classes.length})`}
-          </Text>
+          <Text style={[s.fieldLabel, { marginTop: 14 }]}>{_t("Class {v}", { v: classes.length === 0 ? _t("(no classes loaded)") : `(${classes.length})` })}</Text>
           <Dropdown
-            label="Select class"
+            label={_t("Select class")}
             value={classId}
             options={classOpts}
             onChange={setClassId}
           />
 
           {/* Route */}
-          <Text style={[s.fieldLabel, { marginTop: 14 }]}>Route *</Text>
+          <Text style={[s.fieldLabel, { marginTop: 14 }]}>{_t("Route *")}</Text>
           <Dropdown
-            label="Select route"
+            label={_t("Select route")}
             value={routeId}
             options={routeOpts}
             onChange={setRouteId}
@@ -414,18 +416,17 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
               <Feather name="map-pin" size={12} color="#0f766e" />
               <Text style={s.routeInfoTxt}>
                 {[selectedRoute.start_point, selectedRoute.end_point].filter(Boolean).join(" → ")}
-                {selectedRoute.distance_km ? `  ·  ${selectedRoute.distance_km} km` : ""}
-                {selectedRoute.monthly_fare > 0 ? `  ·  ₹${selectedRoute.monthly_fare}/mo` : ""}
+                {selectedRoute.distance_km ? `  ${_t("·  {distance_km} km", { distance_km: selectedRoute.distance_km })}` : ""}
+                {selectedRoute.monthly_fare > 0 ? `  ${_t("·  {monthly_fare}/mo", { monthly_fare: fmtMoney(selectedRoute.monthly_fare) })}` : ""}
               </Text>
             </View>
           )}
 
           {/* Stop (primary) */}
-          <Text style={[s.fieldLabel, { marginTop: 14 }]}>
-            Primary Stop * {loadingStops && <ActivityIndicator size="small" color="#0f766e" />}
+          <Text style={[s.fieldLabel, { marginTop: 14 }]}>{_t("Primary Stop *")}{" "}{loadingStops && <ActivityIndicator size="small" color="#0f766e" />}
           </Text>
           <Dropdown
-            label={routeId ? "Select stop" : "Select route first"}
+            label={routeId ? _t("Select stop") : _t("Select route first")}
             value={stopId}
             options={stopOpts}
             onChange={setStopId}
@@ -433,7 +434,7 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
           />
 
           {/* Transport type */}
-          <Text style={[s.fieldLabel, { marginTop: 14 }]}>Transport Type</Text>
+          <Text style={[s.fieldLabel, { marginTop: 14 }]}>{_t("Transport Type")}</Text>
           <View style={s.typeRow}>
             {typeOpts.map(t => (
               <TouchableOpacity
@@ -442,7 +443,7 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
                 onPress={() => setTransportType(t.value)}
                 activeOpacity={0.75}>
                 <Text style={[s.typeBtnTxt, transportType === t.value && s.typeBtnTxtActive]}>
-                  {t.label}
+                  {_tx(t.label)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -451,10 +452,10 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
           {/* Pickup stop (optional) */}
           {(transportType === "both" || transportType === "pickup") && (
             <>
-              <Text style={[s.fieldLabel, { marginTop: 14 }]}>Pickup Stop</Text>
-              <Text style={s.fieldHint}>Where the student is picked up in the morning</Text>
+              <Text style={[s.fieldLabel, { marginTop: 14 }]}>{_t("Pickup Stop")}</Text>
+              <Text style={s.fieldHint}>{_t("Where the student is picked up in the morning")}</Text>
               <Dropdown
-                label="Same as primary stop"
+                label={_t("Same as primary stop")}
                 value={pickupStopId}
                 options={stopOpts}
                 onChange={setPickupStopId}
@@ -466,10 +467,10 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
           {/* Drop-off stop (optional) */}
           {(transportType === "both" || transportType === "dropoff") && (
             <>
-              <Text style={[s.fieldLabel, { marginTop: 14 }]}>Drop-off Stop</Text>
-              <Text style={s.fieldHint}>Where the student is dropped off in the afternoon</Text>
+              <Text style={[s.fieldLabel, { marginTop: 14 }]}>{_t("Drop-off Stop")}</Text>
+              <Text style={s.fieldHint}>{_t("Where the student is dropped off in the afternoon")}</Text>
               <Dropdown
-                label="Same as primary stop"
+                label={_t("Same as primary stop")}
                 value={dropoffStopId}
                 options={stopOpts}
                 onChange={setDropoffStopId}
@@ -482,7 +483,7 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
         {/* ── Map ── */}
         {mapRegion && (
           <View style={s.card}>
-            <Text style={s.sectionTitle}>ROUTE MAP</Text>
+            <Text style={s.sectionTitle}>{_t("ROUTE MAP")}</Text>
             <MapView
               provider={PROVIDER_GOOGLE}
               style={s.map}
@@ -498,8 +499,8 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
                   <Marker
                     key={st.stop_id}
                     coordinate={{ latitude: parseFloat(st.latitude), longitude: parseFloat(st.longitude) }}
-                    title={st.stop_name}
-                    description={st.pickup_time ? `🕐 ${st.pickup_time}` : undefined}
+                    title={_tx(st.stop_name)}
+                    description={st.pickup_time ? `🕐 ${_tx(st.pickup_time)}` : undefined}
                     pinColor={
                       isSelected ? "#f59e0b"
                       : idx === 0 ? "#22c55e"
@@ -522,10 +523,10 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
               )}
             </MapView>
             <View style={s.mapLegend}>
-              <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: "#22c55e" }]} /><Text style={s.legendTxt}>Start</Text></View>
-              <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: "#2563eb" }]} /><Text style={s.legendTxt}>Stop</Text></View>
-              <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: "#f59e0b" }]} /><Text style={s.legendTxt}>Selected</Text></View>
-              <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: "#ef4444" }]} /><Text style={s.legendTxt}>End</Text></View>
+              <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: "#22c55e" }]} /><Text style={s.legendTxt}>{_t("Start")}</Text></View>
+              <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: "#2563eb" }]} /><Text style={s.legendTxt}>{_t("Stop")}</Text></View>
+              <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: "#f59e0b" }]} /><Text style={s.legendTxt}>{_t("Selected")}</Text></View>
+              <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: "#ef4444" }]} /><Text style={s.legendTxt}>{_t("End")}</Text></View>
             </View>
           </View>
         )}
@@ -541,7 +542,7 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
             : <>
                 <Feather name="check-circle" size={18} color="#fff" />
                 <Text style={s.saveBtnTxt}>
-                  {existing ? "Update Enrollment" : "Enroll in Transport"}
+                  {existing ? _t("Update Enrollment") : _t("Enroll in Transport")}
                 </Text>
               </>}
         </TouchableOpacity>

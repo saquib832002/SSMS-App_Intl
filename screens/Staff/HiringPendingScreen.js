@@ -14,6 +14,7 @@ import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
 import { fetchHiringList, updateHiringDetails } from "../../services/StaffServiceApi";
 import { fetchBranches } from "../../services/SetupServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -32,7 +33,7 @@ function DateField({ label, value, onChange, disabled }) {
   const days    = Array.from({ length: daysInM }, (_, i) => i + 1);
 
   const display = value
-    ? `${String(parsed?.getDate()).padStart(2,"0")} ${MONTHS[parsed?.getMonth()]} ${parsed?.getFullYear()}`
+    ? `${String(parsed?.getDate()).padStart(2,"0")} ${_tx(MONTHS[parsed?.getMonth()])} ${parsed?.getFullYear()}`
     : null;
 
   const onOpen = () => {
@@ -50,24 +51,24 @@ function DateField({ label, value, onChange, disabled }) {
   return (
     <>
       <TouchableOpacity style={[hst.input, disabled && {opacity:0.45}]} onPress={onOpen} activeOpacity={0.7}>
-        <Text style={[hst.inputTxt, !display && {color:"#94a3b8"}]}>{display || `Select ${label}`}</Text>
+        <Text style={[hst.inputTxt, !display && {color:"#94a3b8"}]}>{_tx(display) || _t("Select {label}", { label })}</Text>
         <Feather name="calendar" size={13} color="#64748b" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <View style={hst.dpOverlay}>
           <View style={hst.dpSheet}>
             <View style={hst.dpHeader}>
-              <Text style={hst.dpTitle}>{label}</Text>
+              <Text style={hst.dpTitle}>{_tx(label)}</Text>
               <TouchableOpacity onPress={() => setOpen(false)} style={hst.dpClose}>
                 <Feather name="x" size={14} color="#64748b" />
               </TouchableOpacity>
             </View>
             <View style={hst.dpPreviewRow}>
-              <Text style={hst.dpPreview}>{String(dy).padStart(2,"0")} {MONTHS[mo]} {yr}</Text>
+              <Text style={hst.dpPreview}>{String(dy).padStart(2,"0")} {_tx(MONTHS[mo])} {_tx(yr)}</Text>
             </View>
             <View style={hst.dpCols}>
               <View style={hst.dpCol}>
-                <Text style={hst.dpColLabel}>Day</Text>
+                <Text style={hst.dpColLabel}>{_t("Day")}</Text>
                 <ScrollView showsVerticalScrollIndicator={false} style={{flex:1}}>
                   {days.map(d => (
                     <TouchableOpacity key={d} style={[hst.dpItem, dy===d && hst.dpItemActive]} onPress={() => setDy(d)}>
@@ -77,21 +78,21 @@ function DateField({ label, value, onChange, disabled }) {
                 </ScrollView>
               </View>
               <View style={[hst.dpCol, {flex:1.8}]}>
-                <Text style={hst.dpColLabel}>Month</Text>
+                <Text style={hst.dpColLabel}>{_t("Month")}</Text>
                 <ScrollView showsVerticalScrollIndicator={false} style={{flex:1}}>
                   {MONTHS.map((m,i) => (
                     <TouchableOpacity key={m} style={[hst.dpItem, mo===i && hst.dpItemActive]} onPress={() => setMo(i)}>
-                      <Text style={[hst.dpItemTxt, mo===i && hst.dpItemTxtActive]}>{m}</Text>
+                      <Text style={[hst.dpItemTxt, mo===i && hst.dpItemTxtActive]}>{_tx(m)}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
               </View>
               <View style={[hst.dpCol, {flex:1.3}]}>
-                <Text style={hst.dpColLabel}>Year</Text>
+                <Text style={hst.dpColLabel}>{_t("Year")}</Text>
                 <ScrollView showsVerticalScrollIndicator={false} style={{flex:1}}>
                   {years.map(y => (
                     <TouchableOpacity key={y} style={[hst.dpItem, yr===y && hst.dpItemActive]} onPress={() => setYr(y)}>
-                      <Text style={[hst.dpItemTxt, yr===y && hst.dpItemTxtActive]}>{y}</Text>
+                      <Text style={[hst.dpItemTxt, yr===y && hst.dpItemTxtActive]}>{_tx(y)}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -99,7 +100,7 @@ function DateField({ label, value, onChange, disabled }) {
             </View>
             <TouchableOpacity style={hst.dpConfirm} onPress={confirm}>
               <Feather name="check" size={14} color="#fff" />
-              <Text style={hst.dpConfirmTxt}>Confirm</Text>
+              <Text style={hst.dpConfirmTxt}>{_t("Confirm")}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -127,7 +128,7 @@ function Toggle({ value, onChange, yesLabel = "Yes", noLabel = "No", disabled })
           activeOpacity={0.7}
         >
           <Text style={[hst.toggleTxt, value === opt.v && { color: opt.color, fontWeight: "700" }]}>
-            {opt.label}
+            {_tx(opt.label)}
           </Text>
         </TouchableOpacity>
       ))}
@@ -137,16 +138,16 @@ function Toggle({ value, onChange, yesLabel = "Yes", noLabel = "No", disabled })
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 function StatusBadge({ hired, resigned, hasAccount }) {
-  if (resigned === "Y")  return <View style={[hst.badge, { backgroundColor: "#fee2e2" }]}><Text style={[hst.badgeTxt, { color: "#dc2626" }]}>Resigned</Text></View>;
+  if (resigned === "Y")  return <View style={[hst.badge, { backgroundColor: "#fee2e2" }]}><Text style={[hst.badgeTxt, { color: "#dc2626" }]}>{_t("Resigned")}</Text></View>;
   if (hired    === "Y")  return (
     <View style={{ flexDirection: "row", gap: 4 }}>
-      <View style={[hst.badge, { backgroundColor: "#dcfce7" }]}><Text style={[hst.badgeTxt, { color: "#16a34a" }]}>Hired</Text></View>
+      <View style={[hst.badge, { backgroundColor: "#dcfce7" }]}><Text style={[hst.badgeTxt, { color: "#16a34a" }]}>{_t("Hired")}</Text></View>
       {hasAccount === "1" || hasAccount === 1
-        ? <View style={[hst.badge, { backgroundColor: "#eff6ff" }]}><Text style={[hst.badgeTxt, { color: "#1e40af" }]}>Account ✓</Text></View>
+        ? <View style={[hst.badge, { backgroundColor: "#eff6ff" }]}><Text style={[hst.badgeTxt, { color: "#1e40af" }]}>{_t("Account ✓")}</Text></View>
         : null}
     </View>
   );
-  return <View style={[hst.badge, { backgroundColor: "#fef3c7" }]}><Text style={[hst.badgeTxt, { color: "#d97706" }]}>Pending</Text></View>;
+  return <View style={[hst.badge, { backgroundColor: "#fef3c7" }]}><Text style={[hst.badgeTxt, { color: "#d97706" }]}>{_t("Pending")}</Text></View>;
 }
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
@@ -176,15 +177,18 @@ export default function HiringPendingScreen() {
   const load = useCallback(async (isRefresh = false) => {
     try {
       isRefresh ? setRefreshing(true) : setLoading(true);
-      const [data, branchData] = await Promise.all([
+      const [rData, rBranch] = await Promise.allSettled([
         fetchHiringList(user),
         fetchBranches(user),
       ]);
+      const data       = rData.status   === "fulfilled" ? rData.value   : null;
+      const branchData = rBranch.status === "fulfilled" ? rBranch.value : null;
       setStaff(Array.isArray(data) ? data : []);
-      const bl = Array.isArray(branchData) ? branchData : branchData?.data ?? [];
+      const bl = Array.isArray(branchData) ? branchData : Array.isArray(branchData?.data) ? branchData.data : [];
       setBranches(bl);
+      if (rData.status === "rejected") Alert.alert(_t("Error"), _tx(rData.reason?.message) || _t("Failed to load staff list"));
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load staff list");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load staff list"));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -211,11 +215,11 @@ export default function HiringPendingScreen() {
   // ── Save ────────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (form.hired === "Y" && !form.date_of_hiring) {
-      Alert.alert("Validation", "Please set a Hiring Date before marking as Hired.");
+      Alert.alert(_t("Validation"), _t("Please set a Hiring Date before marking as Hired."));
       return;
     }
     if (form.resigned === "Y" && !form.resignation_date) {
-      Alert.alert("Validation", "Please set a Resignation Date.");
+      Alert.alert(_t("Validation"), _t("Please set a Resignation Date."));
       return;
     }
 
@@ -225,14 +229,19 @@ export default function HiringPendingScreen() {
 
     if (isNewHire) {
       Alert.alert(
-        "Confirm Hiring",
-        `Marking ${selected?.first_name} ${selected?.last_name} as Hired will:\n\n` +
-        `• Create a user account (username: ${selected?.first_name?.toLowerCase()}.${selected?.last_name?.toLowerCase()})\n` +
-        `• Send welcome email to ${selected?.email_address}\n\n` +
+        _t("Confirm Hiring"),
+        `${_t("Marking {first_name} {last_name} as Hired will:", { first_name: selected?.first_name, last_name: selected?.last_name })}
+
+` +
+        `${_t("• Create a user account (username: {v}.{v2})", { v: selected?.first_name?.toLowerCase(), v2: selected?.last_name?.toLowerCase() })}
+` +
+        `${_t("• Send welcome email to {email_address}", { email_address: selected?.email_address })}
+
+` +
         `Proceed?`,
         [
-          { text: "Cancel", style: "cancel" },
-          { text: "Confirm & Hire", onPress: save },
+          { text: _t("Cancel"), style: "cancel" },
+          { text: _t("Confirm & Hire"), onPress: save },
         ]
       );
     } else {
@@ -253,9 +262,9 @@ export default function HiringPendingScreen() {
           ? "\n\nWelcome email sent to the staff member."
           : "\n\nAccount created but email could not be sent. Please share credentials manually.";
       }
-      Alert.alert("Success", msg);
+      Alert.alert(_t("Success"), _tx(msg));
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to update hiring details");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to update hiring details"));
     } finally {
       setSaving(false);
     }
@@ -280,14 +289,14 @@ export default function HiringPendingScreen() {
         <View style={hst.cardLeft}>
           {item.staff_photo
             ? <Image source={{ uri: item.staff_photo }} style={hst.avatar} />
-            : <View style={hst.avatarFallback}><Text style={hst.avatarTxt}>{initials}</Text></View>}
+            : <View style={hst.avatarFallback}><Text style={hst.avatarTxt}>{_tx(initials)}</Text></View>}
           <View style={{ flex: 1 }}>
-            <Text style={hst.staffName} numberOfLines={1}>{name}</Text>
+            <Text style={hst.staffName} numberOfLines={1}>{_tx(name)}</Text>
             <Text style={hst.staffMeta} numberOfLines={1}>
-              {item.category_name ?? "—"}
-              {item.specialty ? ` · ${item.specialty}` : ""}
+              {_tx(item.category_name) ?? "—"}
+              {item.specialty ? ` · ${_tx(item.specialty)}` : ""}
             </Text>
-            <Text style={hst.staffMeta}>{item.email_address ?? "No email"}</Text>
+            <Text style={hst.staffMeta}>{_tx(item.email_address) ?? _t("No email")}</Text>
             <View style={{ marginTop: 5 }}>
               <StatusBadge hired={item.hired} resigned={item.resigned} hasAccount={item.has_account} />
             </View>
@@ -297,7 +306,7 @@ export default function HiringPendingScreen() {
         {/* Right — review button */}
         <TouchableOpacity style={hst.reviewBtn} onPress={() => openModal(item)}>
           <Feather name="edit-2" size={13} color="#1e40af" />
-          <Text style={hst.reviewBtnTxt}>Review</Text>
+          <Text style={hst.reviewBtnTxt}>{_t("Review")}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -312,7 +321,7 @@ export default function HiringPendingScreen() {
         <Feather name="search" size={14} color="#94a3b8" style={{ marginRight: 8 }} />
         <TextInput
           style={hst.searchInput}
-          placeholder="Search by name, specialty, category…"
+          placeholder={_t("Search by name, specialty, category…")}
           placeholderTextColor="#94a3b8"
           value={search}
           onChangeText={setSearch}
@@ -327,14 +336,14 @@ export default function HiringPendingScreen() {
       {/* Counts */}
       <View style={hst.statsRow}>
         {[
-          { label: "Total",   count: staff.length,                             color: "#1e40af", bg: "#eff6ff" },
-          { label: "Pending", count: staff.filter(s => s.hired !== "Y" && s.resigned !== "Y").length, color: "#d97706", bg: "#fef3c7" },
-          { label: "Hired",   count: staff.filter(s => s.hired === "Y").length, color: "#16a34a", bg: "#dcfce7" },
-          { label: "Resigned",count: staff.filter(s => s.resigned === "Y").length, color: "#dc2626", bg: "#fee2e2" },
+          { label: _t("Total"),   count: staff.length,                             color: "#1e40af", bg: "#eff6ff" },
+          { label: _t("Pending"), count: staff.filter(s => s.hired !== "Y" && s.resigned !== "Y").length, color: "#d97706", bg: "#fef3c7" },
+          { label: _t("Hired"),   count: staff.filter(s => s.hired === "Y").length, color: "#16a34a", bg: "#dcfce7" },
+          { label: _t("Resigned"),count: staff.filter(s => s.resigned === "Y").length, color: "#dc2626", bg: "#fee2e2" },
         ].map(s => (
           <View key={s.label} style={[hst.statChip, { backgroundColor: s.bg }]}>
-            <Text style={[hst.statCount, { color: s.color }]}>{s.count}</Text>
-            <Text style={[hst.statLabel, { color: s.color }]}>{s.label}</Text>
+            <Text style={[hst.statCount, { color: s.color }]}>{_tx(s.count)}</Text>
+            <Text style={[hst.statLabel, { color: s.color }]}>{_tx(s.label)}</Text>
           </View>
         ))}
       </View>
@@ -343,7 +352,7 @@ export default function HiringPendingScreen() {
       {loading
         ? <View style={hst.loader}>
             <ActivityIndicator size="large" color="#1e40af" />
-            <Text style={hst.loaderTxt}>Loading staff…</Text>
+            <Text style={hst.loaderTxt}>{_t("Loading staff…")}</Text>
           </View>
         : <FlatList
             data={filtered}
@@ -358,7 +367,7 @@ export default function HiringPendingScreen() {
             ListEmptyComponent={
               <View style={hst.empty}>
                 <Feather name="users" size={36} color="#cbd5e1" />
-                <Text style={hst.emptyTxt}>No staff found</Text>
+                <Text style={hst.emptyTxt}>{_t("No staff found")}</Text>
               </View>
             }
           />}
@@ -372,9 +381,9 @@ export default function HiringPendingScreen() {
             <View style={hst.modalHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={hst.modalTitle} numberOfLines={1}>
-                  {selected?.first_name} {selected?.last_name}
+                  {_tx(selected?.first_name)} {_tx(selected?.last_name)}
                 </Text>
-                <Text style={hst.modalSub}>{selected?.email_address}</Text>
+                <Text style={hst.modalSub}>{_tx(selected?.email_address)}</Text>
               </View>
               <TouchableOpacity style={hst.modalClose} onPress={() => setModalVisible(false)} disabled={saving}>
                 <Feather name="x" size={15} color="#64748b" />
@@ -384,41 +393,41 @@ export default function HiringPendingScreen() {
             <ScrollView showsVerticalScrollIndicator={false}>
 
               {/* ── Registration Info (read-only) ── */}
-              <Text style={hst.sectionHead}>Registration Details</Text>
+              <Text style={hst.sectionHead}>{_t("Registration Details")}</Text>
 
               <View style={hst.infoGrid}>
-                <InfoRow label="Full Name"    value={`${selected?.staff_title ? selected.staff_title + " " : ""}${selected?.first_name ?? ""} ${selected?.last_name ?? ""}`} />
-                <InfoRow label="Gender"       value={selected?.gender} />
-                <InfoRow label="Date of Birth"value={selected?.date_of_birth} />
-                <InfoRow label="Mobile"       value={selected?.mobile_number} />
-                <InfoRow label="Email"        value={selected?.email_address} />
-                <InfoRow label="Address"      value={selected?.address} wide />
-                <InfoRow label="State"        value={selected?.state} />
-                <InfoRow label="Father Name"  value={selected?.father_name} />
-                <InfoRow label="Mother Name"  value={selected?.mother_name} />
+                <InfoRow label={_t("Full Name")}    value={`${selected?.staff_title ? selected.staff_title + " " : ""}${selected?.first_name ?? ""} ${selected?.last_name ?? ""}`} />
+                <InfoRow label={_t("Gender")}       value={selected?.gender} />
+                <InfoRow label={_t("Date of Birth")}value={selected?.date_of_birth} />
+                <InfoRow label={_t("Mobile")}       value={selected?.mobile_number} />
+                <InfoRow label={_t("Email")}        value={selected?.email_address} />
+                <InfoRow label={_t("Address")}      value={selected?.address} wide />
+                <InfoRow label={_t("State")}        value={selected?.state} />
+                <InfoRow label={_t("Father Name")}  value={selected?.father_name} />
+                <InfoRow label={_t("Mother Name")}  value={selected?.mother_name} />
 
-                <InfoRow label="Category"     value={selected?.category_name} />
-                <InfoRow label="Specialty"    value={selected?.specialty} />
-                <InfoRow label="Experience"   value={selected?.years_of_experience ? `${selected.years_of_experience} yrs` : null} />
-                <InfoRow label="Expected Salary" value={selected?.expected_salary ? `${selected.expected_salary}` : null} />
+                <InfoRow label={_t("Category")}     value={selected?.category_name} />
+                <InfoRow label={_t("Specialty")}    value={selected?.specialty} />
+                <InfoRow label={_t("Experience")}   value={selected?.years_of_experience ? `${selected.years_of_experience} yrs` : null} />
+                <InfoRow label={_t("Expected Salary")} value={selected?.expected_salary ? `${selected.expected_salary}` : null} />
               </View>
 
               <View style={hst.divider} />
 
               {/* ── Hiring Decision ── */}
-              <Text style={hst.sectionHead}>Hiring Decision</Text>
+              <Text style={hst.sectionHead}>{_t("Hiring Decision")}</Text>
 
               {/* Hiring Date */}
-              <Text style={hst.fieldLabel}>Hiring Date</Text>
+              <Text style={hst.fieldLabel}>{_t("Hiring Date")}</Text>
               <DateField
-                label="Hiring Date"
+                label={_t("Hiring Date")}
                 value={form.date_of_hiring}
                 onChange={v => setField("date_of_hiring", v)}
                 disabled={saving}
               />
 
               {/* Branch */}
-              <Text style={hst.fieldLabel}>Branch</Text>
+              <Text style={hst.fieldLabel}>{_t("Branch")}</Text>
               <BranchDropdown
                 value={form.branch_id}
                 branches={branches}
@@ -427,10 +436,10 @@ export default function HiringPendingScreen() {
               />
 
               {/* Hiring Salary */}
-              <Text style={hst.fieldLabel}>Hiring Salary</Text>
+              <Text style={hst.fieldLabel}>{_t("Hiring Salary")}</Text>
               <TextInput
                 style={hst.input}
-                placeholder="Enter confirmed salary"
+                placeholder={_t("Enter confirmed salary")}
                 placeholderTextColor="#94a3b8"
                 value={String(form.salary)}
                 onChangeText={v => setField("salary", v)}
@@ -439,36 +448,36 @@ export default function HiringPendingScreen() {
               />
 
               {/* Hired toggle */}
-              <Text style={hst.fieldLabel}>Hired</Text>
+              <Text style={hst.fieldLabel}>{_t("Hired")}</Text>
               {Number(selected?.has_account) > 0
                 ? <View style={hst.accountBanner}>
                     <Feather name="check-circle" size={14} color="#16a34a" />
-                    <Text style={hst.accountBannerTxt}>Account already created</Text>
+                    <Text style={hst.accountBannerTxt}>{_t("Account already created")}</Text>
                   </View>
                 : <Toggle
                     value={form.hired}
                     onChange={v => setField("hired", v)}
-                    yesLabel="Yes — Hire"
-                    noLabel="No — Pending"
+                    yesLabel={_t("Yes — Hire")}
+                    noLabel={_t("No — Pending")}
                     disabled={saving}
                   />}
 
               {/* Resigned toggle */}
-              <Text style={[hst.fieldLabel, { marginTop: 10 }]}>Resigned</Text>
+              <Text style={[hst.fieldLabel, { marginTop: 10 }]}>{_t("Resigned")}</Text>
               <Toggle
                 value={form.resigned}
                 onChange={v => { setField("resigned", v); if (v === "N") setField("resignation_date", ""); }}
-                yesLabel="Yes"
-                noLabel="No"
+                yesLabel={_t("Yes")}
+                noLabel={_t("No")}
                 disabled={saving}
               />
 
               {/* Resignation Date */}
               {form.resigned === "Y" && (
                 <>
-                  <Text style={[hst.fieldLabel, { marginTop: 10 }]}>Resignation Date</Text>
+                  <Text style={[hst.fieldLabel, { marginTop: 10 }]}>{_t("Resignation Date")}</Text>
                   <DateField
-                    label="Resignation Date"
+                    label={_t("Resignation Date")}
                     value={form.resignation_date}
                     onChange={v => setField("resignation_date", v)}
                     disabled={saving}
@@ -480,10 +489,7 @@ export default function HiringPendingScreen() {
               {form.hired === "Y" && !Number(selected?.has_account) && (
                 <View style={hst.noticeBanner}>
                   <Feather name="info" size={13} color="#1e40af" />
-                  <Text style={hst.noticeTxt}>
-                    Saving will create a user account and send a welcome email to{" "}
-                    {selected?.email_address || "staff email"}.
-                  </Text>
+                  <Text style={hst.noticeTxt}>{_t("Saving will create a user account and send a welcome email to {v}.", { v: selected?.email_address || _t("staff email") })}</Text>
                 </View>
               )}
 
@@ -492,7 +498,7 @@ export default function HiringPendingScreen() {
             {/* Action buttons */}
             <View style={hst.modalBtns}>
               <TouchableOpacity style={hst.cancelBtn} onPress={() => setModalVisible(false)} disabled={saving}>
-                <Text style={hst.cancelBtnTxt}>Cancel</Text>
+                <Text style={hst.cancelBtnTxt}>{_t("Cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[hst.saveBtn, saving && { opacity: 0.6 }]}
@@ -503,7 +509,7 @@ export default function HiringPendingScreen() {
                   ? <ActivityIndicator color="#fff" size="small" />
                   : <>
                       <Feather name="check" size={14} color="#fff" />
-                      <Text style={hst.saveBtnTxt}>Save</Text>
+                      <Text style={hst.saveBtnTxt}>{_t("Save")}</Text>
                     </>}
               </TouchableOpacity>
             </View>
@@ -528,7 +534,7 @@ function BranchDropdown({ value, branches, onChange, disabled }) {
         activeOpacity={0.7}
       >
         <Text style={[{ fontSize: 13, color: selected ? "#0f172a" : "#94a3b8", flex: 1 }]} numberOfLines={1}>
-          {selected?.branch_name ?? "Select Branch"}
+          {_tx(selected?.branch_name) ?? _t("Select Branch")}
         </Text>
         <Feather name="chevron-down" size={13} color="#64748b" />
       </TouchableOpacity>
@@ -536,7 +542,7 @@ function BranchDropdown({ value, branches, onChange, disabled }) {
         <View style={hst.dpOverlay}>
           <View style={[hst.dpSheet, { maxHeight: "60%" }]}>
             <View style={hst.dpHeader}>
-              <Text style={hst.dpTitle}>Select Branch</Text>
+              <Text style={hst.dpTitle}>{_t("Select Branch")}</Text>
               <TouchableOpacity onPress={() => setOpen(false)} style={hst.dpClose}>
                 <Feather name="x" size={14} color="#64748b" />
               </TouchableOpacity>
@@ -549,7 +555,7 @@ function BranchDropdown({ value, branches, onChange, disabled }) {
                   onPress={() => { onChange(String(b.branch_id)); setOpen(false); }}
                 >
                   <Text style={[hst.dpItemTxt, String(b.branch_id) === String(value) && hst.dpItemTxtActive, { fontSize: 13 }]}>
-                    {b.branch_name}
+                    {_tx(b.branch_name)}
                   </Text>
                   {String(b.branch_id) === String(value) &&
                     <Feather name="check" size={13} color="#fff" />}
@@ -567,8 +573,8 @@ function BranchDropdown({ value, branches, onChange, disabled }) {
 function InfoRow({ label, value, wide }) {
   return (
     <View style={[hst.infoRowItem, wide && { width: "100%" }]}>
-      <Text style={hst.infoLabel}>{label}</Text>
-      <Text style={hst.infoVal}>{value || "—"}</Text>
+      <Text style={hst.infoLabel}>{_tx(label)}</Text>
+      <Text style={hst.infoVal}>{_tx(value) || "—"}</Text>
     </View>
   );
 }

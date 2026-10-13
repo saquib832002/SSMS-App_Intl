@@ -1,3 +1,4 @@
+import { _t } from "../services/i18n";
 /**
  * constants/IdCardTemplates.js
  *
@@ -13,17 +14,17 @@
 
 // ─── Template registry ────────────────────────────────────────────────────────
 export const ID_CARD_TEMPLATES_V2 = [
-  { id: 'classic_horizontal', name: 'Classic Horizontal', orientation: 'landscape', cardsPerPage: 3, defaultPrimary: '#0c4a6e', defaultAccent: '#be185d', description: 'Solid header · photo left · details right' },
-  { id: 'vertical_portrait',  name: 'Vertical Portrait',  orientation: 'portrait',  cardsPerPage: 4, defaultPrimary: '#5b21b6', defaultAccent: '#9333ea', description: 'Portrait card · centred photo overlapping header' },
-  { id: 'left_spine',         name: 'Left Colour Spine',  orientation: 'landscape', cardsPerPage: 3, defaultPrimary: '#065f46', defaultAccent: '#0369a1', description: 'Full-height colour column left · details right' },
-  { id: 'diagonal_split',     name: 'Diagonal Split',     orientation: 'landscape', cardsPerPage: 3, defaultPrimary: '#991b1b', defaultAccent: '#78350f', description: 'Diagonal boundary · colour top-left · white bottom-right' },
-  { id: 'top_banner',         name: 'Top Photo Banner',   orientation: 'landscape', cardsPerPage: 3, defaultPrimary: '#0c4a6e', defaultAccent: '#0284c7', description: 'Wide header + tagline · square photo left · details right' },
-  { id: 'wave_arc',           name: 'Wave Arc',           orientation: 'landscape', cardsPerPage: 3, defaultPrimary: '#1d4ed8', defaultAccent: '#1e40af', description: 'Arch-curved header · circular photo centred on wave' },
-  { id: 'diagonal_slash',     name: 'Diagonal Slash',     orientation: 'landscape', cardsPerPage: 3, defaultPrimary: '#5b21b6', defaultAccent: '#7c3aed', description: 'Two-tone diagonal polygon left · details right' },
-  { id: 'corner_fan',         name: 'Corner Fan',         orientation: 'landscape', cardsPerPage: 3, defaultPrimary: '#14532d', defaultAccent: '#15803d', description: 'Three-tone graduated fan from top · white triangle for details' },
-  { id: 'portrait_wave',      name: 'Portrait Wave',      orientation: 'portrait',  cardsPerPage: 4, defaultPrimary: '#92400e', defaultAccent: '#b45309', description: 'Vertical card · arc header · circular photo centred on arc' },
-  { id: 'ribbon_header',      name: 'Ribbon Header',      orientation: 'landscape', cardsPerPage: 3, defaultPrimary: '#c2410c', defaultAccent: '#ea580c', description: 'Three diagonal colour bands · portrait photo left' },
-  { id: 'badge_portrait',     name: 'Badge Portrait',     orientation: 'portrait',  cardsPerPage: 4, defaultPrimary: '#1a2469', defaultAccent: '#f5c400', description: 'Navy header · yellow school name · red ID badge · ruled detail box · multi-language' },
+  { id: 'classic_horizontal', name: 'Classic Horizontal', orientation: 'landscape', cardsPerPage: 3, defaultPrimary: '#0c4a6e', defaultAccent: '#be185d', get description() { return _t("Solid header · photo left · details right"); } },
+  { id: 'vertical_portrait',  name: 'Vertical Portrait',  orientation: 'portrait',  cardsPerPage: 4, defaultPrimary: '#5b21b6', defaultAccent: '#9333ea', get description() { return _t("Portrait card · centred photo overlapping header"); } },
+  { id: 'left_spine',         name: 'Left Colour Spine',  orientation: 'landscape', cardsPerPage: 3, defaultPrimary: '#065f46', defaultAccent: '#0369a1', get description() { return _t("Full-height colour column left · details right"); } },
+  { id: 'diagonal_split',     name: 'Diagonal Split',     orientation: 'landscape', cardsPerPage: 3, defaultPrimary: '#991b1b', defaultAccent: '#78350f', get description() { return _t("Diagonal boundary · colour top-left · white bottom-right"); } },
+  { id: 'top_banner',         name: 'Top Photo Banner',   orientation: 'landscape', cardsPerPage: 3, defaultPrimary: '#0c4a6e', defaultAccent: '#0284c7', get description() { return _t("Wide header + tagline · square photo left · details right"); } },
+  { id: 'wave_arc',           name: 'Wave Arc',           orientation: 'landscape', cardsPerPage: 3, defaultPrimary: '#1d4ed8', defaultAccent: '#1e40af', get description() { return _t("Arch-curved header · circular photo centred on wave"); } },
+  { id: 'diagonal_slash',     name: 'Diagonal Slash',     orientation: 'landscape', cardsPerPage: 3, defaultPrimary: '#5b21b6', defaultAccent: '#7c3aed', get description() { return _t("Two-tone diagonal polygon left · details right"); } },
+  { id: 'corner_fan',         name: 'Corner Fan',         orientation: 'landscape', cardsPerPage: 3, defaultPrimary: '#14532d', defaultAccent: '#15803d', get description() { return _t("Three-tone graduated fan from top · white triangle for details"); } },
+  { id: 'portrait_wave',      name: 'Portrait Wave',      orientation: 'portrait',  cardsPerPage: 4, defaultPrimary: '#92400e', defaultAccent: '#b45309', get description() { return _t("Vertical card · arc header · circular photo centred on arc"); } },
+  { id: 'ribbon_header',      name: 'Ribbon Header',      orientation: 'landscape', cardsPerPage: 3, defaultPrimary: '#c2410c', defaultAccent: '#ea580c', get description() { return _t("Three diagonal colour bands · portrait photo left"); } },
+  { id: 'badge_portrait',     name: 'Badge Portrait',     orientation: 'portrait',  cardsPerPage: 4, defaultPrimary: '#1a2469', defaultAccent: '#f5c400', get description() { return _t("Navy header · yellow school name · red ID badge · ruled detail box · multi-language"); } },
 ];
 
 // ─── Default field-visibility config ─────────────────────────────────────────

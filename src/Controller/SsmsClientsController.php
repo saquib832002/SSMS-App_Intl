@@ -155,8 +155,22 @@ class SsmsClientsController extends AppController
     {
         $ssmsClient = $this->SsmsClients->get($id, contain: []);
         if ($this->request->is(['patch', 'post', 'put'])) {
+            $toYmd     = static fn($d) => $d === null || $d === '' ? null
+                : (is_object($d) && method_exists($d, 'format') ? $d->format('Y-m-d') : substr((string)$d, 0, 10));
+            $oldExpiry = $toYmd($ssmsClient->ssms_client_expiry_date ?? null);
             $ssmsClient = $this->SsmsClients->patchEntity($ssmsClient, $this->request->getData());
             if ($this->SsmsClients->save($ssmsClient)) {
+                // International schools: the expiry date IS the trial end → keep a history row
+                try {
+                    Trials::recordExternalChange(
+                        (string)$ssmsClient->ssms_client_code,
+                        $oldExpiry,
+                        $toYmd($ssmsClient->ssms_client_expiry_date ?? null),
+                        $this->_changedBy()
+                    );
+                } catch (\Throwable $e) {
+                    Log::error('edit client: trial history not saved – ' . $e->getMessage());
+                }
                 $this->Flash->success(__('The ssms client has been saved.'));
                 return $this->redirect(['action' => 'index']);
             }
@@ -782,7 +796,7 @@ class SsmsClientsController extends AppController
 
     private function _encryptPassword(string $password): string
     {
-        return crypt($password, '$2y$10$iusesomecrazystrings22');
+        return \App\Service\Passwords::hash($password);   // unique salt per password
     }
 
    private function _saveClientFile($file, string $clientCode, string $fileFor, string $userName): array

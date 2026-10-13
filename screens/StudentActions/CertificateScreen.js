@@ -38,6 +38,7 @@ import { AuthContext }          from "../../context/AuthContext";
 import { HOST_NAME }            from "../../Environment/EnvironmentConfig";
 import { getEnrolledStudents }  from "../../services/StudentServiceApi";
 import { fetchCertificateData } from "../../services/CertificateServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const C = {
@@ -55,7 +56,7 @@ const C = {
 
 // ── Languages ─────────────────────────────────────────────────────────────────
 const LANGS = [
-  { id: "en", label: "English",   dir: "ltr" },
+  { id: "en", get label() { return _t("English"); },   dir: "ltr" },
   { id: "hi", label: "हिंदी",      dir: "ltr" },
   { id: "ur", label: "اردو",      dir: "rtl" },
   { id: "ar", label: "العربية",   dir: "rtl" },
@@ -191,10 +192,10 @@ const L = {
 
 // ── Certificate type definitions ──────────────────────────────────────────────
 const CERT_TYPES = [
-  { id: "tc",        label: "Transfer Certificate",  short: "TC",  icon: "log-out",     color: "#7c3aed", tint: "#ede9fe", desc: "For students leaving the school" },
-  { id: "bonafide",  label: "Bonafide Certificate",  short: "BC",  icon: "check-circle", color: "#0891b2", tint: "#cffafe", desc: "Proof of current enrollment" },
-  { id: "character", label: "Character Certificate", short: "CC",  icon: "award",        color: "#d97706", tint: "#fef3c7", desc: "Certifies moral character & conduct" },
-  { id: "conduct",   label: "Conduct Certificate",   short: "COC", icon: "shield",       color: "#059669", tint: "#d1fae5", desc: "Confirms disciplined behaviour" },
+  { id: "tc",        get label() { return _t("Transfer Certificate"); },  short: "TC",  icon: "log-out",     color: "#7c3aed", tint: "#ede9fe", get desc() { return _t("For students leaving the school"); } },
+  { id: "bonafide",  get label() { return _t("Bonafide Certificate"); },  short: "BC",  icon: "check-circle", color: "#0891b2", tint: "#cffafe", get desc() { return _t("Proof of current enrollment"); } },
+  { id: "character", get label() { return _t("Character Certificate"); }, short: "CC",  icon: "award",        color: "#d97706", tint: "#fef3c7", get desc() { return _t("Certifies moral character & conduct"); } },
+  { id: "conduct",   get label() { return _t("Conduct Certificate"); },   short: "COC", icon: "shield",       color: "#059669", tint: "#d1fae5", get desc() { return _t("Confirms disciplined behaviour"); } },
 ];
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
@@ -518,12 +519,12 @@ function buildConductCertHtml(student, school, extra, lang) {
 function FieldInput({ label, value, onChange, placeholder, keyboardType }) {
   return (
     <View style={S.fieldWrap}>
-      <Text style={S.fieldLabel}>{label}</Text>
+      <Text style={S.fieldLabel}>{_tx(label)}</Text>
       <TextInput
         style={S.fieldInput}
         value={value}
         onChangeText={onChange}
-        placeholder={placeholder ?? ""}
+        placeholder={_tx(placeholder) ?? ""}
         placeholderTextColor={C.muted}
         keyboardType={keyboardType ?? "default"}
       />
@@ -535,7 +536,7 @@ function ConductPicker({ value, onChange, options }) {
   const opts = options ?? ["Excellent", "Very Good", "Good", "Satisfactory"];
   return (
     <View style={S.fieldWrap}>
-      <Text style={S.fieldLabel}>Conduct / Character</Text>
+      <Text style={S.fieldLabel}>{_t("Conduct / Character")}</Text>
       <View style={S.conductRow}>
         {opts.map(opt => (
           <TouchableOpacity
@@ -543,7 +544,7 @@ function ConductPicker({ value, onChange, options }) {
             style={[S.conductChip, value === opt && S.conductChipSel]}
             onPress={() => onChange(opt)}
           >
-            <Text style={[S.conductChipTxt, value === opt && { color: "#fff" }]}>{opt}</Text>
+            <Text style={[S.conductChipTxt, value === opt && { color: "#fff" }]}>{_tx(opt)}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -556,8 +557,8 @@ function InfoRow({ icon, label, value }) {
   return (
     <View style={S.infoRow}>
       <Feather name={icon} size={14} color={C.sub} />
-      <Text style={S.infoLabel}>{label}:</Text>
-      <Text style={S.infoVal} numberOfLines={2}>{value}</Text>
+      <Text style={S.infoLabel}>{_tx(label)}:</Text>
+      <Text style={S.infoVal} numberOfLines={2}>{_tx(value)}</Text>
     </View>
   );
 }
@@ -603,7 +604,7 @@ export default function CertificateScreen({ navigation }) {
       setSearching(true);
       try {
         const { students } = await getEnrolledStudents(user, { search: searchText.trim(), limit: 20 });
-        setSearchResults(students);
+        setSearchResults(Array.isArray(students) ? students : []);
         setShowList(true);
       } catch { /* fail silently */ }
       finally { setSearching(false); }
@@ -674,10 +675,10 @@ export default function CertificateScreen({ navigation }) {
           UTI:         "com.adobe.pdf",
         });
       } else {
-        Alert.alert("PDF Ready", `Saved to:\n${uri}`);
+        Alert.alert(_t("PDF Ready"), _t("Saved to:\n{uri}", { uri }));
       }
     } catch (e) {
-      Alert.alert("Export Failed", e.message ?? "Could not generate certificate.");
+      Alert.alert(_t("Export Failed"), _tx(e.message) ?? _t("Could not generate certificate."));
     } finally {
       setExporting(false);
     }
@@ -694,8 +695,8 @@ export default function CertificateScreen({ navigation }) {
           <Feather name="arrow-left" size={22} color="#fff" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={S.headerTitle}>Certificates</Text>
-          <Text style={S.headerSub}>Transfer · Bonafide · Character · Conduct</Text>
+          <Text style={S.headerTitle}>{_t("Certificates")}</Text>
+          <Text style={S.headerSub}>{_t("Transfer · Bonafide · Character · Conduct")}</Text>
         </View>
         <Feather name="file-text" size={22} color="rgba(255,255,255,0.6)" />
       </View>
@@ -712,8 +713,7 @@ export default function CertificateScreen({ navigation }) {
           {/* ── Step 1: Student search ── */}
           <View style={S.section}>
             <Text style={S.sectionTitle}>
-              <Feather name="search" size={14} /> Step 1 — Select Student
-            </Text>
+              <Feather name="search" size={14} />{" "}{_t("Step 1 — Select Student")}</Text>
 
             <View style={S.searchBox}>
               <Feather name="user" size={16} color={C.sub} style={{ marginRight: 8 }} />
@@ -724,7 +724,7 @@ export default function CertificateScreen({ navigation }) {
                   setSearchText(v);
                   if (selectedEnroll) setSelectedEnroll(null);
                 }}
-                placeholder="Search student by name…"
+                placeholder={_t("Search student by name…")}
                 placeholderTextColor={C.muted}
                 returnKeyType="search"
               />
@@ -750,10 +750,8 @@ export default function CertificateScreen({ navigation }) {
                         <Text style={S.dropdownAvatarTxt}>{(norm.student_name[0] ?? "?").toUpperCase()}</Text>
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={S.dropdownName}>{norm.student_name}</Text>
-                        <Text style={S.dropdownSub}>
-                          Class {norm.class_name} {norm.section_name} · #{norm.enrollment_id}
-                        </Text>
+                        <Text style={S.dropdownName}>{_tx(norm.student_name)}</Text>
+                        <Text style={S.dropdownSub}>{_t("Class {class_name} {section_name} · #{enrollment_id}", { class_name: norm.class_name, section_name: norm.section_name, enrollment_id: norm.enrollment_id })}</Text>
                       </View>
                       <Feather name="chevron-right" size={16} color={C.muted} />
                     </TouchableOpacity>
@@ -763,7 +761,7 @@ export default function CertificateScreen({ navigation }) {
             )}
             {showList && searchResults.length === 0 && !searching && (
               <View style={S.emptyDropdown}>
-                <Text style={{ color: C.muted, fontSize: 13 }}>No students found</Text>
+                <Text style={{ color: C.muted, fontSize: 13 }}>{_t("No students found")}</Text>
               </View>
             )}
 
@@ -771,11 +769,8 @@ export default function CertificateScreen({ navigation }) {
               <View style={S.selectedCard}>
                 <Feather name="check-circle" size={18} color={C.green} style={{ marginRight: 10 }} />
                 <View style={{ flex: 1 }}>
-                  <Text style={S.selectedName}>{selectedEnroll.student_name}</Text>
-                  <Text style={S.selectedSub}>
-                    Class {selectedEnroll.class_name} {selectedEnroll.section_name}
-                    {" · "}Enroll #{selectedEnroll.enrollment_id}
-                  </Text>
+                  <Text style={S.selectedName}>{_tx(selectedEnroll.student_name)}</Text>
+                  <Text style={S.selectedSub}>{_t("Class {class_name} {section_name} · Enroll #{enrollment_id}", { class_name: selectedEnroll.class_name, section_name: selectedEnroll.section_name, enrollment_id: selectedEnroll.enrollment_id })}</Text>
                 </View>
                 <TouchableOpacity onPress={clearStudent} style={S.clearBtn}>
                   <Feather name="x" size={14} color={C.red} />
@@ -788,8 +783,7 @@ export default function CertificateScreen({ navigation }) {
           {selectedEnroll && (
             <View style={S.section}>
               <Text style={S.sectionTitle}>
-                <Feather name="file" size={14} /> Step 2 — Choose Certificate Type
-              </Text>
+                <Feather name="file" size={14} />{" "}{_t("Step 2 — Choose Certificate Type")}</Text>
               <View style={S.certTypeGrid}>
                 {CERT_TYPES.map(ct => (
                   <TouchableOpacity
@@ -806,9 +800,9 @@ export default function CertificateScreen({ navigation }) {
                       <Feather name={ct.icon} size={20} color="#fff" />
                     </View>
                     <Text style={[S.certTypeLabel, certType === ct.id && { color: ct.color }]}>
-                      {ct.label}
+                      {_tx(ct.label)}
                     </Text>
-                    <Text style={S.certTypeDesc}>{ct.desc}</Text>
+                    <Text style={S.certTypeDesc}>{_tx(ct.desc)}</Text>
                     {certType === ct.id && (
                       <View style={[S.certTypeCheck, { backgroundColor: ct.color }]}>
                         <Feather name="check" size={11} color="#fff" />
@@ -824,8 +818,7 @@ export default function CertificateScreen({ navigation }) {
           {selectedEnroll && certType && (
             <View style={S.section}>
               <Text style={S.sectionTitle}>
-                <Feather name="globe" size={14} /> Step 3 — Certificate Language
-              </Text>
+                <Feather name="globe" size={14} />{" "}{_t("Step 3 — Certificate Language")}</Text>
               <View style={S.langRow}>
                 {LANGS.map(lg => (
                   <TouchableOpacity
@@ -834,7 +827,7 @@ export default function CertificateScreen({ navigation }) {
                     onPress={() => setCertLang(lg.id)}
                   >
                     <Text style={[S.langChipTxt, certLang === lg.id && S.langChipTxtSel]}>
-                      {lg.label}
+                      {_tx(lg.label)}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -846,38 +839,37 @@ export default function CertificateScreen({ navigation }) {
           {selectedEnroll && certType && (
             <View style={S.section}>
               <Text style={S.sectionTitle}>
-                <Feather name="edit-2" size={14} /> Step 4 — Certificate Details
-              </Text>
+                <Feather name="edit-2" size={14} />{" "}{_t("Step 4 — Certificate Details")}</Text>
 
               {certType === "tc" && (
                 <>
                   <FieldInput
-                    label="Date of Leaving"
+                    label={_t("Date of Leaving")}
                     value={leavingDate}
                     onChange={setLeavingDate}
-                    placeholder="YYYY-MM-DD"
+                    placeholder={_t("YYYY-MM-DD")}
                   />
                   <FieldInput
-                    label="Reason for Leaving"
+                    label={_t("Reason for Leaving")}
                     value={reason}
                     onChange={setReason}
-                    placeholder="e.g. Parent's request, relocation…"
+                    placeholder={_t("e.g. Parent's request, relocation…")}
                   />
                   <ConductPicker value={conduct} onChange={setConduct} />
                   <View style={S.fieldWrap}>
-                    <Text style={S.fieldLabel}>Fee Status</Text>
+                    <Text style={S.fieldLabel}>{_t("Fee Status")}</Text>
                     <View style={S.feeToggleRow}>
                       <TouchableOpacity
                         style={[S.feeChip, feeCleared && S.feeChipSel]}
                         onPress={() => setFeeCleared(true)}
                       >
-                        <Text style={[S.feeChipTxt, feeCleared && { color: "#fff" }]}>✓ Cleared</Text>
+                        <Text style={[S.feeChipTxt, feeCleared && { color: "#fff" }]}>{_t("✓ Cleared")}</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[S.feeChip, !feeCleared && S.feeChipSelRed]}
                         onPress={() => setFeeCleared(false)}
                       >
-                        <Text style={[S.feeChipTxt, !feeCleared && { color: "#fff" }]}>⚠ Outstanding</Text>
+                        <Text style={[S.feeChipTxt, !feeCleared && { color: "#fff" }]}>{_t("⚠ Outstanding")}</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -886,10 +878,10 @@ export default function CertificateScreen({ navigation }) {
 
               {certType === "bonafide" && (
                 <FieldInput
-                  label="Purpose"
+                  label={_t("Purpose")}
                   value={purpose}
                   onChange={setPurpose}
-                  placeholder="e.g. bank account, passport, scholarship…"
+                  placeholder={_t("e.g. bank account, passport, scholarship…")}
                 />
               )}
 
@@ -902,18 +894,18 @@ export default function CertificateScreen({ navigation }) {
                 <View style={S.previewBannerHead}>
                   <View style={[S.previewDot, { backgroundColor: certTypeDef?.color ?? C.primary }]} />
                   <Text style={[S.previewBannerTitle, { color: certTypeDef?.color ?? C.primary }]}>
-                    {certTypeDef?.label}
+                    {_tx(certTypeDef?.label)}
                   </Text>
                   <View style={S.langBadge}>
-                    <Text style={S.langBadgeTxt}>{LANGS.find(l => l.id === certLang)?.label}</Text>
+                    <Text style={S.langBadgeTxt}>{_tx(LANGS.find(l => l.id === certLang)?.label)}</Text>
                   </View>
                 </View>
-                <InfoRow icon="user"     label="Student" value={selectedEnroll?.student_name} />
-                <InfoRow icon="users"    label="Father"  value={selectedEnroll?.father_name} />
-                <InfoRow icon="book"     label="Class"   value={`${selectedEnroll?.class_name ?? ""} ${selectedEnroll?.section_name ?? ""}`} />
-                {certType === "tc"       && <InfoRow icon="calendar" label="Leaving" value={fmtDateLong(leavingDate)} />}
-                {certType === "bonafide" && <InfoRow icon="info"     label="Purpose" value={purpose} />}
-                {certType !== "bonafide" && <InfoRow icon="shield"   label="Conduct" value={conduct} />}
+                <InfoRow icon="user"     label={_t("Student")} value={selectedEnroll?.student_name} />
+                <InfoRow icon="users"    label={_t("Father")}  value={selectedEnroll?.father_name} />
+                <InfoRow icon="book"     label={_t("Class")}   value={`${selectedEnroll?.class_name ?? ""} ${selectedEnroll?.section_name ?? ""}`} />
+                {certType === "tc"       && <InfoRow icon="calendar" label={_t("Leaving")} value={fmtDateLong(leavingDate)} />}
+                {certType === "bonafide" && <InfoRow icon="info"     label={_t("Purpose")} value={purpose} />}
+                {certType !== "bonafide" && <InfoRow icon="shield"   label={_t("Conduct")} value={conduct} />}
               </View>
 
               {/* Export button */}
@@ -927,7 +919,7 @@ export default function CertificateScreen({ navigation }) {
                   : <Feather name="download" size={18} color="#fff" />
                 }
                 <Text style={S.exportBtnTxt}>
-                  {exporting ? "Generating PDF…" : "Download Certificate PDF"}
+                  {exporting ? _t("Generating PDF…") : _t("Download Certificate PDF")}
                 </Text>
               </TouchableOpacity>
             </View>

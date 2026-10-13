@@ -33,6 +33,7 @@ import {
   buildPdfHtml_V2,
   buildOneCardHtml_V2,
 } from '../../constants/IdCardTemplates';
+import { _t, _th, _tx } from "../../services/i18n";
 
 const HOST_NAME = _HOST.replace(/\/+$/, '');
 
@@ -101,7 +102,7 @@ const LogoCircle = ({ uri, name: n, size, border }) => (
   </View>
 );
 const TextLine = ({ color, size, weight, children, opacity }) => (
-  <Text style={{ color, fontSize: size, fontWeight: weight || '400', opacity: opacity || 1 }} numberOfLines={1}>{children}</Text>
+  <Text style={{ color, fontSize: size, fontWeight: weight || '400', opacity: opacity || 1 }} numberOfLines={1}>{_tx(children)}</Text>
 );
 // Shared footer — two stacked lines + principal label on the right
 //   Line 1 (top):    phone icon circle + school phone number  [showSchoolPhone]
@@ -120,16 +121,16 @@ const SharedFooter = ({ primary, accent, phone, cfg, style }) => {
             <View style={{ width: 11, height: 11, borderRadius: 5.5, borderWidth: 1, borderColor: accent, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <Feather name="phone" size={5.5} color={accent}/>
             </View>
-            <Text style={{ color: accent, fontSize: 5.5, fontWeight: '800', flex: 1 }} numberOfLines={1} ellipsizeMode="tail">{phone}</Text>
+            <Text style={{ color: accent, fontSize: 5.5, fontWeight: '800', flex: 1 }} numberOfLines={1} ellipsizeMode="tail">{_tx(phone)}</Text>
           </View>
         )}
         {showIfFound && (
-          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 4, lineHeight: 5.5, marginTop: showPhone ? 1 : 0 }} numberOfLines={1} ellipsizeMode="tail">{cfg.ifFoundText}</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 4, lineHeight: 5.5, marginTop: showPhone ? 1 : 0 }} numberOfLines={1} ellipsizeMode="tail">{_tx(cfg.ifFoundText)}</Text>
         )}
       </View>
       {/* Right: principal label — flexShrink:0 keeps it from being squeezed */}
       {cfg?.showPrincipalSignature !== false && (
-        <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 5, fontWeight: '700', flexShrink: 0, marginTop: 1 }}>Principal</Text>
+        <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 5, fontWeight: '700', flexShrink: 0, marginTop: 1 }}>{_t("Principal")}</Text>
       )}
     </View>
   );
@@ -147,8 +148,8 @@ const PreviewDRow = ({ label, value, primary, labelW = 38 }) => {
   if (!value) return null;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-end', borderBottomWidth: 0.5, borderColor: '#e2e8f0', paddingVertical: 1.5 }}>
-      <Text style={{ fontSize: 5, fontWeight: '700', color: primary || '#64748b', width: labelW, flexShrink: 0 }} numberOfLines={1}>{label} :</Text>
-      <Text style={{ flex: 1, fontSize: 5.5, fontWeight: '600', color: '#0f172a' }} numberOfLines={1}>{value}</Text>
+      <Text style={{ fontSize: 5, fontWeight: '700', color: primary || '#64748b', width: labelW, flexShrink: 0 }} numberOfLines={1}>{_tx(label)} :</Text>
+      <Text style={{ flex: 1, fontSize: 5.5, fontWeight: '600', color: '#0f172a' }} numberOfLines={1}>{_tx(value)}</Text>
     </View>
   );
 };
@@ -164,17 +165,17 @@ function Classic_Horizontal({ W, H, primary, accent, name, classStr, photoUri, l
       <View style={{ flex: 1, flexDirection: 'row' }}>
         <View style={{ width: 68, backgroundColor: '#eef2f7', alignItems: 'center', padding: 6, gap: 4 }}>
           <PhotoCircle uri={photoUri} size={52} border={primary}/>
-          <Text style={{ fontSize: 6, color: primary, fontWeight: '900' }} numberOfLines={1}>{classStr}</Text>
-          {cfg?.showBloodGroup && student?.bloodGroup ? <View style={{ backgroundColor: accent, borderRadius: 4, paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontSize: 5.5 }}>🩸 {student.bloodGroup}</Text></View> : null}
+          <Text style={{ fontSize: 6, color: primary, fontWeight: '900' }} numberOfLines={1}>{_tx(classStr)}</Text>
+          {cfg?.showBloodGroup && student?.bloodGroup ? <View style={{ backgroundColor: accent, borderRadius: 4, paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontSize: 5.5 }}>🩸 {_tx(student.bloodGroup)}</Text></View> : null}
         </View>
         <View style={{ flex: 1, padding: 6 }}>
           <Text style={{ fontSize: 8, fontWeight: '900', color: primary, marginBottom: 2 }} numberOfLines={1}>{name.toUpperCase()}</Text>
-          {cfg?.showFatherName !== false && <PreviewDRow label="Father" value={student?.fatherName} primary={primary} labelW={38}/>}
-          {cfg?.showMotherName && <PreviewDRow label="Mother" value={student?.motherName} primary={primary} labelW={38}/>}
-          {cfg?.showDateOfBirth !== false && <PreviewDRow label="DOB" value={fmtDobRN(student?.dob)} primary={primary} labelW={38}/>}
-          {cfg?.showGender && <PreviewDRow label="Gender" value={student?.gender} primary={primary} labelW={38}/>}
-          {cfg?.showParentPhone !== false && <PreviewDRow label="Contact" value={student?.parentPhone || student?.fatherPhone || student?.motherPhone} primary={primary} labelW={38}/>}
-          {cfg?.showStudentAddress && <PreviewDRow label="Address" value={student?.address} primary={primary} labelW={38}/>}
+          {cfg?.showFatherName !== false && <PreviewDRow label={_t("Father")} value={student?.fatherName} primary={primary} labelW={38}/>}
+          {cfg?.showMotherName && <PreviewDRow label={_t("Mother")} value={student?.motherName} primary={primary} labelW={38}/>}
+          {cfg?.showDateOfBirth !== false && <PreviewDRow label={_t("DOB")} value={fmtDobRN(student?.dob)} primary={primary} labelW={38}/>}
+          {cfg?.showGender && <PreviewDRow label={_t("Gender")} value={student?.gender} primary={primary} labelW={38}/>}
+          {cfg?.showParentPhone !== false && <PreviewDRow label={_t("Contact")} value={student?.parentPhone || student?.fatherPhone || student?.motherPhone} primary={primary} labelW={38}/>}
+          {cfg?.showStudentAddress && <PreviewDRow label={_t("Address")} value={student?.address} primary={primary} labelW={38}/>}
         </View>
       </View>
       <SharedFooter primary={primary} accent={accent} phone={school?.phone || ''} cfg={cfg}/>
@@ -193,7 +194,7 @@ function Vertical_Portrait({ W, H, primary, accent, name, classStr, photoUri, lo
         <View style={{ flex: 1, overflow: 'hidden' }}>
           <Text style={{ color: '#fff', fontSize: 6.5, fontWeight: '900' }} numberOfLines={1}>{schoolName.toUpperCase()}</Text>
           {cfg?.showSchoolAddress !== false && !!schoolAddress && (
-            <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 5 }} numberOfLines={1}>{schoolAddress}</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 5 }} numberOfLines={1}>{_tx(schoolAddress)}</Text>
           )}
         </View>
       </View>
@@ -201,17 +202,17 @@ function Vertical_Portrait({ W, H, primary, accent, name, classStr, photoUri, lo
       <View style={{ paddingTop: 12, paddingBottom: 4, alignItems: 'center', gap: 3 }}>
         <PhotoCircle uri={photoUri} size={52} border={primary}/>
         <Text style={{ fontSize: 8, fontWeight: '900', color: primary, marginTop: 2 }} numberOfLines={1}>{name.toUpperCase()}</Text>
-        <Text style={{ fontSize: 6, color: accent, fontWeight: '700' }}>{classStr}</Text>
+        <Text style={{ fontSize: 6, color: accent, fontWeight: '700' }}>{_tx(classStr)}</Text>
       </View>
       {/* Detail rows fill the remaining bottom area */}
       <View style={{ flex: 1, paddingHorizontal: 8, paddingTop: 2 }}>
-        {cfg?.showFatherName !== false && <PreviewDRow label="Father" value={student?.fatherName} primary={primary} labelW={30}/>}
-        {cfg?.showMotherName && <PreviewDRow label="Mother" value={student?.motherName} primary={primary} labelW={30}/>}
-        {cfg?.showDateOfBirth !== false && <PreviewDRow label="DOB" value={fmtDobRN(student?.dob)} primary={primary} labelW={30}/>}
-        {cfg?.showGender && <PreviewDRow label="Gender" value={student?.gender} primary={primary} labelW={30}/>}
-        {cfg?.showParentPhone !== false && <PreviewDRow label="Contact" value={student?.parentPhone || student?.fatherPhone || student?.motherPhone} primary={primary} labelW={30}/>}
-        {cfg?.showBloodGroup && student?.bloodGroup && <PreviewDRow label="Blood" value={student.bloodGroup} primary={primary} labelW={30}/>}
-        {cfg?.showStudentAddress && <PreviewDRow label="Address" value={student?.address} primary={primary} labelW={30}/>}
+        {cfg?.showFatherName !== false && <PreviewDRow label={_t("Father")} value={student?.fatherName} primary={primary} labelW={30}/>}
+        {cfg?.showMotherName && <PreviewDRow label={_t("Mother")} value={student?.motherName} primary={primary} labelW={30}/>}
+        {cfg?.showDateOfBirth !== false && <PreviewDRow label={_t("DOB")} value={fmtDobRN(student?.dob)} primary={primary} labelW={30}/>}
+        {cfg?.showGender && <PreviewDRow label={_t("Gender")} value={student?.gender} primary={primary} labelW={30}/>}
+        {cfg?.showParentPhone !== false && <PreviewDRow label={_t("Contact")} value={student?.parentPhone || student?.fatherPhone || student?.motherPhone} primary={primary} labelW={30}/>}
+        {cfg?.showBloodGroup && student?.bloodGroup && <PreviewDRow label={_t("Blood")} value={student.bloodGroup} primary={primary} labelW={30}/>}
+        {cfg?.showStudentAddress && <PreviewDRow label={_t("Address")} value={student?.address} primary={primary} labelW={30}/>}
       </View>
       <SharedFooter primary={primary} accent={accent} phone={school?.phone || ''} cfg={cfg}/>
     </View>
@@ -226,7 +227,7 @@ function Left_Spine({ W, H, primary, accent, name, classStr, photoUri, logoUri, 
         <View style={{ width: 56, backgroundColor: primary, alignItems: 'center', padding: 6, gap: 5 }}>
           <LogoCircle uri={logoUri} name={schoolName} size={24} border="rgba(255,255,255,0.5)"/>
           <PhotoCircle uri={photoUri} size={40} border="rgba(255,255,255,0.4)"/>
-          {cfg?.showBloodGroup && student?.bloodGroup ? <View style={{ backgroundColor: accent, borderRadius: 4, paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontSize: 5 }}>🩸 {student.bloodGroup}</Text></View> : null}
+          {cfg?.showBloodGroup && student?.bloodGroup ? <View style={{ backgroundColor: accent, borderRadius: 4, paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontSize: 5 }}>🩸 {_tx(student.bloodGroup)}</Text></View> : null}
         </View>
         <View style={{ flex: 1 }}>
           <View style={{ backgroundColor: accent, padding: 5 }}>
@@ -234,13 +235,13 @@ function Left_Spine({ W, H, primary, accent, name, classStr, photoUri, logoUri, 
           </View>
           <View style={{ flex: 1, padding: 6 }}>
             <Text style={{ fontSize: 8, fontWeight: '900', color: primary, marginBottom: 1 }} numberOfLines={1}>{name.toUpperCase()}</Text>
-            <Text style={{ fontSize: 6, color: accent, fontWeight: '700', marginBottom: 3 }}>{classStr}</Text>
-            {cfg?.showFatherName !== false && <PreviewDRow label="Father" value={student?.fatherName} primary={primary} labelW={34}/>}
-            {cfg?.showMotherName && <PreviewDRow label="Mother" value={student?.motherName} primary={primary} labelW={34}/>}
-            {cfg?.showDateOfBirth !== false && <PreviewDRow label="DOB" value={fmtDobRN(student?.dob)} primary={primary} labelW={34}/>}
-            {cfg?.showGender && <PreviewDRow label="Gender" value={student?.gender} primary={primary} labelW={34}/>}
-            {cfg?.showParentPhone !== false && <PreviewDRow label="Contact" value={student?.parentPhone || student?.fatherPhone || student?.motherPhone} primary={primary} labelW={34}/>}
-            {cfg?.showStudentAddress && <PreviewDRow label="Address" value={student?.address} primary={primary} labelW={34}/>}
+            <Text style={{ fontSize: 6, color: accent, fontWeight: '700', marginBottom: 3 }}>{_tx(classStr)}</Text>
+            {cfg?.showFatherName !== false && <PreviewDRow label={_t("Father")} value={student?.fatherName} primary={primary} labelW={34}/>}
+            {cfg?.showMotherName && <PreviewDRow label={_t("Mother")} value={student?.motherName} primary={primary} labelW={34}/>}
+            {cfg?.showDateOfBirth !== false && <PreviewDRow label={_t("DOB")} value={fmtDobRN(student?.dob)} primary={primary} labelW={34}/>}
+            {cfg?.showGender && <PreviewDRow label={_t("Gender")} value={student?.gender} primary={primary} labelW={34}/>}
+            {cfg?.showParentPhone !== false && <PreviewDRow label={_t("Contact")} value={student?.parentPhone || student?.fatherPhone || student?.motherPhone} primary={primary} labelW={34}/>}
+            {cfg?.showStudentAddress && <PreviewDRow label={_t("Address")} value={student?.address} primary={primary} labelW={34}/>}
           </View>
         </View>
       </View>
@@ -263,15 +264,15 @@ function Diagonal_Split({ W, H, primary, accent, name, classStr, photoUri, logoU
         </View>
         <View style={{ flex: 1, padding: 6 }}>
           <Text style={{ fontSize: 7.5, fontWeight: '900', color: primary, marginBottom: 2 }} numberOfLines={1}>{name.toUpperCase()}</Text>
-          <Text style={{ fontSize: 5.5, color: accent, fontWeight: '700', marginBottom: 3 }}>{classStr}</Text>
-          {cfg?.showAdmissionNo !== false && <PreviewDRow label="Adm No" value={student?.admissionNumber} primary={primary} labelW={30}/>}
-          {cfg?.showFatherName !== false && <PreviewDRow label="Father" value={student?.fatherName} primary={primary} labelW={30}/>}
-          {cfg?.showMotherName && <PreviewDRow label="Mother" value={student?.motherName} primary={primary} labelW={30}/>}
-          {cfg?.showDateOfBirth !== false && <PreviewDRow label="DOB" value={fmtDobRN(student?.dob)} primary={primary} labelW={30}/>}
-          {cfg?.showGender && <PreviewDRow label="Gender" value={student?.gender} primary={primary} labelW={30}/>}
-          {cfg?.showBloodGroup && student?.bloodGroup && <PreviewDRow label="Blood" value={student.bloodGroup} primary={primary} labelW={30}/>}
-          {cfg?.showParentPhone !== false && <PreviewDRow label="Contact" value={student?.parentPhone || student?.fatherPhone || student?.motherPhone} primary={primary} labelW={30}/>}
-          {cfg?.showStudentAddress && <PreviewDRow label="Address" value={student?.address} primary={primary} labelW={30}/>}
+          <Text style={{ fontSize: 5.5, color: accent, fontWeight: '700', marginBottom: 3 }}>{_tx(classStr)}</Text>
+          {cfg?.showAdmissionNo !== false && <PreviewDRow label={_t("Adm No")} value={student?.admissionNumber} primary={primary} labelW={30}/>}
+          {cfg?.showFatherName !== false && <PreviewDRow label={_t("Father")} value={student?.fatherName} primary={primary} labelW={30}/>}
+          {cfg?.showMotherName && <PreviewDRow label={_t("Mother")} value={student?.motherName} primary={primary} labelW={30}/>}
+          {cfg?.showDateOfBirth !== false && <PreviewDRow label={_t("DOB")} value={fmtDobRN(student?.dob)} primary={primary} labelW={30}/>}
+          {cfg?.showGender && <PreviewDRow label={_t("Gender")} value={student?.gender} primary={primary} labelW={30}/>}
+          {cfg?.showBloodGroup && student?.bloodGroup && <PreviewDRow label={_t("Blood")} value={student.bloodGroup} primary={primary} labelW={30}/>}
+          {cfg?.showParentPhone !== false && <PreviewDRow label={_t("Contact")} value={student?.parentPhone || student?.fatherPhone || student?.motherPhone} primary={primary} labelW={30}/>}
+          {cfg?.showStudentAddress && <PreviewDRow label={_t("Address")} value={student?.address} primary={primary} labelW={30}/>}
         </View>
       </View>
       <SharedFooter primary={primary} accent={accent} phone={school?.phone || ''} cfg={cfg} style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}/>
@@ -287,24 +288,24 @@ function Top_Banner({ W, H, primary, accent, name, classStr, photoUri, logoUri, 
         <LogoCircle uri={logoUri} name={schoolName} size={22} border="rgba(255,255,255,0.5)"/>
         <View style={{ flex: 1 }}>
           <Text style={{ color: '#fff', fontSize: 7, fontWeight: '900' }} numberOfLines={1}>{schoolName.toUpperCase()}</Text>
-          <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 5 }} numberOfLines={1}>Address · Phone</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 5 }} numberOfLines={1}>{_t("Address · Phone")}</Text>
         </View>
       </View>
       <View style={{ height: 2.5, backgroundColor: accent }}/>
       <View style={{ flex: 1, flexDirection: 'row' }}>
         <View style={{ width: 62, backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center', padding: 5, borderRightWidth: 0.5, borderColor: '#e2e8f0', gap: 4 }}>
           <PhotoCircle uri={photoUri} size={48} border={primary}/>
-          {cfg?.showBloodGroup && student?.bloodGroup ? <View style={{ backgroundColor: accent, borderRadius: 4, paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontSize: 5 }}>🩸 {student.bloodGroup}</Text></View> : null}
+          {cfg?.showBloodGroup && student?.bloodGroup ? <View style={{ backgroundColor: accent, borderRadius: 4, paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontSize: 5 }}>🩸 {_tx(student.bloodGroup)}</Text></View> : null}
         </View>
         <View style={{ flex: 1, padding: 6 }}>
           <Text style={{ fontSize: 7.5, fontWeight: '900', color: primary, marginBottom: 1 }} numberOfLines={1}>{name.toUpperCase()}</Text>
-          <Text style={{ fontSize: 5.5, color: accent, fontWeight: '700', marginBottom: 2 }}>{classStr}</Text>
-          {cfg?.showFatherName !== false && <PreviewDRow label="Father" value={student?.fatherName} primary={primary} labelW={34}/>}
-          {cfg?.showMotherName && <PreviewDRow label="Mother" value={student?.motherName} primary={primary} labelW={34}/>}
-          {cfg?.showDateOfBirth !== false && <PreviewDRow label="DOB" value={fmtDobRN(student?.dob)} primary={primary} labelW={34}/>}
-          {cfg?.showGender && <PreviewDRow label="Gender" value={student?.gender} primary={primary} labelW={34}/>}
-          {cfg?.showParentPhone !== false && <PreviewDRow label="Contact" value={student?.parentPhone || student?.fatherPhone || student?.motherPhone} primary={primary} labelW={34}/>}
-          {cfg?.showStudentAddress && <PreviewDRow label="Address" value={student?.address} primary={primary} labelW={34}/>}
+          <Text style={{ fontSize: 5.5, color: accent, fontWeight: '700', marginBottom: 2 }}>{_tx(classStr)}</Text>
+          {cfg?.showFatherName !== false && <PreviewDRow label={_t("Father")} value={student?.fatherName} primary={primary} labelW={34}/>}
+          {cfg?.showMotherName && <PreviewDRow label={_t("Mother")} value={student?.motherName} primary={primary} labelW={34}/>}
+          {cfg?.showDateOfBirth !== false && <PreviewDRow label={_t("DOB")} value={fmtDobRN(student?.dob)} primary={primary} labelW={34}/>}
+          {cfg?.showGender && <PreviewDRow label={_t("Gender")} value={student?.gender} primary={primary} labelW={34}/>}
+          {cfg?.showParentPhone !== false && <PreviewDRow label={_t("Contact")} value={student?.parentPhone || student?.fatherPhone || student?.motherPhone} primary={primary} labelW={34}/>}
+          {cfg?.showStudentAddress && <PreviewDRow label={_t("Address")} value={student?.address} primary={primary} labelW={34}/>}
         </View>
       </View>
       <SharedFooter primary={primary} accent={accent} phone={school?.phone || ''} cfg={cfg}/>
@@ -327,14 +328,14 @@ function Wave_Arc({ W, H, primary, accent, name, classStr, photoUri, logoUri, cf
       </View>
       <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 6, paddingTop: 2 }}>
         <Text style={{ fontSize: 8, fontWeight: '900', color: primary }} numberOfLines={1}>{name.toUpperCase()}</Text>
-        <Text style={{ fontSize: 6, color: accent, fontWeight: '700', marginBottom: 2 }}>{classStr}</Text>
-        {cfg?.showFatherName !== false && <PreviewDRow label="Father" value={student?.fatherName} primary={primary} labelW={26}/>}
-        {cfg?.showMotherName && <PreviewDRow label="Mother" value={student?.motherName} primary={primary} labelW={26}/>}
-        {cfg?.showDateOfBirth !== false && <PreviewDRow label="DOB" value={fmtDobRN(student?.dob)} primary={primary} labelW={26}/>}
-        {cfg?.showGender && <PreviewDRow label="Gender" value={student?.gender} primary={primary} labelW={26}/>}
-        {cfg?.showBloodGroup && student?.bloodGroup && <PreviewDRow label="Blood" value={student.bloodGroup} primary={primary} labelW={26}/>}
-        {cfg?.showParentPhone !== false && <PreviewDRow label="Contact" value={student?.parentPhone || student?.fatherPhone || student?.motherPhone} primary={primary} labelW={26}/>}
-        {cfg?.showStudentAddress && <PreviewDRow label="Address" value={student?.address} primary={primary} labelW={26}/>}
+        <Text style={{ fontSize: 6, color: accent, fontWeight: '700', marginBottom: 2 }}>{_tx(classStr)}</Text>
+        {cfg?.showFatherName !== false && <PreviewDRow label={_t("Father")} value={student?.fatherName} primary={primary} labelW={26}/>}
+        {cfg?.showMotherName && <PreviewDRow label={_t("Mother")} value={student?.motherName} primary={primary} labelW={26}/>}
+        {cfg?.showDateOfBirth !== false && <PreviewDRow label={_t("DOB")} value={fmtDobRN(student?.dob)} primary={primary} labelW={26}/>}
+        {cfg?.showGender && <PreviewDRow label={_t("Gender")} value={student?.gender} primary={primary} labelW={26}/>}
+        {cfg?.showBloodGroup && student?.bloodGroup && <PreviewDRow label={_t("Blood")} value={student.bloodGroup} primary={primary} labelW={26}/>}
+        {cfg?.showParentPhone !== false && <PreviewDRow label={_t("Contact")} value={student?.parentPhone || student?.fatherPhone || student?.motherPhone} primary={primary} labelW={26}/>}
+        {cfg?.showStudentAddress && <PreviewDRow label={_t("Address")} value={student?.address} primary={primary} labelW={26}/>}
       </View>
       <SharedFooter primary={primary} accent={accent} phone={school?.phone || ''} cfg={cfg}/>
     </View>
@@ -356,15 +357,15 @@ function Diagonal_Slash({ W, H, primary, accent, name, classStr, photoUri, logoU
         </View>
         <View style={{ flex: 1, padding: 6 }}>
           <Text style={{ fontSize: 7.5, fontWeight: '900', color: primary, marginBottom: 1 }} numberOfLines={1}>{name.toUpperCase()}</Text>
-          <Text style={{ fontSize: 5.5, color: accent, fontWeight: '700', marginBottom: 3 }}>{classStr}</Text>
-          {cfg?.showAdmissionNo !== false && <PreviewDRow label="Adm No" value={student?.admissionNumber} primary={primary} labelW={30}/>}
-          {cfg?.showFatherName !== false && <PreviewDRow label="Father" value={student?.fatherName} primary={primary} labelW={30}/>}
-          {cfg?.showMotherName && <PreviewDRow label="Mother" value={student?.motherName} primary={primary} labelW={30}/>}
-          {cfg?.showDateOfBirth !== false && <PreviewDRow label="DOB" value={fmtDobRN(student?.dob)} primary={primary} labelW={30}/>}
-          {cfg?.showGender && <PreviewDRow label="Gender" value={student?.gender} primary={primary} labelW={30}/>}
-          {cfg?.showBloodGroup && student?.bloodGroup && <PreviewDRow label="Blood" value={student.bloodGroup} primary={primary} labelW={30}/>}
-          {cfg?.showParentPhone !== false && <PreviewDRow label="Contact" value={student?.parentPhone || student?.fatherPhone || student?.motherPhone} primary={primary} labelW={30}/>}
-          {cfg?.showStudentAddress && <PreviewDRow label="Address" value={student?.address} primary={primary} labelW={30}/>}
+          <Text style={{ fontSize: 5.5, color: accent, fontWeight: '700', marginBottom: 3 }}>{_tx(classStr)}</Text>
+          {cfg?.showAdmissionNo !== false && <PreviewDRow label={_t("Adm No")} value={student?.admissionNumber} primary={primary} labelW={30}/>}
+          {cfg?.showFatherName !== false && <PreviewDRow label={_t("Father")} value={student?.fatherName} primary={primary} labelW={30}/>}
+          {cfg?.showMotherName && <PreviewDRow label={_t("Mother")} value={student?.motherName} primary={primary} labelW={30}/>}
+          {cfg?.showDateOfBirth !== false && <PreviewDRow label={_t("DOB")} value={fmtDobRN(student?.dob)} primary={primary} labelW={30}/>}
+          {cfg?.showGender && <PreviewDRow label={_t("Gender")} value={student?.gender} primary={primary} labelW={30}/>}
+          {cfg?.showBloodGroup && student?.bloodGroup && <PreviewDRow label={_t("Blood")} value={student.bloodGroup} primary={primary} labelW={30}/>}
+          {cfg?.showParentPhone !== false && <PreviewDRow label={_t("Contact")} value={student?.parentPhone || student?.fatherPhone || student?.motherPhone} primary={primary} labelW={30}/>}
+          {cfg?.showStudentAddress && <PreviewDRow label={_t("Address")} value={student?.address} primary={primary} labelW={30}/>}
         </View>
       </View>
       <SharedFooter primary={primary} accent={accent} phone={school?.phone || ''} cfg={cfg} style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}/>
@@ -389,15 +390,15 @@ function Corner_Fan({ W, H, primary, accent, name, classStr, photoUri, logoUri, 
       </View>
       <View style={{ position: 'absolute', bottom: 34, left: 10, right: W * 0.5 + 4 }}>
         <Text style={{ color: 'rgba(255,255,255,0.95)', fontSize: 6.5, fontWeight: '900' }} numberOfLines={1}>{name.toUpperCase()}</Text>
-        <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 5 }}>{classStr}</Text>
+        <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 5 }}>{_tx(classStr)}</Text>
       </View>
       <View style={{ position: 'absolute', bottom: 26, right: 6, width: W * 0.48 }}>
-        {cfg?.showFatherName !== false && <PreviewDRow label="Father" value={student?.fatherName} primary={primary} labelW={26}/>}
-        {cfg?.showMotherName && <PreviewDRow label="Mother" value={student?.motherName} primary={primary} labelW={26}/>}
-        {cfg?.showDateOfBirth !== false && <PreviewDRow label="DOB" value={fmtDobRN(student?.dob)} primary={primary} labelW={26}/>}
-        {cfg?.showGender && <PreviewDRow label="Gender" value={student?.gender} primary={primary} labelW={26}/>}
-        {cfg?.showParentPhone !== false && <PreviewDRow label="Contact" value={student?.parentPhone || student?.fatherPhone || student?.motherPhone} primary={primary} labelW={26}/>}
-        {cfg?.showStudentAddress && <PreviewDRow label="Address" value={student?.address} primary={primary} labelW={26}/>}
+        {cfg?.showFatherName !== false && <PreviewDRow label={_t("Father")} value={student?.fatherName} primary={primary} labelW={26}/>}
+        {cfg?.showMotherName && <PreviewDRow label={_t("Mother")} value={student?.motherName} primary={primary} labelW={26}/>}
+        {cfg?.showDateOfBirth !== false && <PreviewDRow label={_t("DOB")} value={fmtDobRN(student?.dob)} primary={primary} labelW={26}/>}
+        {cfg?.showGender && <PreviewDRow label={_t("Gender")} value={student?.gender} primary={primary} labelW={26}/>}
+        {cfg?.showParentPhone !== false && <PreviewDRow label={_t("Contact")} value={student?.parentPhone || student?.fatherPhone || student?.motherPhone} primary={primary} labelW={26}/>}
+        {cfg?.showStudentAddress && <PreviewDRow label={_t("Address")} value={student?.address} primary={primary} labelW={26}/>}
       </View>
       <SharedFooter primary={primary} accent={accent} phone={school?.phone || ''} cfg={cfg} style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}/>
     </View>
@@ -419,14 +420,14 @@ function Portrait_Wave({ W, H, primary, accent, name, classStr, photoUri, logoUr
       </View>
       <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 8, paddingTop: 6 }}>
         <Text style={{ fontSize: 8, fontWeight: '900', color: primary }} numberOfLines={1}>{name.toUpperCase()}</Text>
-        <Text style={{ fontSize: 6, color: accent, fontWeight: '700', marginBottom: 3 }}>{classStr}</Text>
-        {cfg?.showFatherName !== false && <PreviewDRow label="Father" value={student?.fatherName} primary={primary} labelW={30}/>}
-        {cfg?.showMotherName && <PreviewDRow label="Mother" value={student?.motherName} primary={primary} labelW={30}/>}
-        {cfg?.showDateOfBirth !== false && <PreviewDRow label="DOB" value={fmtDobRN(student?.dob)} primary={primary} labelW={30}/>}
-        {cfg?.showGender && <PreviewDRow label="Gender" value={student?.gender} primary={primary} labelW={30}/>}
-        {cfg?.showBloodGroup && student?.bloodGroup && <PreviewDRow label="Blood" value={student.bloodGroup} primary={primary} labelW={30}/>}
-        {cfg?.showParentPhone !== false && <PreviewDRow label="Contact" value={student?.parentPhone || student?.fatherPhone || student?.motherPhone} primary={primary} labelW={30}/>}
-        {cfg?.showStudentAddress && <PreviewDRow label="Address" value={student?.address} primary={primary} labelW={30}/>}
+        <Text style={{ fontSize: 6, color: accent, fontWeight: '700', marginBottom: 3 }}>{_tx(classStr)}</Text>
+        {cfg?.showFatherName !== false && <PreviewDRow label={_t("Father")} value={student?.fatherName} primary={primary} labelW={30}/>}
+        {cfg?.showMotherName && <PreviewDRow label={_t("Mother")} value={student?.motherName} primary={primary} labelW={30}/>}
+        {cfg?.showDateOfBirth !== false && <PreviewDRow label={_t("DOB")} value={fmtDobRN(student?.dob)} primary={primary} labelW={30}/>}
+        {cfg?.showGender && <PreviewDRow label={_t("Gender")} value={student?.gender} primary={primary} labelW={30}/>}
+        {cfg?.showBloodGroup && student?.bloodGroup && <PreviewDRow label={_t("Blood")} value={student.bloodGroup} primary={primary} labelW={30}/>}
+        {cfg?.showParentPhone !== false && <PreviewDRow label={_t("Contact")} value={student?.parentPhone || student?.fatherPhone || student?.motherPhone} primary={primary} labelW={30}/>}
+        {cfg?.showStudentAddress && <PreviewDRow label={_t("Address")} value={student?.address} primary={primary} labelW={30}/>}
       </View>
       <SharedFooter primary={primary} accent={accent} phone={school?.phone || ''} cfg={cfg}/>
     </View>
@@ -449,13 +450,13 @@ function Ribbon_Header({ W, H, primary, accent, name, classStr, photoUri, logoUr
       </View>
       <View style={{ position: 'absolute', top: H * 0.38, left: 72, right: 6, bottom: 10 }}>
         <Text style={{ fontSize: 7.5, fontWeight: '900', color: primary, marginBottom: 1 }} numberOfLines={1}>{name.toUpperCase()}</Text>
-        <Text style={{ fontSize: 5.5, color: accent, fontWeight: '700', marginBottom: 3 }}>{classStr}</Text>
-        {cfg?.showFatherName !== false && <PreviewDRow label="Father" value={student?.fatherName} primary={primary} labelW={28}/>}
-        {cfg?.showMotherName && <PreviewDRow label="Mother" value={student?.motherName} primary={primary} labelW={28}/>}
-        {cfg?.showDateOfBirth !== false && <PreviewDRow label="DOB" value={fmtDobRN(student?.dob)} primary={primary} labelW={28}/>}
-        {cfg?.showGender && <PreviewDRow label="Gender" value={student?.gender} primary={primary} labelW={28}/>}
-        {cfg?.showParentPhone !== false && <PreviewDRow label="Contact" value={student?.parentPhone || student?.fatherPhone || student?.motherPhone} primary={primary} labelW={28}/>}
-        {cfg?.showStudentAddress && <PreviewDRow label="Address" value={student?.address} primary={primary} labelW={28}/>}
+        <Text style={{ fontSize: 5.5, color: accent, fontWeight: '700', marginBottom: 3 }}>{_tx(classStr)}</Text>
+        {cfg?.showFatherName !== false && <PreviewDRow label={_t("Father")} value={student?.fatherName} primary={primary} labelW={28}/>}
+        {cfg?.showMotherName && <PreviewDRow label={_t("Mother")} value={student?.motherName} primary={primary} labelW={28}/>}
+        {cfg?.showDateOfBirth !== false && <PreviewDRow label={_t("DOB")} value={fmtDobRN(student?.dob)} primary={primary} labelW={28}/>}
+        {cfg?.showGender && <PreviewDRow label={_t("Gender")} value={student?.gender} primary={primary} labelW={28}/>}
+        {cfg?.showParentPhone !== false && <PreviewDRow label={_t("Contact")} value={student?.parentPhone || student?.fatherPhone || student?.motherPhone} primary={primary} labelW={28}/>}
+        {cfg?.showStudentAddress && <PreviewDRow label={_t("Address")} value={student?.address} primary={primary} labelW={28}/>}
       </View>
       <SharedFooter primary={primary} accent={accent} phone={school?.phone || ''} cfg={cfg} style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}/>
     </View>
@@ -480,23 +481,23 @@ function Badge_Portrait({ W, H, primary, accent, name, classStr, photoUri, logoU
 
   // Config-driven rows — skips any row whose value is blank (mirrors PDF dLine behaviour)
   const rows = [
-    { label: 'Full Name',       value: name },
-    cfg?.showAdmissionNo !== false && { label: 'Adm. No.',       value: student?.admissionNumber },
-    { label: 'Class',           value: classStr },
-    cfg?.showDateOfBirth  !== false && { label: 'Date of Birth',  value: fmtDob(student?.dob) },
-    cfg?.showGender             && { label: 'Gender',            value: student?.gender },
-    cfg?.showFatherName   !== false && { label: "Father's Name",  value: student?.fatherName },
-    cfg?.showMotherName         && { label: "Mother's Name",      value: student?.motherName },
-    cfg?.showBloodGroup && student?.bloodGroup && { label: 'Blood Group', value: student.bloodGroup },
-    cfg?.showParentPhone  !== false && { label: 'Mobile No.',     value: student?.parentPhone || student?.fatherPhone || student?.motherPhone },
-    cfg?.showStudentAddress     && { label: 'Address',            value: student?.address },
+    { label: _t("Full Name"),       value: name },
+    cfg?.showAdmissionNo !== false && { label: _t("Adm. No."),       value: student?.admissionNumber },
+    { label: _t("Class"),           value: classStr },
+    cfg?.showDateOfBirth  !== false && { label: _t("Date of Birth"),  value: fmtDob(student?.dob) },
+    cfg?.showGender             && { label: _t("Gender"),            value: student?.gender },
+    cfg?.showFatherName   !== false && { label: _t("Father's Name"),  value: student?.fatherName },
+    cfg?.showMotherName         && { label: _t("Mother's Name"),      value: student?.motherName },
+    cfg?.showBloodGroup && student?.bloodGroup && { label: _t("Blood Group"), value: student.bloodGroup },
+    cfg?.showParentPhone  !== false && { label: _t("Mobile No."),     value: student?.parentPhone || student?.fatherPhone || student?.motherPhone },
+    cfg?.showStudentAddress     && { label: _t("Address"),            value: student?.address },
   ].filter(r => r && r.value);
 
   const DRow = ({ label, value }) => (
     <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: 2.2 }}>
-      <Text style={{ width: 41, fontSize: 4.6, fontWeight: '700', color: primary, lineHeight: 7, flexShrink: 0 }} numberOfLines={1}>{label} :</Text>
+      <Text style={{ width: 41, fontSize: 4.6, fontWeight: '700', color: primary, lineHeight: 7, flexShrink: 0 }} numberOfLines={1}>{_tx(label)} :</Text>
       <View style={{ flex: 1, borderBottomWidth: 0.7, borderColor: primary, minHeight: 7 }}>
-        {value ? <Text style={{ fontSize: 5, fontWeight: '600', color: '#0f172a', lineHeight: 7 }} numberOfLines={1}>{value}</Text> : null}
+        {value ? <Text style={{ fontSize: 5, fontWeight: '600', color: '#0f172a', lineHeight: 7 }} numberOfLines={1}>{_tx(value)}</Text> : null}
       </View>
     </View>
   );
@@ -512,20 +513,20 @@ function Badge_Portrait({ W, H, primary, accent, name, classStr, photoUri, logoU
         <View style={{ position: 'absolute', bottom: 0, left: 0,  width: cornerW, height: cornerH, backgroundColor: '#e8f4ff', borderTopRightRadius: 999 }}/>
         <View style={{ position: 'absolute', bottom: 0, right: 0, width: cornerW, height: cornerH, backgroundColor: '#e8f4ff', borderTopLeftRadius:  999 }}/>
         {/* School name */}
-        <Text style={{ color: accent, fontSize: 8, fontWeight: '900', textAlign: 'center', lineHeight: 11, zIndex: 1 }} numberOfLines={2}>{schoolName}</Text>
+        <Text style={{ color: accent, fontSize: 8, fontWeight: '900', textAlign: 'center', lineHeight: 11, zIndex: 1 }} numberOfLines={2}>{_tx(schoolName)}</Text>
         {cfg?.showTagline
-          ? <Text style={{ color: 'rgba(255,255,255,0.70)', fontSize: 4.5, textAlign: 'center', zIndex: 1, marginTop: 1 }} numberOfLines={1}>{cfg.taglineText || 'LEARN · GROW · SUCCEED'}</Text>
+          ? <Text style={{ color: 'rgba(255,255,255,0.70)', fontSize: 4.5, textAlign: 'center', zIndex: 1, marginTop: 1 }} numberOfLines={1}>{_tx(cfg.taglineText) || _t("LEARN · GROW · SUCCEED")}</Text>
           : null}
         {address
           ? <View style={{ backgroundColor: accent, borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1.5, marginTop: 2, zIndex: 1 }}>
-              <Text style={{ color: primary, fontSize: 4.8, fontWeight: '800' }} numberOfLines={1}>{address}</Text>
+              <Text style={{ color: primary, fontSize: 4.8, fontWeight: '800' }} numberOfLines={1}>{_tx(address)}</Text>
             </View>
           : null}
       </View>
 
       {/* ── BADGE LABEL ────────────────────────────────────────── */}
       <View style={{ backgroundColor: '#cc1122', borderRadius: 5, marginHorizontal: 6, marginTop: 3, marginBottom: 2, alignItems: 'center', paddingVertical: 2.5 }}>
-        <Text style={{ color: '#fff', fontSize: 6.5, fontWeight: '900' }}>Student Identity Card</Text>
+        <Text style={{ color: '#fff', fontSize: 6.5, fontWeight: '900' }}>{_t("Student Identity Card")}</Text>
       </View>
 
       {/* ── LOGO + PHOTO ────────────────────────────────────────── */}
@@ -540,7 +541,7 @@ function Badge_Portrait({ W, H, primary, accent, name, classStr, photoUri, logoU
 
       {/* ── DETAILS BOX ─────────────────────────────────────────── */}
       <View style={{ flex: 1, borderWidth: 1, borderColor: '#6ea8d8', borderRadius: 4, marginHorizontal: 4, marginBottom: 2, padding: 4, backgroundColor: '#fff', overflow: 'hidden' }}>
-        {rows.map((r, i) => <DRow key={i} label={r.label} value={r.value}/>)}
+        {rows.map((r, i) => <DRow key={i} label={_tx(r.label)} value={r.value}/>)}
       </View>
 
       {/* ── FOOTER ── */}
@@ -562,14 +563,14 @@ function Dropdown({ label, value, options, onChange, disabled }) {
         activeOpacity={0.75}
       >
         <Text style={[dd.triggerTxt, !selected && dd.placeholder]} numberOfLines={1}>
-          {selected?.label ?? label}
+          {_tx(selected?.label) ?? _tx(label)}
         </Text>
         <Feather name="chevron-down" size={15} color="#64748b"/>
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable style={dd.overlay} onPress={() => setOpen(false)}>
           <Pressable style={dd.sheet} onPress={() => {}}>
-            <Text style={dd.sheetTitle}>{label}</Text>
+            <Text style={dd.sheetTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={(o, i) => String(o.value) + i}
@@ -579,7 +580,7 @@ function Dropdown({ label, value, options, onChange, disabled }) {
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[dd.optionTxt, String(o.value) === String(value) && dd.optionTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) && <Feather name="check" size={14} color="#2563eb"/>}
                 </TouchableOpacity>
@@ -613,7 +614,7 @@ function ColourPicker({ visible, title, current, onSelect, onClose }) {
       <Pressable style={cp.overlay} onPress={onClose}>
         <Pressable style={cp.sheet} onPress={e => e.stopPropagation()}>
           <View style={cp.handle}/>
-          <Text style={cp.title}>{title}</Text>
+          <Text style={cp.title}>{_tx(title)}</Text>
           <View style={cp.swatchGrid}>
             {SWATCHES.map(c => (
               <TouchableOpacity key={c} style={[cp.swatch, { backgroundColor: c }, current === c && cp.swatchSel]}
@@ -624,7 +625,7 @@ function ColourPicker({ visible, title, current, onSelect, onClose }) {
             style={cp.hexInput}
             value={current}
             onChangeText={v => { if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) onSelect(v); }}
-            placeholder="#hex"
+            placeholder={_t("#hex")}
             autoCapitalize="none"
             maxLength={7}
           />
@@ -668,15 +669,20 @@ export default function StudentIdCardV2Screen({ navigation }) {
     let active = true;
     (async () => {
       try {
-        const [sess, br] = await Promise.all([fetchSessions(userInfo), fetchBranches(userInfo)]);
+        // allSettled: a denied branches call must not also blank the sessions (and vice versa)
+        const [sessRes, brRes] = await Promise.allSettled([fetchSessions(userInfo), fetchBranches(userInfo)]);
         if (!active) return;
-        setSessions(sess || []);
-        setBranches(br  || []);
+        const sess = sessRes.status === 'fulfilled' && Array.isArray(sessRes.value) ? sessRes.value : [];
+        const br   = brRes.status   === 'fulfilled' && Array.isArray(brRes.value)   ? brRes.value   : [];
+        setSessions(sess);
+        setBranches(br);
+        const failed = sessRes.status === 'rejected' ? sessRes.reason : brRes.status === 'rejected' ? brRes.reason : null;
+        if (failed) Alert.alert(_t("Error"), _tx(failed?.message) || _t("Could not load sessions / branches."));
         // Auto-select when only one option exists
-        if (sess?.length === 1) setSessionId(String(sess[0].session_id));
-        if (br?.length  === 1)  setBranchId(String(br[0].branch_id));
-        // Load saved V2 config
-        const savedCfg = await fetchIdCardConfig(userInfo);
+        if (sess.length === 1) setSessionId(String(sess[0].session_id));
+        if (br.length  === 1)  setBranchId(String(br[0].branch_id));
+        // Load saved V2 config (optional — defaults are used if it is denied)
+        const savedCfg = await fetchIdCardConfig(userInfo).catch(() => null);
         if (savedCfg && active) {
           setCfg({ ...ID_CARD_V2_DEFAULTS, ...savedCfg });
           if (savedCfg.cardTemplateV2) setTemplateId(savedCfg.cardTemplateV2);
@@ -694,7 +700,7 @@ export default function StudentIdCardV2Screen({ navigation }) {
     if (!branchId) return;
     fetchClasses(userInfo)
       .then(r => {
-        const list = r || [];
+        const list = Array.isArray(r) ? r : [];
         setClasses(list);
         if (list.length === 1) setClassId(String(list[0].class_id));
       })
@@ -707,7 +713,7 @@ export default function StudentIdCardV2Screen({ navigation }) {
     if (!classId) return;
     fetchSections(userInfo, classId)
       .then(r => {
-        const list = r || [];
+        const list = Array.isArray(r) ? r : [];
         setSections(list);
         if (list.length === 1) setSectionId(String(list[0].section_id));
       })
@@ -716,16 +722,16 @@ export default function StudentIdCardV2Screen({ navigation }) {
 
   // ── Load students ────────────────────────────────────────────────────────────
   const loadStudents = useCallback(async () => {
-    if (!sessionId) { Alert.alert('Validation', 'Please select a session.'); return; }
-    if (!classId)   { Alert.alert('Validation', 'Please select a class.');   return; }
+    if (!sessionId) { Alert.alert(_t("Validation"), _t("Please select a session.")); return; }
+    if (!classId)   { Alert.alert(_t("Validation"), _t("Please select a class."));   return; }
     setLoading(true);
     setStudents([]);
     try {
       const res = await fetchIdCardData(userInfo, { sessionId, branchId, classId, sectionId });
-      setStudents(res?.students || []);
+      setStudents(Array.isArray(res?.students) ? res.students : []);
       setSchoolInfo(res?.school  || null);
     } catch (e) {
-      Alert.alert('Error', 'Could not load students.');
+      Alert.alert(_t("Error"), _tx(e?.message) || _t("Could not load students."));
     } finally {
       setLoading(false);
     }
@@ -733,14 +739,14 @@ export default function StudentIdCardV2Screen({ navigation }) {
 
   // ── Export PDF ──────────────────────────────────────────────────────────────
   const exportPdf = async () => {
-    if (!students.length) { Alert.alert('No students', 'Load students first.'); return; }
+    if (!students.length) { Alert.alert(_t("No students"), _t("Load students first.")); return; }
     setExporting(true);
     try {
       const html = buildPdfHtml_V2(students, schoolInfo, templateId, { primary, accent }, cfg, HOST_NAME);
-      const { uri } = await Print.printToFileAsync({ html, base64: false });
+      const { uri } = await Print.printToFileAsync({ html: _th(html), base64: false });
       await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Share ID Cards PDF' });
     } catch (e) {
-      Alert.alert('Export failed', e.message);
+      Alert.alert(_t("Export failed"), _tx(e.message));
     } finally {
       setExporting(false);
     }
@@ -757,17 +763,17 @@ export default function StudentIdCardV2Screen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
           <Feather name="arrow-left" size={22} color="#0f172a"/>
         </TouchableOpacity>
-        <Text style={s.headerTitle}>ID Cards v2</Text>
+        <Text style={s.headerTitle}>{_t("ID Cards v2")}</Text>
         <TouchableOpacity onPress={exportPdf} style={[s.exportBtn, { backgroundColor: primary }]} disabled={exporting}>
           {exporting ? <ActivityIndicator size="small" color="#fff"/>
-                     : <><Feather name="download" size={14} color="#fff"/><Text style={s.exportTxt}> Export PDF</Text></>}
+                     : <><Feather name="download" size={14} color="#fff"/><Text style={s.exportTxt}>{" "}{_t("Export PDF")}</Text></>}
         </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
 
         {/* ── Template selector ── */}
-        <Text style={s.sectionLabel}>Choose Template</Text>
+        <Text style={s.sectionLabel}>{_t("Choose Template")}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.templateStrip}>
           {ID_CARD_TEMPLATES_V2.map(t => (
             <TouchableOpacity key={t.id} onPress={() => {
@@ -776,8 +782,8 @@ export default function StudentIdCardV2Screen({ navigation }) {
               setAccent(t.defaultAccent);
             }} style={[s.tmplCard, templateId === t.id && { borderColor: primary, borderWidth: 2 }]}>
               <View style={[s.tmplDot, { backgroundColor: t.defaultPrimary }]}/>
-              <Text style={[s.tmplName, templateId === t.id && { color: primary }]} numberOfLines={2}>{t.name}</Text>
-              <Text style={s.tmplDesc} numberOfLines={2}>{t.description}</Text>
+              <Text style={[s.tmplName, templateId === t.id && { color: primary }]} numberOfLines={2}>{_tx(t.name)}</Text>
+              <Text style={s.tmplDesc} numberOfLines={2}>{_tx(t.description)}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -786,37 +792,37 @@ export default function StudentIdCardV2Screen({ navigation }) {
         <View style={s.colourRow}>
           <TouchableOpacity style={s.colourBtn} onPress={() => setPickerTarget('primary')}>
             <View style={[s.colourSwatch, { backgroundColor: primary }]}/>
-            <Text style={s.colourLabel}>Primary</Text>
+            <Text style={s.colourLabel}>{_t("Primary")}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={s.colourBtn} onPress={() => setPickerTarget('accent')}>
             <View style={[s.colourSwatch, { backgroundColor: accent }]}/>
-            <Text style={s.colourLabel}>Accent</Text>
+            <Text style={s.colourLabel}>{_t("Accent")}</Text>
           </TouchableOpacity>
         </View>
 
         {/* ── Filter dropdowns ── */}
-        <Text style={s.sectionLabel}>Filter Students</Text>
+        <Text style={s.sectionLabel}>{_t("Filter Students")}</Text>
         <View style={s.filterGrid}>
           <View style={s.filterRow}>
             <View style={s.filterCell}>
-              <Text style={s.filterLabel}>Session</Text>
+              <Text style={s.filterLabel}>{_t("Session")}</Text>
               <Dropdown
-                label="Select Session"
+                label={_t("Select Session")}
                 value={sessionId}
                 options={sessions
                   .filter(s => s.session_id != null)
-                  .map(s => ({ value: String(s.session_id), label: s.session_name ?? s.session_year ?? `Session ${s.session_id}` }))}
+                  .map(s => ({ value: String(s.session_id), label: s.session_name ?? s.session_year ?? _t("Session {session_id}", { session_id: s.session_id }) }))}
                 onChange={v => setSessionId(v)}
               />
             </View>
             <View style={s.filterCell}>
-              <Text style={s.filterLabel}>Branch</Text>
+              <Text style={s.filterLabel}>{_t("Branch")}</Text>
               <Dropdown
-                label="Select Branch"
+                label={_t("Select Branch")}
                 value={branchId}
                 options={branches
                   .filter(b => b.branch_id != null)
-                  .map(b => ({ value: String(b.branch_id), label: b.branch_name ?? `Branch ${b.branch_id}` }))}
+                  .map(b => ({ value: String(b.branch_id), label: b.branch_name ?? _t("Branch {branch_id}", { branch_id: b.branch_id }) }))}
                 onChange={v => setBranchId(v)}
                 disabled={!branches.length}
               />
@@ -824,9 +830,9 @@ export default function StudentIdCardV2Screen({ navigation }) {
           </View>
           <View style={s.filterRow}>
             <View style={s.filterCell}>
-              <Text style={s.filterLabel}>Class</Text>
+              <Text style={s.filterLabel}>{_t("Class")}</Text>
               <Dropdown
-                label="Select Class"
+                label={_t("Select Class")}
                 value={classId}
                 options={classes
                   .filter(c => c.class_id != null && c.class_name)
@@ -836,15 +842,15 @@ export default function StudentIdCardV2Screen({ navigation }) {
               />
             </View>
             <View style={s.filterCell}>
-              <Text style={s.filterLabel}>Section</Text>
+              <Text style={s.filterLabel}>{_t("Section")}</Text>
               <Dropdown
-                label="All Sections"
+                label={_t("All Sections")}
                 value={sectionId}
                 options={[
-                  { value: '', label: 'All Sections' },
+                  { value: '', label: _t("All Sections") },
                   ...sections
                     .filter(s => s.section_id != null)
-                    .map(s => ({ value: String(s.section_id), label: s.section_name ?? `Section ${s.section_id}` })),
+                    .map(s => ({ value: String(s.section_id), label: s.section_name ?? _t("Section {section_id}", { section_id: s.section_id }) })),
                 ]}
                 onChange={v => setSectionId(v)}
                 disabled={!sections.length}
@@ -855,13 +861,13 @@ export default function StudentIdCardV2Screen({ navigation }) {
 
         <TouchableOpacity style={[s.loadBtn, { backgroundColor: primary }]} onPress={loadStudents} disabled={loading}>
           {loading ? <ActivityIndicator size="small" color="#fff"/>
-                   : <Text style={s.loadBtnTxt}>Load Students</Text>}
+                   : <Text style={s.loadBtnTxt}>{_t("Load Students")}</Text>}
         </TouchableOpacity>
 
         {/* ── Card list preview ── */}
         {students.length > 0 && (
           <>
-            <Text style={s.sectionLabel}>{students.length} students · {selTemplate.name}</Text>
+            <Text style={s.sectionLabel}>{_t("{length} students · {name}", { length: students.length, name: selTemplate.name })}</Text>
             <FlatList
               data={students}
               keyExtractor={(_, i) => String(i)}
@@ -893,7 +899,7 @@ export default function StudentIdCardV2Screen({ navigation }) {
       {/* Colour picker modal */}
       <ColourPicker
         visible={!!pickerTarget}
-        title={pickerTarget === 'primary' ? 'Primary Colour' : 'Accent Colour'}
+        title={pickerTarget === 'primary' ? _t("Primary Colour") : _t("Accent Colour")}
         current={pickerTarget === 'primary' ? primary : accent}
         onSelect={v => pickerTarget === 'primary' ? setPrimary(v) : setAccent(v)}
         onClose={() => setPickerTarget(null)}

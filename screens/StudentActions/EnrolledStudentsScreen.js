@@ -19,6 +19,7 @@ import { AuthContext } from "../../context/AuthContext";
 import { wasJustLocked } from "../../services/apiInterceptor";
 import { fetchClasses, fetchSections, fetchBranches, fetchSessions, getEnrolledStudents, uploadStudentPhoto, updateEnrollment } from "../../services/StudentServiceApi";
 import { HOST_NAME } from "../../Environment/EnvironmentConfig";
+import { _t, _tx } from "../../services/i18n";
 
 // expo-image-picker must be installed: npx expo install expo-image-picker expo-image-manipulator
 let ImagePicker, ImageManipulator;
@@ -38,7 +39,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading: isLoadin
         activeOpacity={0.7}
       >
         <Text style={[dd.triggerTxt, !selected?.value && dd.placeholder]} numberOfLines={1}>
-          {isLoading ? "Loading…" : (selected?.label ?? label)}
+          {isLoading ? _t("Loading…") : (_tx(selected?.label) ?? _tx(label))}
         </Text>
         <Feather name={open ? "chevron-up" : "chevron-down"} size={14} color="#6366f1" />
       </TouchableOpacity>
@@ -46,7 +47,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading: isLoadin
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={dd.overlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={dd.sheet}>
-            <Text style={dd.sheetTitle}>{label}</Text>
+            <Text style={dd.sheetTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={o => o.value}
@@ -56,7 +57,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading: isLoadin
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[dd.optionTxt, o.value === value && dd.optionTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {o.value === value && <Feather name="check" size={14} color="#6366f1" />}
                 </TouchableOpacity>
@@ -96,18 +97,18 @@ function PhotoUpdateModal({ visible, student, user, onClose, onSuccess }) {
 
   const pickFrom = async (source) => {
     if (!ImagePicker) {
-      Alert.alert("Missing package", "Run: npx expo install expo-image-picker expo-image-manipulator");
+      Alert.alert(_t("Missing package"), _t("Run: npx expo install expo-image-picker expo-image-manipulator"));
       return;
     }
     try {
       let perm, result;
       if (source === 'camera') {
         perm = await ImagePicker.requestCameraPermissionsAsync();
-        if (perm.status !== 'granted') { Alert.alert("Permission required", "Allow camera access."); return; }
+        if (perm.status !== 'granted') { Alert.alert(_t("Permission required"), _t("Allow camera access.")); return; }
         result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [3, 4], quality: 1 });
       } else {
         perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (perm.status !== 'granted') { Alert.alert("Permission required", "Allow photo library access."); return; }
+        if (perm.status !== 'granted') { Alert.alert(_t("Permission required"), _t("Allow photo library access.")); return; }
         result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [3, 4], quality: 1 });
       }
       if (!result.canceled && result.assets?.[0]) {
@@ -115,21 +116,21 @@ function PhotoUpdateModal({ visible, student, user, onClose, onSuccess }) {
         setPhoto(compressed);
       }
     } catch (e) {
-      Alert.alert("Error", e.message || "Could not open picker");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Could not open picker"));
     }
   };
 
   const handleUpload = async () => {
-    if (!photo) { Alert.alert("No photo", "Please select or take a photo first."); return; }
+    if (!photo) { Alert.alert(_t("No photo"), _t("Please select or take a photo first.")); return; }
     try {
       setUploading(true);
       setProgress(0);
       await uploadStudentPhoto(user, student.registrationNo, photo, setProgress);
-      Alert.alert("✅ Success", "Student photo updated successfully.");
+      Alert.alert(_t("✅ Success"), _t("Student photo updated successfully."));
       onSuccess?.();
       onClose();
     } catch (e) {
-      Alert.alert("Upload failed", e.message);
+      Alert.alert(_t("Upload failed"), _tx(e.message));
     } finally {
       setUploading(false);
       setProgress(0);
@@ -143,8 +144,8 @@ function PhotoUpdateModal({ visible, student, user, onClose, onSuccess }) {
       <TouchableOpacity style={ph.overlay} onPress={!uploading ? onClose : undefined} activeOpacity={1}>
         <TouchableOpacity style={ph.sheet} onPress={() => {}} activeOpacity={1}>
           <View style={ph.handle} />
-          <Text style={ph.title}>Update Student Photo</Text>
-          <Text style={ph.subtitle}>{student.firstName} {student.lastName} • {student.registrationNo}</Text>
+          <Text style={ph.title}>{_t("Update Student Photo")}</Text>
+          <Text style={ph.subtitle}>{_tx(student.firstName)} {_tx(student.lastName)} • {_tx(student.registrationNo)}</Text>
 
           {/* Preview */}
           <View style={ph.previewWrap}>
@@ -152,7 +153,7 @@ function PhotoUpdateModal({ visible, student, user, onClose, onSuccess }) {
               ? <Image source={{ uri: photo.uri }} style={ph.preview} />
               : <View style={ph.previewPlaceholder}>
                   <Feather name="user" size={52} color="#a5b4fc" />
-                  <Text style={ph.previewHint}>No photo selected</Text>
+                  <Text style={ph.previewHint}>{_t("No photo selected")}</Text>
                 </View>}
           </View>
 
@@ -160,11 +161,11 @@ function PhotoUpdateModal({ visible, student, user, onClose, onSuccess }) {
           <View style={ph.sourceRow}>
             <TouchableOpacity style={ph.sourceBtn} onPress={() => pickFrom('camera')} disabled={uploading}>
               <Feather name="camera" size={20} color="#6366f1" />
-              <Text style={ph.sourceTxt}>Camera</Text>
+              <Text style={ph.sourceTxt}>{_t("Camera")}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={ph.sourceBtn} onPress={() => pickFrom('library')} disabled={uploading}>
               <Feather name="image" size={20} color="#6366f1" />
-              <Text style={ph.sourceTxt}>Gallery</Text>
+              <Text style={ph.sourceTxt}>{_t("Gallery")}</Text>
             </TouchableOpacity>
           </View>
 
@@ -174,7 +175,7 @@ function PhotoUpdateModal({ visible, student, user, onClose, onSuccess }) {
               <View style={ph.progressTrack}>
                 <View style={[ph.progressFill, { width: `${progress}%` }]} />
               </View>
-              <Text style={ph.progressTxt}>Uploading… {progress}%</Text>
+              <Text style={ph.progressTxt}>{_t("Uploading… {progress}%", { progress })}</Text>
             </View>
           )}
 
@@ -187,13 +188,13 @@ function PhotoUpdateModal({ visible, student, user, onClose, onSuccess }) {
             {uploading
               ? <ActivityIndicator color="#fff" size="small" />
               : <Feather name="upload" size={18} color="#fff" />}
-            <Text style={ph.uploadTxt}>{uploading ? "Uploading…" : "Upload Photo"}</Text>
+            <Text style={ph.uploadTxt}>{uploading ? _t("Uploading…") : _t("Upload Photo")}</Text>
           </TouchableOpacity>
 
           {/* Cancel */}
           {!uploading && (
             <TouchableOpacity style={ph.cancelBtn} onPress={onClose}>
-              <Text style={ph.cancelTxt}>Cancel</Text>
+              <Text style={ph.cancelTxt}>{_t("Cancel")}</Text>
             </TouchableOpacity>
           )}
         </TouchableOpacity>
@@ -226,16 +227,17 @@ function UpdateEnrollmentModal({ visible, student, user, onClose, onSuccess }) {
 
     let dead = false;
     setLoadingInit(true);
-    Promise.all([
+    Promise.allSettled([
       fetchBranches(user),
       fetchClasses(user),
     ])
       .then(([br, cl]) => {
         if (dead) return;
-        setBranches(br || []);
-        setClasses(cl  || []);
+        setBranches(br.status === "fulfilled" && Array.isArray(br.value) ? br.value : []);
+        setClasses(cl.status === "fulfilled" && Array.isArray(cl.value) ? cl.value : []);
+        const failed = [br, cl].find(r => r.status === "rejected");
+        if (failed && !wasJustLocked()) Alert.alert(_t("Error"), _tx(failed.reason?.message) || _t("Failed to load options"));
       })
-      .catch(e => { if (!dead) Alert.alert("Error", e.message); })
       .finally(() => { if (!dead) setLoadingInit(false); });
     return () => { dead = true; };
   }, [visible, student]);
@@ -247,15 +249,15 @@ function UpdateEnrollmentModal({ visible, student, user, onClose, onSuccess }) {
     let dead = false;
     setLoadingSections(true);
     fetchSections(user, classId)
-      .then(d  => { if (!dead) setSections(d || []); })
+      .then(d  => { if (!dead) setSections(Array.isArray(d) ? d : []); })
       .catch(() => {})
       .finally(() => { if (!dead) setLoadingSections(false); });
     return () => { dead = true; };
   }, [classId]);
 
   const handleSave = async () => {
-    if (!classId)   { Alert.alert("Validation", "Please select a class.");   return; }
-    if (!sectionId) { Alert.alert("Validation", "Please select a section."); return; }
+    if (!classId)   { Alert.alert(_t("Validation"), _t("Please select a class."));   return; }
+    if (!sectionId) { Alert.alert(_t("Validation"), _t("Please select a section.")); return; }
     try {
       setSaving(true);
       await updateEnrollment(user, {
@@ -265,11 +267,11 @@ function UpdateEnrollmentModal({ visible, student, user, onClose, onSuccess }) {
         sectionId:    sectionId,
         status:       enrollStatus,
       });
-      Alert.alert("✅ Updated", "Enrollment updated successfully.");
+      Alert.alert(_t("✅ Updated"), _t("Enrollment updated successfully."));
       onSuccess?.();
       onClose();
     } catch (e) {
-      Alert.alert("Update Failed", e.message);
+      Alert.alert(_t("Update Failed"), _tx(e.message));
     } finally {
       setSaving(false);
     }
@@ -278,24 +280,24 @@ function UpdateEnrollmentModal({ visible, student, user, onClose, onSuccess }) {
   if (!student) return null;
 
   const branchOptions  = [
-    { label: "— Select Branch —",  value: "" },
+    { label: _t("— Select Branch —"),  value: "" },
     ...branches.map(b => ({ label: b.branch_name, value: String(b.branch_id) })),
   ];
   const classOptions   = [
-    { label: "— Select Class —",   value: "" },
+    { label: _t("— Select Class —"),   value: "" },
     ...classes.map(c  => ({ label: c.class_name,   value: String(c.class_id)   })),
   ];
   const sectionOptions = [
-    { label: classId ? "— Select Section —" : "Select class first", value: "" },
+    { label: classId ? _t("— Select Section —") : _t("Select class first"), value: "" },
     ...sections.map(s => ({
-      label: s.section_name ?? s.section ?? `Section ${s}`,
+      label: s.section_name ?? s.section ?? _t("Section {s}", { s }),
       value: String(s.section_id ?? s.section_name ?? s.section ?? s),
     })),
   ];
 
   const statusOptions = [
-    { label: "Active",    value: "active"    },
-    { label: "Cancelled", value: "cancelled" },
+    { label: _t("Active"),    value: "active"    },
+    { label: _t("Cancelled"), value: "cancelled" },
   ];
 
   const hasChanged =
@@ -311,11 +313,11 @@ function UpdateEnrollmentModal({ visible, student, user, onClose, onSuccess }) {
           <View style={ue.handle} />
 
           {/* Header — pinned above the scroll area */}
-          <Text style={ue.title}>Update Enrollment</Text>
+          <Text style={ue.title}>{_t("Update Enrollment")}</Text>
           <View style={ue.studentBadge}>
             <Feather name="user" size={14} color="#6366f1" />
             <Text style={ue.studentBadgeTxt} numberOfLines={1}>
-              {student.firstName} {student.lastName}  •  {student.enrollmentId}
+              {_tx(student.firstName)} {_tx(student.lastName)}  •  {_tx(student.enrollmentId)}
             </Text>
           </View>
 
@@ -328,25 +330,25 @@ function UpdateEnrollmentModal({ visible, student, user, onClose, onSuccess }) {
           {loadingInit
             ? <View style={ue.loadingWrap}>
                 <ActivityIndicator color="#6366f1" />
-                <Text style={ue.loadingTxt}>Loading options…</Text>
+                <Text style={ue.loadingTxt}>{_t("Loading options…")}</Text>
               </View>
             : <>
                 {/* Current values info row */}
                 <View style={ue.currentRow}>
                   <View style={ue.currentItem}>
-                    <Text style={ue.currentLabel}>Current Class</Text>
-                    <Text style={ue.currentValue}>{student.className ?? "—"}</Text>
+                    <Text style={ue.currentLabel}>{_t("Current Class")}</Text>
+                    <Text style={ue.currentValue}>{_tx(student.className) ?? "—"}</Text>
                   </View>
                   <View style={ue.currentItem}>
-                    <Text style={ue.currentLabel}>Current Section</Text>
-                    <Text style={ue.currentValue}>{student.section ?? "—"}</Text>
+                    <Text style={ue.currentLabel}>{_t("Current Section")}</Text>
+                    <Text style={ue.currentValue}>{_tx(student.section) ?? "—"}</Text>
                   </View>
                 </View>
 
                 {/* Branch */}
-                <Text style={ue.fieldLabel}>Branch</Text>
+                <Text style={ue.fieldLabel}>{_t("Branch")}</Text>
                 <Dropdown
-                  label="— Select Branch —"
+                  label={_t("— Select Branch —")}
                   value={branchId}
                   options={branchOptions}
                   onChange={setBranchId}
@@ -354,9 +356,9 @@ function UpdateEnrollmentModal({ visible, student, user, onClose, onSuccess }) {
                 />
 
                 {/* Class */}
-                <Text style={ue.fieldLabel}>New Class</Text>
+                <Text style={ue.fieldLabel}>{_t("New Class")}</Text>
                 <Dropdown
-                  label="— Select Class —"
+                  label={_t("— Select Class —")}
                   value={classId}
                   options={classOptions}
                   onChange={(val) => { setClassId(val); setSectionId(""); }}
@@ -364,11 +366,9 @@ function UpdateEnrollmentModal({ visible, student, user, onClose, onSuccess }) {
                 />
 
                 {/* Section */}
-                <Text style={ue.fieldLabel}>
-                  New Section{loadingSections ? "  (loading…)" : ""}
-                </Text>
+                <Text style={ue.fieldLabel}>{_t("New Section{v}", { v: loadingSections ? ("  " + _t("(loading…)") + "") : "" })}</Text>
                 <Dropdown
-                  label={classId ? "— Select Section —" : "Select class first"}
+                  label={classId ? _t("— Select Section —") : _t("Select class first")}
                   value={sectionId}
                   options={sectionOptions}
                   onChange={setSectionId}
@@ -377,9 +377,9 @@ function UpdateEnrollmentModal({ visible, student, user, onClose, onSuccess }) {
                 />
 
                 {/* Enrollment Status */}
-                <Text style={ue.fieldLabel}>Enrollment Status</Text>
+                <Text style={ue.fieldLabel}>{_t("Enrollment Status")}</Text>
                 <Dropdown
-                  label="— Select Status —"
+                  label={_t("— Select Status —")}
                   value={enrollStatus}
                   options={statusOptions}
                   onChange={setEnrollStatus}
@@ -393,14 +393,14 @@ function UpdateEnrollmentModal({ visible, student, user, onClose, onSuccess }) {
                   disabled={!hasChanged || saving}
                 >
                   {saving
-                    ? <><ActivityIndicator color="#fff" size="small" /><Text style={ue.saveTxt}> Saving…</Text></>
-                    : <><Feather name="check-circle" size={18} color="#fff" /><Text style={ue.saveTxt}> Save Changes</Text></>}
+                    ? <><ActivityIndicator color="#fff" size="small" /><Text style={ue.saveTxt}>{" "}{_t("Saving…")}</Text></>
+                    : <><Feather name="check-circle" size={18} color="#fff" /><Text style={ue.saveTxt}>{" "}{_t("Save Changes")}</Text></>}
                 </TouchableOpacity>
 
                 {/* Cancel */}
                 {!saving && (
                   <TouchableOpacity style={ue.cancelBtn} onPress={onClose}>
-                    <Text style={ue.cancelTxt}>Cancel</Text>
+                    <Text style={ue.cancelTxt}>{_t("Cancel")}</Text>
                   </TouchableOpacity>
                 )}
               </>}
@@ -416,10 +416,10 @@ function ActionMenu({ visible, student, onClose, navigation, canFinance, isAdmin
   if (!student) return null;
 
   const actions = [
-    { icon: "eye",         label: "View Details",       color: "#2563eb", bg: "#eff6ff",
+    { icon: "eye",         label: _t("View Details"),       color: "#2563eb", bg: "#eff6ff",
       onPress: () => navigation.navigate("StudentProfile", { student, studentId: student.id ?? student.registrationNo }) },
     ...(canFinance ? [
-      { icon: "dollar-sign", label: "Payments",          color: "#16a34a", bg: "#f0fdf4",
+      { icon: "dollar-sign", label: _t("Payments"),          color: "#16a34a", bg: "#f0fdf4",
         onPress: () => navigation.navigate("StudentFee", {
           enrollmentId: student.enrollmentId, registrationId: student.id,
           classId: student.classId, sessionId: student.sessionId,
@@ -427,7 +427,7 @@ function ActionMenu({ visible, student, onClose, navigation, canFinance, isAdmin
           studentsName: `${student.firstName} ${student.lastName}`, className: student.className,
           mobileNumber: student.mobileNumber,
         }) },
-      { icon: "clock",       label: "Payment History",   color: "#0369a1", bg: "#f0f9ff",
+      { icon: "clock",       label: _t("Payment History"),   color: "#0369a1", bg: "#f0f9ff",
         onPress: () => navigation.navigate("StudentFee", {
           enrollmentId: student.enrollmentId, registrationId: student.id,
           classId: student.classId, sessionId: student.sessionId,
@@ -437,20 +437,20 @@ function ActionMenu({ visible, student, onClose, navigation, canFinance, isAdmin
           initialTab: "history",
         }) },
     ] : []),
-    { icon: "credit-card", label: "ID Card",             color: "#7c3aed", bg: "#f5f3ff",
+    { icon: "credit-card", label: _t("ID Card"),             color: "#7c3aed", bg: "#f5f3ff",
       onPress: () => navigation.navigate("StudentIdCard", { preselect: { classId: student.classId, sessionId: student.sessionId } }) },
-    { icon: "camera",      label: "Update Photo",        color: "#0891b2", bg: "#ecfeff",
+    { icon: "camera",      label: _t("Update Photo"),        color: "#0891b2", bg: "#ecfeff",
       onPress: () => onUpdatePhoto(student) },
     ...(isAdminOrOwner ? [
-      { icon: "refresh-cw",  label: "Update Enrollment",  color: "#059669", bg: "#ecfdf5",
+      { icon: "refresh-cw",  label: _t("Update Enrollment"),  color: "#059669", bg: "#ecfdf5",
         onPress: () => onUpdateEnrollment(student) },
     ] : []),
-    { icon: "home",        label: "Hostel Enrollment",    color: "#b45309", bg: "#fffbeb",
+    { icon: "home",        label: _t("Hostel Enrollment"),    color: "#b45309", bg: "#fffbeb",
       onPress: () => navigation.navigate("HostelEnrollment", { student }) },
-    { icon: "truck",       label: "Transport Enrollment", color: "#0f766e", bg: "#f0fdfa",
+    { icon: "truck",       label: _t("Transport Enrollment"), color: "#0f766e", bg: "#f0fdfa",
       onPress: () => navigation.navigate("TransportEnrollment", { student }) },
     ...(isAdminOrOwner ? [
-      { icon: "edit-2",    label: "Edit Profile",        color: "#475569", bg: "#f8fafc",
+      { icon: "edit-2",    label: _t("Edit Profile"),        color: "#475569", bg: "#f8fafc",
         onPress: () => navigation.navigate("StudentProfile", { student, studentId: student.id ?? student.registrationNo, editMode: true }) },
     ] : []),
   ];
@@ -463,8 +463,8 @@ function ActionMenu({ visible, student, onClose, navigation, canFinance, isAdmin
           <View style={am.studentRow}>
             <View style={am.avatar}><Feather name="user" size={20} color="#6366f1" /></View>
             <View style={{ flex: 1 }}>
-              <Text style={am.studentName} numberOfLines={1}>{student.firstName} {student.lastName}</Text>
-              <Text style={am.studentMeta}>{student.className}{student.section ? ` • Sec ${student.section}` : ""} • {student.enrollmentId}</Text>
+              <Text style={am.studentName} numberOfLines={1}>{_tx(student.firstName)} {_tx(student.lastName)}</Text>
+              <Text style={am.studentMeta}>{_tx(student.className)}{student.section ? ` ${_t("• Sec {section}", { section: student.section })}` : ""} • {_tx(student.enrollmentId)}</Text>
             </View>
           </View>
           <View style={am.grid}>
@@ -474,12 +474,12 @@ function ActionMenu({ visible, student, onClose, navigation, canFinance, isAdmin
                 <View style={[am.itemIcon, { backgroundColor: a.color + "22" }]}>
                   <Feather name={a.icon} size={20} color={a.color} />
                 </View>
-                <Text style={[am.itemLabel, { color: a.color }]}>{a.label}</Text>
+                <Text style={[am.itemLabel, { color: a.color }]}>{_tx(a.label)}</Text>
               </TouchableOpacity>
             ))}
           </View>
           <TouchableOpacity style={am.cancel} onPress={onClose}>
-            <Text style={am.cancelTxt}>Cancel</Text>
+            <Text style={am.cancelTxt}>{_t("Cancel")}</Text>
           </TouchableOpacity>
         </TouchableOpacity>
       </TouchableOpacity>
@@ -499,30 +499,28 @@ const StudentCard = React.memo(function StudentCard({ item, navigation, canFinan
           ? <Image source={{ uri: photoUri }} style={cs.photo} />
           : <View style={cs.photoPlaceholder}><Feather name="user" size={30} color="#6366f1" /></View>}
         <View style={cs.badge}>
-          <Text style={cs.badgeLabel}>Class</Text>
-          <Text style={cs.badgeTxt} numberOfLines={1}>{item.className ?? `C${item.classId ?? ""}`}</Text>
+          <Text style={cs.badgeLabel}>{_t("Class")}</Text>
+          <Text style={cs.badgeTxt} numberOfLines={1}>{_tx(item.className) ?? _t("C{v}", { v: item.classId ?? "" })}</Text>
           {!!item.section && <>
-            <Text style={[cs.badgeLabel, { marginTop: 4 }]}>Section</Text>
-            <Text style={cs.badgeTxt} numberOfLines={1}>{item.section}</Text>
+            <Text style={[cs.badgeLabel, { marginTop: 4 }]}>{_t("Section")}</Text>
+            <Text style={cs.badgeTxt} numberOfLines={1}>{_tx(item.section)}</Text>
           </>}
         </View>
       </View>
       <View style={cs.info}>
         <Text style={cs.name} numberOfLines={1}>
-          {item.firstName} {item.lastName}
-          <Text style={cs.enrollInline}>  #{item.enrollmentId}</Text>
+          {_tx(item.firstName)} {_tx(item.lastName)}
+          <Text style={cs.enrollInline}>  #{_tx(item.enrollmentId)}</Text>
         </Text>
         {!!item.admissionNumber && (
-          <Text style={cs.admissionTxt} numberOfLines={1}>
-            Adm: {item.admissionNumber}
-          </Text>
+          <Text style={cs.admissionTxt} numberOfLines={1}>{_t("Adm: {admissionNumber}", { admissionNumber: item.admissionNumber })}</Text>
         )}
       </View>
       <View style={cs.actions}>
         <TouchableOpacity style={cs.btn}
           onPress={() => navigation.navigate("StudentProfile", { student: item, studentId: item.id ?? item.registrationNo })}>
           <Feather name="eye" size={13} color="#2563eb" />
-          <Text style={[cs.btnTxt, { color: "#2563eb" }]}>Details</Text>
+          <Text style={[cs.btnTxt, { color: "#2563eb" }]}>{_t("Details")}</Text>
         </TouchableOpacity>
         {canFinance && (
           <TouchableOpacity style={[cs.btn, cs.btnGreen]}
@@ -534,12 +532,12 @@ const StudentCard = React.memo(function StudentCard({ item, navigation, canFinan
               mobileNumber: item.mobileNumber,
             })}>
             <Feather name="dollar-sign" size={13} color="#16a34a" />
-            <Text style={[cs.btnTxt, { color: "#16a34a" }]}>Pay</Text>
+            <Text style={[cs.btnTxt, { color: "#16a34a" }]}>{_t("Pay")}</Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity style={[cs.btn, cs.btnMore]} onPress={() => onMore(item)}>
           <Feather name="more-horizontal" size={13} color="#7c3aed" />
-          <Text style={[cs.btnTxt, { color: "#7c3aed" }]}>More</Text>
+          <Text style={[cs.btnTxt, { color: "#7c3aed" }]}>{_t("More")}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -610,13 +608,15 @@ export default function EnrolledStudentsScreen({ navigation }) {
   const openEnrollModal = useCallback((s) => { setEnrollStudent(s); setEnrollModalVisible(true); }, []);
   const closeEnrollModal = useCallback(() => setEnrollModalVisible(false), []);
 
-  const handlePhotoSuccess = useCallback(() => {
-    fetchStudents({ pg: 1, reset: true, cls: classId, sec: sectionId, br: branchId, ses: sessionId });
-  }, [fetchStudents, classId, sectionId, branchId, sessionId]);
-
-  const handleEnrollSuccess = useCallback(() => {
-    fetchStudents({ pg: 1, reset: true, cls: classId, sec: sectionId, br: branchId, ses: sessionId });
-  }, [fetchStudents, classId, sectionId, branchId, sessionId]);
+  // Show at most one error alert per burst (filters + list can all fail with the same 403)
+  const lastAlertRef = useRef(0);
+  const alertOnce = useCallback((msg) => {
+    if (wasJustLocked()) return;
+    const now = Date.now();
+    if (now - lastAlertRef.current < 3000) return;
+    lastAlertRef.current = now;
+    Alert.alert(_t("Error"), _tx(msg));
+  }, []);
 
 
   // Load classes, branches and sessions once
@@ -625,18 +625,21 @@ export default function EnrolledStudentsScreen({ navigation }) {
     if (!userToken) return;
     let dead = false;
     setLoadingFilters(true);
-    Promise.all([
+    // allSettled: one denied filter list must not blank the others
+    Promise.allSettled([
       fetchClasses(userRef.current),
       fetchBranches(userRef.current),
       fetchSessions(userRef.current),
     ])
       .then(([cl, br, se]) => {
         if (dead) return;
-        setClasses(cl  || []);
-        setBranches(br || []);
-        setSessions(se || []);
+        const arr = (r) => (r.status === "fulfilled" && Array.isArray(r.value) ? r.value : []);
+        setClasses(arr(cl));
+        setBranches(arr(br));
+        setSessions(arr(se));
+        const failed = [cl, br, se].find(r => r.status === "rejected");
+        if (failed) alertOnce(failed.reason?.message || "Failed to load filters");
       })
-      .catch(e => { if (!dead) Alert.alert("Error", e.message); })
       .finally(()=> { if (!dead) setLoadingFilters(false); });
     return () => { dead = true; };
   }, [userToken]);
@@ -648,7 +651,7 @@ export default function EnrolledStudentsScreen({ navigation }) {
     let dead = false;
     setLoadingSections(true);
     fetchSections(userRef.current, classId)
-      .then(d  => { if (!dead) setSections(d || []); })
+      .then(d  => { if (!dead) setSections(Array.isArray(d) ? d : []); })
       .catch(() => {})
       .finally(()=> { if (!dead) setLoadingSections(false); });
     return () => { dead = true; };
@@ -660,21 +663,29 @@ export default function EnrolledStudentsScreen({ navigation }) {
       if (reset) setLoading(pg === 1 && !isRefresh);
       else       setLoadingMore(true);
       const result = await getEnrolledStudents(userRef.current, { page: pg, limit: 20, classId: cls, sectionId: sec, branchId: br, sessionId: ses });
-      const rows = result.students   || [];
-      const pagi = result.pagination || {};
+      const rows = Array.isArray(result?.students) ? result.students : [];
+      const pagi = result?.pagination || {};
       setStudents(prev => reset ? rows : [...prev, ...rows]);
       setPage(pg);
       setHasNextPage(Boolean(pagi.hasNextPage));
     } catch (e) {
       // Stop "load more" retrying forever (an empty list keeps firing onEndReached)
       setHasNextPage(false);
-      if (!wasJustLocked()) Alert.alert("Error", e.message || "Failed to load students");
+      alertOnce(e.message || "Failed to load students");
     } finally {
       setLoading(false);
       setLoadingMore(false);
       setRefreshing(false);
     }
-  }, []); // no deps — values passed as params
+  }, [alertOnce]); // alertOnce is stable — other values passed as params
+
+  const handlePhotoSuccess = useCallback(() => {
+    fetchStudents({ pg: 1, reset: true, cls: classId, sec: sectionId, br: branchId, ses: sessionId });
+  }, [fetchStudents, classId, sectionId, branchId, sessionId]);
+
+  const handleEnrollSuccess = useCallback(() => {
+    fetchStudents({ pg: 1, reset: true, cls: classId, sec: sectionId, br: branchId, ses: sessionId });
+  }, [fetchStudents, classId, sectionId, branchId, sessionId]);
 
   // Trigger fetch when any filter changes
   useEffect(() => {
@@ -716,25 +727,25 @@ export default function EnrolledStudentsScreen({ navigation }) {
   }, [filteredStudents, numCols]);
 
   const classOptions = useMemo(() => [
-    { label: "All Classes", value: "" },
+    { label: _t("All Classes"), value: "" },
     ...classes.map(c => ({ label: c.class_name, value: String(c.class_id) })),
   ], [classes]);
 
   const sectionOptions = useMemo(() => [
-    { label: classId ? "All Sections" : "Select class first", value: "" },
+    { label: classId ? _t("All Sections") : _t("Select class first"), value: "" },
     ...sections.map(s => ({
-      label: s.section_name ?? `Section ${s.section_id}`,
+      label: s.section_name ?? _t("Section {section_id}", { section_id: s.section_id }),
       value: String(s.section_id),
     })),
   ], [sections, classId]);
 
   const branchOptions = useMemo(() => [
-    { label: "All Branches", value: "" },
+    { label: _t("All Branches"), value: "" },
     ...branches.map(b => ({ label: b.branch_name, value: String(b.branch_id) })),
   ], [branches]);
 
   const sessionOptions = useMemo(() => [
-    { label: "All Sessions", value: "" },
+    { label: _t("All Sessions"), value: "" },
     ...sessions.map(s => ({ label: s.session_name ?? s.session_year ?? String(s.session_id), value: String(s.session_id) })),
   ], [sessions]);
 
@@ -748,7 +759,7 @@ export default function EnrolledStudentsScreen({ navigation }) {
 
   const renderFooter = useCallback(() =>
     loadingMore
-      ? <View style={sc.footerWrap}><ActivityIndicator size="small" color="#6366f1" /><Text style={sc.footerTxt}>Loading more…</Text></View>
+      ? <View style={sc.footerWrap}><ActivityIndicator size="small" color="#6366f1" /><Text style={sc.footerTxt}>{_t("Loading more…")}</Text></View>
       : <View style={{ height: 24 }} />,
   [loadingMore]);
 
@@ -756,35 +767,35 @@ export default function EnrolledStudentsScreen({ navigation }) {
     <View style={sc.header}>
       <View style={sc.filterRow}>
         <View style={sc.filterCol}>
-          <Text style={sc.filterLabel}>Branch</Text>
-          <Dropdown label="All Branches" value={branchId}
+          <Text style={sc.filterLabel}>{_t("Branch")}</Text>
+          <Dropdown label={_t("All Branches")} value={branchId}
             options={branchOptions} onChange={setBranchId}
             disabled={loadingFilters} loading={loadingFilters} />
         </View>
         <View style={sc.filterCol}>
-          <Text style={sc.filterLabel}>Session</Text>
-          <Dropdown label="All Sessions" value={sessionId}
+          <Text style={sc.filterLabel}>{_t("Session")}</Text>
+          <Dropdown label={_t("All Sessions")} value={sessionId}
             options={sessionOptions} onChange={setSessionId}
             disabled={loadingFilters} loading={loadingFilters} />
         </View>
       </View>
       <View style={sc.filterRow}>
         <View style={sc.filterCol}>
-          <Text style={sc.filterLabel}>Class</Text>
-          <Dropdown label="All Classes" value={classId}
+          <Text style={sc.filterLabel}>{_t("Class")}</Text>
+          <Dropdown label={_t("All Classes")} value={classId}
             options={classOptions} onChange={handleClassChange}
             disabled={loadingFilters} loading={loadingFilters} />
         </View>
         <View style={sc.filterCol}>
-          <Text style={sc.filterLabel}>Section</Text>
-          <Dropdown label={classId ? "All Sections" : "Select class"} value={sectionId}
+          <Text style={sc.filterLabel}>{_t("Section")}</Text>
+          <Dropdown label={classId ? _t("All Sections") : _t("Select class")} value={sectionId}
             options={sectionOptions} onChange={handleSectionChange}
             disabled={!classId || loadingSections} loading={loadingSections} />
         </View>
       </View>
       <View style={sc.searchWrap}>
         <Feather name="search" size={16} color="#94a3b8" style={{ marginRight: 8 }} />
-        <TextInput style={sc.searchInput} placeholder="Search by name, enr no…"
+        <TextInput style={sc.searchInput} placeholder={_t("Search by name, enr no…")}
           placeholderTextColor="#94a3b8" value={searchText} onChangeText={setSearchText} />
         {searchText.length > 0 && (
           <TouchableOpacity onPress={() => setSearchText("")}>
@@ -793,21 +804,19 @@ export default function EnrolledStudentsScreen({ navigation }) {
         )}
       </View>
       {filteredStudents.length > 0 && (
-        <Text style={sc.countTxt}>
-          {filteredStudents.length}{filteredStudents.length < students.length ? ` of ${students.length}` : ''} student{filteredStudents.length !== 1 ? 's' : ''}{hasNextPage ? '+' : ''}
-        </Text>
+        <Text style={sc.countTxt}>{_t("{length}{v} student{pl}{v2}", { length: filteredStudents.length, v: filteredStudents.length < students.length ? ` ${_t("of {length}", { length: students.length })}` : '', pl: filteredStudents.length !== 1 ? 's' : '', v2: hasNextPage ? '+' : '' })}</Text>
       )}
       {loading && (
         <View style={sc.listLoader}>
           <ActivityIndicator color="#6366f1" />
-          <Text style={sc.listLoaderTxt}>Loading students…</Text>
+          <Text style={sc.listLoaderTxt}>{_t("Loading students…")}</Text>
         </View>
       )}
       {!loading && filteredStudents.length === 0 && (
         <View style={sc.empty}>
           <Feather name="users" size={44} color="#cbd5e1" />
-          <Text style={sc.emptyTitle}>No students found</Text>
-          <Text style={sc.emptyText}>Try adjusting your filters</Text>
+          <Text style={sc.emptyTitle}>{_t("No students found")}</Text>
+          <Text style={sc.emptyText}>{_t("Try adjusting your filters")}</Text>
         </View>
       )}
     </View>

@@ -19,6 +19,8 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system";
 
+import { fmtDate } from "../../services/Locale";
+import { _t, _th, _tx } from "../../services/i18n";
 // ── Dropdown ──────────────────────────────────────────────────────────────────
 function Dropdown({ label, value, options, onChange, disabled, loading }) {
   const [open, setOpen] = useState(false);
@@ -31,7 +33,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
         activeOpacity={0.75}
       >
         <Text style={[sc.ddTxt, !sel?.value && sc.ddPh]} numberOfLines={1}>
-          {loading ? "Loading…" : (sel?.label ?? label)}
+          {loading ? _t("Loading…") : (_tx(sel?.label) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={13} color="#94a3b8" />
       </TouchableOpacity>
@@ -39,7 +41,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
         <TouchableOpacity style={sc.ddOverlay} activeOpacity={1} onPress={() => setOpen(false)}>
           <View style={sc.ddSheet}>
             <View style={sc.ddHead}>
-              <Text style={sc.ddTitle}>{label}</Text>
+              <Text style={sc.ddTitle}>{_tx(label)}</Text>
               <TouchableOpacity onPress={() => setOpen(false)} style={sc.ddClose}>
                 <Feather name="x" size={14} color="#64748b" />
               </TouchableOpacity>
@@ -53,7 +55,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[sc.ddOptTxt, String(o.value) === String(value) && sc.ddOptTxtAct]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) &&
                     <Feather name="check" size={13} color="#1e40af" />}
@@ -79,8 +81,8 @@ function RankBadge({ rank }) {
   return (
     <View style={[sc.rankBadge, { backgroundColor: c.bg, borderColor: c.border }]}>
       {c.emoji
-        ? <Text style={sc.rankEmoji}>{c.emoji}</Text>
-        : <Text style={[sc.rankNum, { color: c.fg }]}>#{rank}</Text>}
+        ? <Text style={sc.rankEmoji}>{_tx(c.emoji)}</Text>
+        : <Text style={[sc.rankNum, { color: c.fg }]}>#{_tx(rank)}</Text>}
     </View>
   );
 }
@@ -96,7 +98,7 @@ function GradeChip({ grade }) {
   const [bg, fg] = map[grade] ?? ["#f1f5f9", "#64748b"];
   return (
     <View style={[sc.gradeChip, { backgroundColor: bg }]}>
-      <Text style={[sc.gradeChipTxt, { color: fg }]}>{grade}</Text>
+      <Text style={[sc.gradeChipTxt, { color: fg }]}>{_tx(grade)}</Text>
     </View>
   );
 }
@@ -111,30 +113,30 @@ function StatsBar({ rankings }) {
   return (
     <View style={sc.statsBar}>
       <View style={sc.statItem}>
-        <Text style={sc.statVal}>{rankings.length}</Text>
-        <Text style={sc.statLabel}>Students</Text>
+        <Text style={sc.statVal}>{_tx(rankings.length)}</Text>
+        <Text style={sc.statLabel}>{_t("Students")}</Text>
       </View>
       <View style={sc.statDivider} />
       <View style={sc.statItem}>
-        <Text style={sc.statVal}>{avg}%</Text>
-        <Text style={sc.statLabel}>Avg Score</Text>
+        <Text style={sc.statVal}>{_tx(avg)}%</Text>
+        <Text style={sc.statLabel}>{_t("Avg Score")}</Text>
       </View>
       <View style={sc.statDivider} />
       <View style={sc.statItem}>
-        <Text style={[sc.statVal, { color: "#16a34a" }]}>{pass}</Text>
-        <Text style={sc.statLabel}>Passed</Text>
+        <Text style={[sc.statVal, { color: "#16a34a" }]}>{_tx(pass)}</Text>
+        <Text style={sc.statLabel}>{_t("Passed")}</Text>
       </View>
       <View style={sc.statDivider} />
       <View style={sc.statItem}>
-        <Text style={[sc.statVal, { color: "#dc2626" }]}>{fail}</Text>
-        <Text style={sc.statLabel}>Failed</Text>
+        <Text style={[sc.statVal, { color: "#dc2626" }]}>{_tx(fail)}</Text>
+        <Text style={sc.statLabel}>{_t("Failed")}</Text>
       </View>
       <View style={sc.statDivider} />
       <View style={sc.statItem}>
         <Text style={[sc.statVal, { color: "#1e40af" }]} numberOfLines={1}>
-          {top?.total_obtained ?? 0}
+          {_tx(top?.total_obtained) ?? 0}
         </Text>
-        <Text style={sc.statLabel}>Top Score</Text>
+        <Text style={sc.statLabel}>{_t("Top Score")}</Text>
       </View>
     </View>
   );
@@ -258,7 +260,7 @@ function buildRankingsHTML(rankings, examInfo, filters, schoolInfo, selClass, se
 
   <!-- FOOTER -->
   <div style="position:fixed;bottom:0;left:10mm;right:10mm;border-top:1px solid #e2e8f0;padding-top:4px;text-align:center;font-size:6px;color:#64748b;background:#fff;">
-    Generated on ${new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"})} · ${schoolInfo?.name ?? "School Management System"}
+    Generated on ${fmtDate(new Date(), "full")} · ${schoolInfo?.name ?? "School Management System"}
   </div>
 
 </div>
@@ -301,10 +303,10 @@ function PromoteModal({ visible, onClose, selectedIds, classes, sessions, branch
   }, [tClassId]);
 
   const handlePromote = async () => {
-    if (!tClassId)   { Alert.alert('Required', 'Please select a target class.');   return; }
-    if (!tSectionId) { Alert.alert('Required', 'Please select a target section.'); return; }
-    if (!tSessionId) { Alert.alert('Required', 'Please select a target session.'); return; }
-    if (!tMedium)    { Alert.alert('Required', 'Please select a course medium.');  return; }
+    if (!tClassId)   { Alert.alert(_t("Required"), _t("Please select a target class."));   return; }
+    if (!tSectionId) { Alert.alert(_t("Required"), _t("Please select a target section.")); return; }
+    if (!tSessionId) { Alert.alert(_t("Required"), _t("Please select a target session.")); return; }
+    if (!tMedium)    { Alert.alert(_t("Required"), _t("Please select a course medium."));  return; }
     try {
       setPromoting(true);
       const res = await promoteStudents(user, {
@@ -317,23 +319,23 @@ function PromoteModal({ visible, onClose, selectedIds, classes, sessions, branch
         course_medium:     tMedium,
       });
       onClose();
-      Alert.alert('Promotion Complete', res.message ?? `${res.promoted} student(s) promoted.`);
+      Alert.alert(_t("Promotion Complete"), _tx(res.message) ?? _t("{promoted} student(s) promoted.", { promoted: res.promoted }));
       onDone?.();
     } catch (e) {
-      Alert.alert('Error', e.message || 'Promotion failed');
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Promotion failed"));
     } finally { setPromoting(false); }
   };
 
-  const branchOpts  = [{ label: 'Keep Existing', value: '' }, ...branches.map(b => ({ label: b.branch_name,                          value: String(b.branch_id)  }))];
-  const classOpts   = [{ label: 'Select Class',   value: '' }, ...classes.map(c  => ({ label: c.class_name,                          value: String(c.class_id)   }))];
+  const branchOpts  = [{ label: _t("Keep Existing"), value: '' }, ...branches.map(b => ({ label: b.branch_name,                          value: String(b.branch_id)  }))];
+  const classOpts   = [{ label: _t("Select Class"),   value: '' }, ...classes.map(c  => ({ label: c.class_name,                          value: String(c.class_id)   }))];
   // Exclude the session the students are currently enrolled in
   const sessionOpts = [
-    { label: 'Select Session', value: '' },
+    { label: _t("Select Session"), value: '' },
     ...sessions
       .filter(s => String(s.session_id) !== String(currentSessionId))
       .map(s => ({ label: s.session_name ?? s.session_year ?? '', value: String(s.session_id) })),
   ];
-  const sectionOpts = [{ label: 'Select Section', value: '' }, ...tSections.map(s => ({ label: s.section_name, value: String(s.section_id) }))];
+  const sectionOpts = [{ label: _t("Select Section"), value: '' }, ...tSections.map(s => ({ label: s.section_name, value: String(s.section_id) }))];
   const mediumOpts  = MEDIUM_OPTS.map(m => ({ label: m, value: m }));
 
   return (
@@ -347,10 +349,8 @@ function PromoteModal({ visible, onClose, selectedIds, classes, sessions, branch
               <Feather name="arrow-up-circle" size={18} color="#7c3aed" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={pm.headerTitle}>Promote Students</Text>
-              <Text style={pm.headerSub}>
-                {selectedIds.size} student{selectedIds.size !== 1 ? 's' : ''} selected
-              </Text>
+              <Text style={pm.headerTitle}>{_t("Promote Students")}</Text>
+              <Text style={pm.headerSub}>{_t("{size} student{pl} selected", { size: selectedIds.size, pl: selectedIds.size !== 1 ? 's' : '' })}</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={pm.closeBtn}>
               <Feather name="x" size={16} color="#64748b" />
@@ -363,29 +363,29 @@ function PromoteModal({ visible, onClose, selectedIds, classes, sessions, branch
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <Text style={pm.sectionTitle}>▸  Promote To</Text>
+            <Text style={pm.sectionTitle}>{_t("▸  Promote To")}</Text>
             <View style={pm.grid}>
               <View style={{ width: '100%' }}>
-                <Text style={pm.fieldLbl}>Branch</Text>
-                <Dropdown label="Keep Existing" value={tBranchId} options={branchOpts} onChange={setTBranchId} />
+                <Text style={pm.fieldLbl}>{_t("Branch")}</Text>
+                <Dropdown label={_t("Keep Existing")} value={tBranchId} options={branchOpts} onChange={setTBranchId} />
               </View>
               <View style={pm.half}>
-                <Text style={pm.fieldLbl}>Class *</Text>
-                <Dropdown label="Select Class" value={tClassId} options={classOpts}
+                <Text style={pm.fieldLbl}>{_t("Class *")}</Text>
+                <Dropdown label={_t("Select Class")} value={tClassId} options={classOpts}
                   onChange={v => { setTClassId(v); setTSectionId(''); }} />
               </View>
               <View style={pm.half}>
-                <Text style={pm.fieldLbl}>Section *</Text>
-                <Dropdown label="Select Section" value={tSectionId} options={sectionOpts}
+                <Text style={pm.fieldLbl}>{_t("Section *")}</Text>
+                <Dropdown label={_t("Select Section")} value={tSectionId} options={sectionOpts}
                   onChange={setTSectionId} disabled={!tClassId} loading={loadingSec} />
               </View>
               <View style={{ width: '100%' }}>
-                <Text style={pm.fieldLbl}>Session *</Text>
-                <Dropdown label="Select Session" value={tSessionId} options={sessionOpts} onChange={setTSessionId} />
+                <Text style={pm.fieldLbl}>{_t("Session *")}</Text>
+                <Dropdown label={_t("Select Session")} value={tSessionId} options={sessionOpts} onChange={setTSessionId} />
               </View>
               <View style={{ width: '100%' }}>
-                <Text style={pm.fieldLbl}>Course Medium *</Text>
-                <Dropdown label="Select Medium" value={tMedium} options={mediumOpts} onChange={setTMedium} />
+                <Text style={pm.fieldLbl}>{_t("Course Medium *")}</Text>
+                <Dropdown label={_t("Select Medium")} value={tMedium} options={mediumOpts} onChange={setTMedium} />
               </View>
             </View>
 
@@ -399,9 +399,7 @@ function PromoteModal({ visible, onClose, selectedIds, classes, sessions, branch
                 ? <ActivityIndicator color="#fff" size="small" />
                 : <>
                     <Feather name="arrow-up-circle" size={16} color="#fff" />
-                    <Text style={pm.promoteBtnTxt}>
-                      Promote {selectedIds.size} Student{selectedIds.size !== 1 ? 's' : ''}
-                    </Text>
+                    <Text style={pm.promoteBtnTxt}>{_t("Promote {size} Student{pl}", { size: selectedIds.size, pl: selectedIds.size !== 1 ? 's' : '' })}</Text>
                   </>
               }
             </TouchableOpacity>
@@ -491,20 +489,25 @@ export default function ExamResultsRankScreen() {
     (async () => {
       try {
         setLoadingFilters(true);
-        const [exData, clData, seData, brData] = await Promise.all([
+        // allSettled: a 403 on one list must not blank the rest of the filters
+        const settled = await Promise.allSettled([
           fetchExams(user), fetchClasses(user),
           fetchSessions(user), fetchBranches(user),
         ]);
-        const brList = Array.isArray(brData) ? brData : brData?.data ?? [];
-        const seList = Array.isArray(seData) ? seData : seData?.data ?? [];
-        setExams(Array.isArray(exData)    ? exData    : exData?.data    ?? []);
-        setClasses(Array.isArray(clData)  ? clData    : clData?.data    ?? []);
+        const [exData, clData, seData, brData] = settled.map(r => r.status === "fulfilled" ? r.value : null);
+        const firstErr = settled.find(r => r.status === "rejected");
+        const asArr = (d) => Array.isArray(d) ? d : Array.isArray(d?.data) ? d.data : [];
+        const brList = asArr(brData);
+        const seList = asArr(seData);
+        setExams(asArr(exData));
+        setClasses(asArr(clData));
         setSessions(seList);
         setBranches(brList);
         if (brList.length) setFilter("branch_id",  String(brList[0].branch_id));
         if (seList.length) setFilter("session_id", String(seList[0].session_id));
+        if (firstErr) Alert.alert(_t("Error"), _tx(firstErr.reason?.message) || _t("Failed to load filters"));
       } catch (e) {
-        Alert.alert("Error", e.message || "Failed to load filters");
+        Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load filters"));
       } finally { setLoadingFilters(false); }
     })();
   }, [user]);
@@ -526,8 +529,8 @@ export default function ExamResultsRankScreen() {
 
   // ── Load rankings ─────────────────────────────────────────────────────────
   const handleLoad = async () => {
-    if (!filters.exam_id)    { Alert.alert("Required", "Please select an exam.");    return; }
-    if (!filters.session_id) { Alert.alert("Required", "Please select a session."); return; }
+    if (!filters.exam_id)    { Alert.alert(_t("Required"), _t("Please select an exam."));    return; }
+    if (!filters.session_id) { Alert.alert(_t("Required"), _t("Please select a session.")); return; }
     try {
       setLoading(true);
       setSearched(false);
@@ -538,20 +541,20 @@ export default function ExamResultsRankScreen() {
         sectionId: filters.section_id,
         branchId:  filters.branch_id,
       });
-      setRankings(res.data ?? []);
-      setExamInfo(res.exam ?? null);
+      setRankings(Array.isArray(res?.data) ? res.data : []);
+      setExamInfo(res?.exam ?? null);
       setSelectedForPromotion(new Set());
       setSearched(true);
-      if (!res.data?.length)
-        Alert.alert("No Data", "No marks found for the selected filters.");
+      if (!Array.isArray(res?.data) || !res.data.length)
+        Alert.alert(_t("No Data"), _t("No marks found for the selected filters."));
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load rankings");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load rankings"));
     } finally { setLoading(false); }
   };
 
   // ── Generate PDF ─────────────────────────────────────────────────────────
   const handleGeneratePDF = async () => {
-    if (!rankings.length) { Alert.alert("No Data", "Load rankings first."); return; }
+    if (!rankings.length) { Alert.alert(_t("No Data"), _t("Load rankings first.")); return; }
     try {
       setGenerating(true);
 
@@ -570,14 +573,14 @@ export default function ExamResultsRankScreen() {
       }
 
       const html = buildRankingsHTML(rankings, examInfo, filters, pdfSchoolInfo, selClass, selSection, selSession);
-      const { uri } = await Print.printToFileAsync({ html, base64: false });
+      const { uri } = await Print.printToFileAsync({ html: _th(html), base64: false });
       await Sharing.shareAsync(uri, {
         mimeType:    "application/pdf",
         dialogTitle: `Rankings — ${examInfo?.exam_name ?? "Exam"}`,
         UTI:         "com.adobe.pdf",
       });
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to generate PDF");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to generate PDF"));
     } finally { setGenerating(false); }
   };
 
@@ -633,26 +636,26 @@ export default function ExamResultsRankScreen() {
         {/* Middle — student info */}
         <View style={sc.cardBody}>
           <View style={sc.cardTopRow}>
-            <Text style={sc.studentName} numberOfLines={1}>{item.student_name}</Text>
+            <Text style={sc.studentName} numberOfLines={1}>{_tx(item.student_name)}</Text>
             <GradeChip grade={item.grade} />
           </View>
           <View style={sc.cardMetaRow}>
             {item.roll_number
               ? <View style={sc.metaPill}>
                   <Feather name="hash" size={9} color="#64748b" />
-                  <Text style={sc.metaTxt}>Roll {item.roll_number}</Text>
+                  <Text style={sc.metaTxt}>{_t("Roll {roll_number}", { roll_number: item.roll_number })}</Text>
                 </View>
               : null}
             {item.class_name
               ? <View style={sc.metaPill}>
                   <Feather name="book-open" size={9} color="#64748b" />
-                  <Text style={sc.metaTxt}>{item.class_name}</Text>
+                  <Text style={sc.metaTxt}>{_tx(item.class_name)}</Text>
                 </View>
               : null}
             {item.section_name
               ? <View style={sc.metaPill}>
                   <Feather name="layers" size={9} color="#64748b" />
-                  <Text style={sc.metaTxt}>{item.section_name}</Text>
+                  <Text style={sc.metaTxt}>{_tx(item.section_name)}</Text>
                 </View>
               : null}
           </View>
@@ -669,21 +672,21 @@ export default function ExamResultsRankScreen() {
                   : sc.progressRed,
               ]} />
             </View>
-            <Text style={sc.progressPct}>{pct}%</Text>
+            <Text style={sc.progressPct}>{_tx(pct)}%</Text>
           </View>
         </View>
 
         {/* Right — score */}
         <View style={sc.scoreWrap}>
           <Text style={[sc.scoreObtained, !isPassed && { color: "#dc2626" }]}>
-            {item.total_obtained}
+            {_tx(item.total_obtained)}
           </Text>
-          <Text style={sc.scoreMax}>/{item.total_max}</Text>
+          <Text style={sc.scoreMax}>/{_tx(item.total_max)}</Text>
           <Text style={[sc.passTag, {
             color: isPassed ? "#16a34a" : "#dc2626",
             backgroundColor: isPassed ? "#dcfce7" : "#fee2e2"
           }]}>
-            {isPassed ? "PASS" : failedSubject ? "COMP.FAIL" : "FAIL"}
+            {isPassed ? _t("PASS") : failedSubject ? _t("COMP.FAIL") : _t("FAIL")}
           </Text>
         </View>
       </CardWrap>
@@ -700,11 +703,11 @@ export default function ExamResultsRankScreen() {
           <Feather name="award" size={20} color="#1e40af" />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={sc.pageTitle}>Exam Rankings</Text>
+          <Text style={sc.pageTitle}>{_t("Exam Rankings")}</Text>
           <Text style={sc.pageSub}>
             {searched && examInfo
-              ? `${examInfo.exam_name} · ${selClass?.class_name ?? ""}${selSection ? " — " + selSection.section_name : ""}`
-              : "Select filters to view rankings"}
+              ? `${_tx(examInfo.exam_name)} · ${_tx(selClass?.class_name) ?? ""}${selSection ? " — " + selSection.section_name : ""}`
+              : _t("Select filters to view rankings")}
           </Text>
         </View>
         {searched && !!rankings.length && (
@@ -716,7 +719,7 @@ export default function ExamResultsRankScreen() {
           >
             {generating
               ? <><ActivityIndicator color="#fff" size="small" /><Text style={sc.pdfBtnTxt}>…</Text></>
-              : <><Feather name="download" size={15} color="#fff" /><Text style={sc.pdfBtnTxt}>PDF</Text></>}
+              : <><Feather name="download" size={15} color="#fff" /><Text style={sc.pdfBtnTxt}>{_t("PDF")}</Text></>}
           </TouchableOpacity>
         )}
       </View>
@@ -728,29 +731,29 @@ export default function ExamResultsRankScreen() {
             <View style={sc.filterCard}>
               <View style={sc.filterGrid}>
                 <View style={sc.filterHalf}>
-                  <Text style={sc.filterLabel}>Exam <Text style={{ color: "#ef4444" }}>*</Text></Text>
-                  <Dropdown label="Select Exam" value={filters.exam_id} options={examOpts}
+                  <Text style={sc.filterLabel}>{_t("Exam")}{" "}<Text style={{ color: "#ef4444" }}>*</Text></Text>
+                  <Dropdown label={_t("Select Exam")} value={filters.exam_id} options={examOpts}
                     onChange={v => setFilter("exam_id", v)} loading={loadingFilters} />
                 </View>
                 <View style={sc.filterHalf}>
-                  <Text style={sc.filterLabel}>Session <Text style={{ color: "#ef4444" }}>*</Text></Text>
-                  <Dropdown label="Select Session" value={filters.session_id} options={sessionOpts}
+                  <Text style={sc.filterLabel}>{_t("Session")}{" "}<Text style={{ color: "#ef4444" }}>*</Text></Text>
+                  <Dropdown label={_t("Select Session")} value={filters.session_id} options={sessionOpts}
                     onChange={v => setFilter("session_id", v)} loading={loadingFilters} />
                 </View>
                 <View style={sc.filterHalf}>
-                  <Text style={sc.filterLabel}>Class</Text>
-                  <Dropdown label="All Classes" value={filters.class_id} options={classOpts}
+                  <Text style={sc.filterLabel}>{_t("Class")}</Text>
+                  <Dropdown label={_t("All Classes")} value={filters.class_id} options={classOpts}
                     onChange={v => setFilter("class_id", v)} loading={loadingFilters} />
                 </View>
                 <View style={sc.filterHalf}>
-                  <Text style={sc.filterLabel}>Section</Text>
-                  <Dropdown label="All Sections" value={filters.section_id} options={sectionOpts}
+                  <Text style={sc.filterLabel}>{_t("Section")}</Text>
+                  <Dropdown label={_t("All Sections")} value={filters.section_id} options={sectionOpts}
                     onChange={v => setFilter("section_id", v)}
                     disabled={!filters.class_id} loading={loadingSections} />
                 </View>
                 <View style={[sc.filterHalf, { width: "100%" }]}>
-                  <Text style={sc.filterLabel}>Branch</Text>
-                  <Dropdown label="All Branches" value={filters.branch_id} options={branchOpts}
+                  <Text style={sc.filterLabel}>{_t("Branch")}</Text>
+                  <Dropdown label={_t("All Branches")} value={filters.branch_id} options={branchOpts}
                     onChange={v => setFilter("branch_id", v)} loading={loadingFilters} />
                 </View>
               </View>
@@ -760,7 +763,7 @@ export default function ExamResultsRankScreen() {
             </View>
             <View style={sc.loader}>
               <ActivityIndicator size="large" color="#1e40af" />
-              <Text style={sc.loaderTxt}>Calculating rankings…</Text>
+              <Text style={sc.loaderTxt}>{_t("Calculating rankings…")}</Text>
             </View>
           </>
         : <FlatList
@@ -776,29 +779,29 @@ export default function ExamResultsRankScreen() {
                 <View style={sc.filterCard}>
                   <View style={sc.filterGrid}>
                     <View style={sc.filterHalf}>
-                      <Text style={sc.filterLabel}>Exam <Text style={{ color: "#ef4444" }}>*</Text></Text>
-                      <Dropdown label="Select Exam" value={filters.exam_id} options={examOpts}
+                      <Text style={sc.filterLabel}>{_t("Exam")}{" "}<Text style={{ color: "#ef4444" }}>*</Text></Text>
+                      <Dropdown label={_t("Select Exam")} value={filters.exam_id} options={examOpts}
                         onChange={v => setFilter("exam_id", v)} loading={loadingFilters} />
                     </View>
                     <View style={sc.filterHalf}>
-                      <Text style={sc.filterLabel}>Session <Text style={{ color: "#ef4444" }}>*</Text></Text>
-                      <Dropdown label="Select Session" value={filters.session_id} options={sessionOpts}
+                      <Text style={sc.filterLabel}>{_t("Session")}{" "}<Text style={{ color: "#ef4444" }}>*</Text></Text>
+                      <Dropdown label={_t("Select Session")} value={filters.session_id} options={sessionOpts}
                         onChange={v => setFilter("session_id", v)} loading={loadingFilters} />
                     </View>
                     <View style={sc.filterHalf}>
-                      <Text style={sc.filterLabel}>Class</Text>
-                      <Dropdown label="All Classes" value={filters.class_id} options={classOpts}
+                      <Text style={sc.filterLabel}>{_t("Class")}</Text>
+                      <Dropdown label={_t("All Classes")} value={filters.class_id} options={classOpts}
                         onChange={v => setFilter("class_id", v)} loading={loadingFilters} />
                     </View>
                     <View style={sc.filterHalf}>
-                      <Text style={sc.filterLabel}>Section</Text>
-                      <Dropdown label="All Sections" value={filters.section_id} options={sectionOpts}
+                      <Text style={sc.filterLabel}>{_t("Section")}</Text>
+                      <Dropdown label={_t("All Sections")} value={filters.section_id} options={sectionOpts}
                         onChange={v => setFilter("section_id", v)}
                         disabled={!filters.class_id} loading={loadingSections} />
                     </View>
                     <View style={[sc.filterHalf, { width: "100%" }]}>
-                      <Text style={sc.filterLabel}>Branch</Text>
-                      <Dropdown label="All Branches" value={filters.branch_id} options={branchOpts}
+                      <Text style={sc.filterLabel}>{_t("Branch")}</Text>
+                      <Dropdown label={_t("All Branches")} value={filters.branch_id} options={branchOpts}
                         onChange={v => setFilter("branch_id", v)} loading={loadingFilters} />
                     </View>
                   </View>
@@ -807,7 +810,7 @@ export default function ExamResultsRankScreen() {
                     onPress={handleLoad} disabled={loading} activeOpacity={0.85}
                   >
                     <Feather name="award" size={15} color="#fff" />
-                    <Text style={sc.loadBtnTxt}>Show Rankings</Text>
+                    <Text style={sc.loadBtnTxt}>{_t("Show Rankings")}</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -820,7 +823,7 @@ export default function ExamResultsRankScreen() {
                     <Feather name="search" size={13} color="#94a3b8" style={{ marginRight: 8 }} />
                     <TextInput
                       style={sc.searchInput}
-                      placeholder="Search by name or roll number…"
+                      placeholder={_t("Search by name or roll number…")}
                       placeholderTextColor="#94a3b8"
                       value={search}
                       onChangeText={setSearch}
@@ -840,9 +843,9 @@ export default function ExamResultsRankScreen() {
               searched
                 ? <View style={sc.empty}>
                     <Feather name="award" size={40} color="#cbd5e1" />
-                    <Text style={sc.emptyTxt}>No results found</Text>
+                    <Text style={sc.emptyTxt}>{_t("No results found")}</Text>
                     <Text style={sc.emptySubTxt}>
-                      {search ? "Try a different search" : "No marks found for the selected filters"}
+                      {search ? _t("Try a different search") : _t("No marks found for the selected filters")}
                     </Text>
                   </View>
                 : null
@@ -856,18 +859,18 @@ export default function ExamResultsRankScreen() {
           <View style={sc.actionSelRow}>
             <TouchableOpacity style={sc.selBtn}
               onPress={() => setSelectedForPromotion(new Set(rankings.map(r => r.enrollment_id)))}>
-              <Text style={sc.selBtnTxt}>Select All</Text>
+              <Text style={sc.selBtnTxt}>{_t("Select All")}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={sc.selBtn}
               onPress={() => setSelectedForPromotion(new Set(rankings.filter(r => r.is_passed).map(r => r.enrollment_id)))}>
-              <Text style={sc.selBtnTxt}>✓ Passed</Text>
+              <Text style={sc.selBtnTxt}>{_t("✓ Passed")}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[sc.selBtn, { backgroundColor: '#fee2e2', borderColor: '#fca5a5' }]}
               onPress={() => setSelectedForPromotion(new Set())}>
-              <Text style={[sc.selBtnTxt, { color: '#dc2626' }]}>Clear</Text>
+              <Text style={[sc.selBtnTxt, { color: '#dc2626' }]}>{_t("Clear")}</Text>
             </TouchableOpacity>
             <Text style={sc.selCountTxt}>
-              {selectedForPromotion.size > 0 ? `${selectedForPromotion.size} selected` : 'Tap card to select'}
+              {selectedForPromotion.size > 0 ? _t("{size} selected", { size: selectedForPromotion.size }) : _t("Tap card to select")}
             </Text>
           </View>
 
@@ -881,8 +884,8 @@ export default function ExamResultsRankScreen() {
             <Feather name="arrow-up-circle" size={16} color="#fff" />
             <Text style={sc.actionPromoteTxt}>
               {selectedForPromotion.size > 0
-                ? `Promote ${selectedForPromotion.size} Student${selectedForPromotion.size !== 1 ? 's' : ''}`
-                : 'Promote'}
+                ? _t("Promote {size} Student{pl}", { size: selectedForPromotion.size, pl: selectedForPromotion.size !== 1 ? 's' : '' })
+                : _t("Promote")}
             </Text>
           </TouchableOpacity>
         </View>

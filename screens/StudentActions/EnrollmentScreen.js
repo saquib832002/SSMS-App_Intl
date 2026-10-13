@@ -20,6 +20,8 @@ import {
   fetchSections,
   enrollStudent,
 } from "../../services/StudentServiceApi";
+import { mediumList, initialMedium } from "../../constants/CourseMediums";
+import { _t, _tx } from "../../services/i18n";
 
 
 // ── Custom Dropdown — replaces @react-native-picker/picker ───────────────────
@@ -35,14 +37,14 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
         activeOpacity={0.7}
       >
         <Text style={[_ddSt.triggerTxt, !selected?.value && _ddSt.placeholder]} numberOfLines={1}>
-          {loading ? "Loading…" : (selected?.label ?? label)}
+          {loading ? _t("Loading…") : (_tx(selected?.label) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={16} color="#475569" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={_ddSt.overlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={_ddSt.sheet}>
-            <Text style={_ddSt.sheetTitle}>{label}</Text>
+            <Text style={_ddSt.sheetTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={(o, i) => String(o.value) + i}
@@ -52,7 +54,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[_ddSt.optionTxt, String(o.value) === String(value) && _ddSt.optionTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) && <Feather name="check" size={14} color="#2563eb" />}
                 </TouchableOpacity>
@@ -81,7 +83,7 @@ const _ddSt = StyleSheet.create({
 
 export default function EnrollmentScreen({ route, navigation }) {
   const { user } = useContext(AuthContext);
-  const { regId, registrationNo } = route.params || {};
+  const { regId, registrationNo, courseMedium: regMedium } = route.params || {};
 
   const [loading, setLoading] = useState(false);
   const [loadingDropdowns, setLoadingDropdowns] = useState(true);
@@ -112,7 +114,7 @@ export default function EnrollmentScreen({ route, navigation }) {
     classId: "",
     sectionId: "",
     sessionId: "",
-    courseMedium: "",
+    courseMedium: initialMedium(regMedium), // English unless the registration says otherwise
   });
 
   const handleChange = (field, value) => {
@@ -147,17 +149,32 @@ export default function EnrollmentScreen({ route, navigation }) {
       try {
         setLoadingDropdowns(true);
 
-        const [branchData, classData, sessionData] = await Promise.all([
+        // allSettled: one denied list must not leave the other dropdowns empty
+        const settled = await Promise.allSettled([
           fetchBranches(user),
           fetchClasses(user),
           fetchSessions(user),
         ]);
+        const [branchData, classData, sessionData] = settled.map((r) => (r.status === "fulfilled" ? r.value : []));
+        const failed = settled.find((r) => r.status === "rejected");
+        if (failed) Alert.alert(_t("Error"), _tx(failed.reason?.message) || _t("Failed to load enrollment dropdowns"));
 
         setBranches(Array.isArray(branchData) ? branchData : []);
         setClasses(Array.isArray(classData) ? classData : []);
         setSessions(Array.isArray(sessionData) ? sessionData : []);
+
+        // Only one branch / one session → pick it automatically
+        const oneBranch  = Array.isArray(branchData)  && branchData.length  === 1 ? String(branchData[0].branch_id)   : "";
+        const oneSession = Array.isArray(sessionData) && sessionData.length === 1 ? String(sessionData[0].session_id) : "";
+        if (oneBranch || oneSession) {
+          setForm((prev) => ({
+            ...prev,
+            branchId:  prev.branchId  || oneBranch,
+            sessionId: prev.sessionId || oneSession,
+          }));
+        }
       } catch (error) {
-        Alert.alert("Error", error.message || "Failed to load enrollment dropdowns");
+        Alert.alert(_t("Error"), _tx(error.message) || _t("Failed to load enrollment dropdowns"));
       } finally {
         setLoadingDropdowns(false);
       }
@@ -198,6 +215,12 @@ export default function EnrollmentScreen({ route, navigation }) {
           : [];
 
         setSections(safeSections);
+
+        // Only one section for this class → pick it automatically
+        if (safeSections.length === 1 && !safeSections[0].id.startsWith("section-")) {
+          const onlyId = safeSections[0].id;
+          setForm((prev) => (prev.sectionId ? prev : { ...prev, sectionId: onlyId }));
+        }
       } catch (error) {
         if (!isMounted || currentRequestId !== sectionRequestIdRef.current) {
           return;
@@ -235,7 +258,7 @@ export default function EnrollmentScreen({ route, navigation }) {
   const handleSubmit = async () => {
     const error = validateForm();
     if (error) {
-      Alert.alert("Validation Error", error);
+      Alert.alert(_t("Validation Error"), _tx(error));
       return;
     }
 
@@ -256,7 +279,7 @@ export default function EnrollmentScreen({ route, navigation }) {
 
       const result = await enrollStudent(user, payload, form.registrationNo);
       
-      Alert.alert("Success", result.message || "Student enrolled successfully");
+      Alert.alert(_t("Success"), _tx(result.message) || _t("Student enrolled successfully"));
 
       navigation.navigate("StudentFee", {
             enrollmentId: result.enrollmentId,
@@ -269,7 +292,7 @@ export default function EnrollmentScreen({ route, navigation }) {
             // className: form.className,
               });
     } catch (err) {
-      Alert.alert("Error", err.message || "Enrollment failed");
+      Alert.alert(_t("Error"), _tx(err.message) || _t("Enrollment failed"));
     } finally {
       setLoading(false);
     }
@@ -279,7 +302,7 @@ export default function EnrollmentScreen({ route, navigation }) {
     return (
       <View style={styles.loaderWrap}>
         <ActivityIndicator size="large" color="#2563eb" />
-        <Text style={styles.loaderText}>Loading enrollment setup...</Text>
+        <Text style={styles.loaderText}>{_t("Loading enrollment setup...")}</Text>
       </View>
     );
   }
@@ -287,69 +310,67 @@ export default function EnrollmentScreen({ route, navigation }) {
   return (
     <>
       <ScrollView style={styles.container} contentContainerStyle={{ padding: 20 }}>
-        <Text style={styles.title}>Student Enrollment</Text>
-        <Text style={styles.subtitle}>
-          Complete the enrollment details for the selected student.
-        </Text>
+        <Text style={styles.title}>{_t("Student Enrollment")}</Text>
+        <Text style={styles.subtitle}>{_t("Complete the enrollment details for the selected student.")}</Text>
 
-        <Text style={styles.label}>Registration Number</Text>
+        <Text style={styles.label}>{_t("Registration Number")}</Text>
         <TextInput
           style={[styles.input, styles.readonlyInput]}
           value={form.registrationNo}
           editable={false}
         />
 
-        <Text style={styles.label}>Enrollment ID</Text>
+        <Text style={styles.label}>{_t("Enrollment ID")}</Text>
         <TextInput
           style={[styles.input, styles.readonlyInput]}
           value={form.enrollmentId}
           editable={false}
         />
 
-        <Text style={styles.label}>Roll Number</Text>
+        <Text style={styles.label}>{_t("Roll Number")}</Text>
         <TextInput
           style={[styles.input, styles.readonlyInput]}
           value={form.rollNumber}
           editable={false}
         />
 
-        <Text style={styles.label}>Branch Name</Text>
+        <Text style={styles.label}>{_t("Branch Name")}</Text>
                   <Dropdown
-            label="Select Branch"
+            label={_t("Select Branch")}
             value={form.branchId}
             options={[
-              { label: "Select Branch", value: "" },
+              { label: _t("Select Branch"), value: "" },
               ...branches.map(item => ({ label: item.branch_name, value: String(item.branch_id) }))
             ]}
             onChange={(v) => handleChange("branchId", v)}
             disabled={loadingDropdowns}
           />
 
-        <Text style={styles.label}>Session Enrolled</Text>
+        <Text style={styles.label}>{_t("Session Enrolled")}</Text>
                   <Dropdown
-            label="Select Session"
+            label={_t("Select Session")}
             value={form.sessionId}
             options={[
-              { label: "Select Session", value: "" },
+              { label: _t("Select Session"), value: "" },
               ...sessions.map(item => ({ label: item.session_name || item.session_year, value: String(item.session_id) }))
             ]}
             onChange={(v) => handleChange("sessionId", v)}
             disabled={loadingDropdowns}
           />
 
-        <Text style={styles.label}>Class Enrolled</Text>
+        <Text style={styles.label}>{_t("Class Enrolled")}</Text>
                   <Dropdown
-            label="Select Class"
+            label={_t("Select Class")}
             value={form.classId}
             options={[
-              { label: "Select Class", value: "" },
+              { label: _t("Select Class"), value: "" },
               ...classes.map(item => ({ label: item.class_name, value: String(item.class_id) }))
             ]}
             onChange={handleClassChange}
             disabled={false}
           />
 
-        <Text style={styles.label}>Section Enrolled</Text>
+        <Text style={styles.label}>{_t("Section Enrolled")}</Text>
         <TouchableOpacity
           style={[
             styles.input,
@@ -364,21 +385,26 @@ export default function EnrollmentScreen({ route, navigation }) {
         >
           <Text style={{ color: form.sectionId ? "#0f172a" : "#64748b" }}>
             {!form.classId
-              ? "Select Class First"
+              ? _t("Select Class First")
               : loadingSections
-              ? "Loading Sections..."
+              ? _t("Loading Sections...")
               : form.sectionId
-              ? selectedSectionName
-              : "Select Section"}
+              ? _tx(selectedSectionName)
+              : _t("Select Section")}
           </Text>
         </TouchableOpacity>
 
-        <Text style={styles.label}>Course Medium</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter course medium"
+        <Text style={styles.label}>{_t("Course Medium")}</Text>
+        <Dropdown
+          label={_t("Select Course Medium")}
           value={form.courseMedium}
-          onChangeText={(value) => handleChange("courseMedium", value)}
+          options={(() => {
+            const list = mediumList(user);
+            // keep a saved value that is not in the list (e.g. typed earlier)
+            const all = form.courseMedium && !list.includes(form.courseMedium) ? [form.courseMedium, ...list] : list;
+            return all.map(m => ({ label: m, value: m }));
+          })()}
+          onChange={(v) => handleChange("courseMedium", v)}
         />
 
         <TouchableOpacity
@@ -389,7 +415,7 @@ export default function EnrollmentScreen({ route, navigation }) {
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.submitText}>Submit Enrollment</Text>
+            <Text style={styles.submitText}>{_t("Submit Enrollment")}</Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -405,10 +431,10 @@ export default function EnrollmentScreen({ route, navigation }) {
           onPress={() => setShowSectionModal(false)}
         >
           <Pressable style={styles.modalBox} onPress={() => {}}>
-            <Text style={styles.modalTitle}>Select Section</Text>
+            <Text style={styles.modalTitle}>{_t("Select Section")}</Text>
 
             {sections.length === 0 ? (
-              <Text style={styles.modalEmpty}>No sections available</Text>
+              <Text style={styles.modalEmpty}>{_t("No sections available")}</Text>
             ) : (
               sections.map((item, index) => (
                 <TouchableOpacity
@@ -419,7 +445,7 @@ export default function EnrollmentScreen({ route, navigation }) {
                     setShowSectionModal(false);
                   }}
                 >
-                  <Text style={styles.modalItemText}>{item.name}</Text>
+                  <Text style={styles.modalItemText}>{_tx(item.name)}</Text>
                 </TouchableOpacity>
               ))
             )}
@@ -428,7 +454,7 @@ export default function EnrollmentScreen({ route, navigation }) {
               style={styles.modalCloseButton}
               onPress={() => setShowSectionModal(false)}
             >
-              <Text style={styles.modalCloseText}>Close</Text>
+              <Text style={styles.modalCloseText}>{_t("Close")}</Text>
             </TouchableOpacity>
           </Pressable>
         </Pressable>

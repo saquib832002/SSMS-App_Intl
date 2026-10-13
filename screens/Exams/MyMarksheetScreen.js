@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
 import { fetchMyMarksheets } from '../../services/ExamServiceApi';
+import { _t, _tx } from "../../services/i18n";
 
 // ── Grade colour map ──────────────────────────────────────────────────────────
 const GRADE_COLOR = {
@@ -32,7 +33,7 @@ function GradeBadge({ grade, size = 'sm' }) {
   const c = gradeStyle(grade);
   return (
     <View style={[gb.wrap, { backgroundColor: c.bg }, size === 'lg' && gb.wrapLg]}>
-      <Text style={[gb.txt, { color: c.fg }, size === 'lg' && gb.txtLg]}>{grade}</Text>
+      <Text style={[gb.txt, { color: c.fg }, size === 'lg' && gb.txtLg]}>{_tx(grade)}</Text>
     </View>
   );
 }
@@ -66,19 +67,19 @@ function SubjectRow({ subject, idx }) {
   return (
     <View style={[sr.row, idx % 2 === 1 && sr.rowAlt]}>
       <View style={{ flex: 1 }}>
-        <Text style={sr.name}>{subject.subject_name}</Text>
-        {subject.subject_code ? <Text style={sr.code}>{subject.subject_code}</Text> : null}
+        <Text style={sr.name}>{_tx(subject.subject_name)}</Text>
+        {subject.subject_code ? <Text style={sr.code}>{_tx(subject.subject_code)}</Text> : null}
         {hasBreakdown && (
           <View style={sr.breakdown}>
-            {subject.theory_marks    != null && <Text style={sr.bk}>T: {subject.theory_marks}/{subject.theory_max_marks ?? '—'}</Text>}
-            {subject.internal_marks  != null && <Text style={sr.bk}>I: {subject.internal_marks}/{subject.internal_max_marks ?? '—'}</Text>}
-            {subject.practical_marks != null && <Text style={sr.bk}>P: {subject.practical_marks}/{subject.practical_max_marks ?? '—'}</Text>}
+            {subject.theory_marks    != null && <Text style={sr.bk}>{_t("T: {theory_marks}/{v}", { theory_marks: subject.theory_marks, v: subject.theory_max_marks ?? '—' })}</Text>}
+            {subject.internal_marks  != null && <Text style={sr.bk}>{_t("I: {internal_marks}/{v}", { internal_marks: subject.internal_marks, v: subject.internal_max_marks ?? '—' })}</Text>}
+            {subject.practical_marks != null && <Text style={sr.bk}>{_t("P: {practical_marks}/{v}", { practical_marks: subject.practical_marks, v: subject.practical_max_marks ?? '—' })}</Text>}
           </View>
         )}
       </View>
       <View style={sr.right}>
         <Text style={[sr.marks, { color }]}>
-          {subject.total_marks}/{subject.subject_max_marks}
+          {_tx(subject.total_marks)}/{_tx(subject.subject_max_marks)}
         </Text>
         <Text style={[sr.pct, { color }]}>{pct.toFixed(1)}%</Text>
         <GradeBadge grade={subject.grade} />
@@ -113,18 +114,16 @@ function ExamCard({ exam }) {
           <Feather name="award" size={16} color={color} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={ec.examName}>{exam.exam_name}</Text>
+          <Text style={ec.examName}>{_tx(exam.exam_name)}</Text>
           <View style={ec.summaryRow}>
             <Text style={[ec.summaryPct, { color }]}>{pct.toFixed(1)}%</Text>
             <Text style={ec.summarySlash}> · </Text>
-            <Text style={ec.summaryMarks}>{exam.total_obtained}/{exam.total_max} marks</Text>
+            <Text style={ec.summaryMarks}>{_t("{total_obtained}/{total_max} marks", { total_obtained: exam.total_obtained, total_max: exam.total_max })}</Text>
             <Text style={ec.summarySlash}> · </Text>
-            <Text style={ec.summarySubjects}>{exam.marks?.length ?? 0} subjects</Text>
+            <Text style={ec.summarySubjects}>{_t("{v} subjects", { v: exam.marks?.length ?? 0 })}</Text>
           </View>
           {exam.rank != null && (
-            <Text style={ec.rankLine}>
-              🏅 Rank {exam.rank}{exam.total_students ? ` of ${exam.total_students}` : ''}
-            </Text>
+            <Text style={ec.rankLine}>{_t("🏅 Rank {rank}{v}", { rank: exam.rank, v: exam.total_students ? ` ${_t("of {total_students}", { total_students: exam.total_students })}` : '' })}</Text>
           )}
           <PctBar pct={pct} />
         </View>
@@ -136,13 +135,13 @@ function ExamCard({ exam }) {
       {expanded && (
         <View>
           <View style={ec.tableHead}>
-            <Text style={[ec.th, { flex: 1 }]}>Subject</Text>
-            <Text style={ec.th}>Marks · % · Grade</Text>
+            <Text style={[ec.th, { flex: 1 }]}>{_t("Subject")}</Text>
+            <Text style={ec.th}>{_t("Marks · % · Grade")}</Text>
           </View>
-          {(exam.marks ?? []).map((s, i) => <SubjectRow key={s.subject_id} subject={s} idx={i} />)}
-          {(exam.marks ?? []).length === 0 && (
+          {(Array.isArray(exam.marks) ? exam.marks : []).map((s, i) => <SubjectRow key={s.subject_id} subject={s} idx={i} />)}
+          {(Array.isArray(exam.marks) ? exam.marks : []).length === 0 && (
             <View style={ec.empty}>
-              <Text style={ec.emptyTxt}>No subject marks recorded.</Text>
+              <Text style={ec.emptyTxt}>{_t("No subject marks recorded.")}</Text>
             </View>
           )}
         </View>
@@ -185,14 +184,14 @@ export default function MyMarksheetScreen({ navigation }) {
   const [error,      setError]      = useState(null);
 
   const load = useCallback(async (silent = false) => {
-    if (!user) return;
+    if (!user) { setLoading(false); setRefreshing(false); return; }
     if (!silent) setLoading(true);
     setError(null);
     try {
       const res = await fetchMyMarksheets(effectiveUser);
       setData(res);
     } catch (e) {
-      setError(e.message ?? 'Failed to load marksheets');
+      setError(e.message ?? _t("Failed to load marksheets"));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -204,7 +203,7 @@ export default function MyMarksheetScreen({ navigation }) {
   const onRefresh = useCallback(() => { setRefreshing(true); load(true); }, [load]);
 
   const student = data?.student ?? null;
-  const exams   = data?.exams   ?? [];
+  const exams   = Array.isArray(data?.exams) ? data.exams : [];
 
   return (
     <SafeAreaView style={s.safe} edges={['bottom']}>
@@ -214,8 +213,8 @@ export default function MyMarksheetScreen({ navigation }) {
           <Feather name="arrow-left" size={20} color="#6b21a8" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={s.headerTitle}>My Marksheet</Text>
-          <Text style={s.headerSub}>Exam results & subject marks</Text>
+          <Text style={s.headerTitle}>{_t("My Marksheet")}</Text>
+          <Text style={s.headerSub}>{_t("Exam results & subject marks")}</Text>
         </View>
         <TouchableOpacity onPress={() => load()} style={s.refreshBtn}>
           <Feather name="refresh-cw" size={16} color="#6b21a8" />
@@ -226,15 +225,15 @@ export default function MyMarksheetScreen({ navigation }) {
       {loading ? (
         <View style={s.centred}>
           <ActivityIndicator size="large" color="#6b21a8" />
-          <Text style={s.loadingTxt}>Loading your results…</Text>
+          <Text style={s.loadingTxt}>{_t("Loading your results…")}</Text>
         </View>
       ) : error ? (
         <View style={s.centred}>
           <MaterialIcons name="error-outline" size={48} color="#fca5a5" />
-          <Text style={s.errorTitle}>Could not load data</Text>
-          <Text style={s.errorSub}>{error}</Text>
+          <Text style={s.errorTitle}>{_t("Could not load data")}</Text>
+          <Text style={s.errorSub}>{_tx(error)}</Text>
           <TouchableOpacity style={s.retryBtn} onPress={() => load()}>
-            <Text style={s.retryTxt}>Try again</Text>
+            <Text style={s.retryTxt}>{_t("Try again")}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -255,14 +254,14 @@ export default function MyMarksheetScreen({ navigation }) {
                 </Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={s.studentName}>{student.student_name}</Text>
+                <Text style={s.studentName}>{_tx(student.student_name)}</Text>
                 <Text style={s.studentMeta}>
                   {[student.class_name, student.section_name].filter(Boolean).join(' · ')}
-                  {student.roll_number ? `  ·  Roll: ${student.roll_number}` : ''}
+                  {student.roll_number ? `  ${_t("·  Roll: {roll_number}", { roll_number: student.roll_number })}` : ''}
                 </Text>
                 <Text style={s.studentMeta}>
-                  {student.session_name}
-                  {student.enrollment_id ? `  ·  ID: ${student.enrollment_id}` : ''}
+                  {_tx(student.session_name)}
+                  {student.enrollment_id ? `  ${_t("·  ID: {enrollment_id}", { enrollment_id: student.enrollment_id })}` : ''}
                 </Text>
               </View>
             </View>
@@ -272,7 +271,7 @@ export default function MyMarksheetScreen({ navigation }) {
           {exams.length > 0 && (
             <View style={s.countRow}>
               <MaterialIcons name="school" size={14} color="#6b21a8" />
-              <Text style={s.countTxt}>{exams.length} exam{exams.length !== 1 ? 's' : ''} · tap a card to see subject details</Text>
+              <Text style={s.countTxt}>{_t("{length} exam{pl} · tap a card to see subject details", { length: exams.length, pl: exams.length !== 1 ? 's' : '' })}</Text>
             </View>
           )}
 
@@ -280,8 +279,8 @@ export default function MyMarksheetScreen({ navigation }) {
           {exams.length === 0 ? (
             <View style={s.emptyState}>
               <MaterialIcons name="assignment" size={52} color="#e2e8f0" />
-              <Text style={s.emptyTitle}>No results yet</Text>
-              <Text style={s.emptyDesc}>Your exam marks will appear here once they are entered by your school.</Text>
+              <Text style={s.emptyTitle}>{_t("No results yet")}</Text>
+              <Text style={s.emptyDesc}>{_t("Your exam marks will appear here once they are entered by your school.")}</Text>
             </View>
           ) : (
             exams.map(exam => <ExamCard key={exam.exam_id} exam={exam} />)

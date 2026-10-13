@@ -4,6 +4,7 @@
  */
 import { checkExpired, safeFetch } from './apiInterceptor';
 import { BASE_URL } from "./../Environment/EnvironmentConfig";
+import { _t } from "./i18n";
 
 //const SERVER   = BASE_URL;
 const BASE     = `${BASE_URL}/HostelServiceApi`;
@@ -24,9 +25,9 @@ const handleResponse = async (res) => {
   //console.log(`[HostelApi] ${res.status} ${res.url}`);
  // console.log(`[HostelApi] response:`, text.substring(0, 300));
   let json = {};
-  try { json = JSON.parse(text); } catch { throw new Error(`Non-JSON response: ${text.substring(0, 100)}`); }
+  try { json = JSON.parse(text); } catch { throw new Error(_t("Non-JSON response: {v}", { v: text.substring(0, 100) })); }
   if (!res.ok || json.status === false)
-    throw new Error(json.message ?? `HTTP ${res.status}`);
+    throw new Error(json.message ?? _t("HTTP {status}", { status: res.status }));
   return json;
 };
 
@@ -146,7 +147,7 @@ export const fetchAvailableSeats = (user, roomId) =>
          
         const data = await response.json();
         if (!response.status || !response.ok) {
-          throw new Error(data.message || "Failed to load students");
+          throw new Error(data.message || _t("Failed to load students"));
         }
   
         return {
@@ -163,6 +164,6 @@ export const fetchAvailableSeats = (user, roomId) =>
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok || json.status === false)
-      throw new Error(json.message ?? `HTTP ${res.status}`);
+      throw new Error(json.message ?? _t("HTTP {status}", { status: res.status }));
     return json;
   };

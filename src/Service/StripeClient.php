@@ -40,10 +40,11 @@ final class StripeClient
      * @param string $method GET | POST | DELETE
      * @param string $path   e.g. 'checkout/sessions' or 'subscriptions/sub_123'
      * @param array  $params form parameters (nested arrays allowed)
+     * @param string|null $stripeAccount connected account id (acct_…) for Stripe Connect calls
      * @return array decoded JSON
      * @throws \RuntimeException on network or Stripe errors
      */
-    public static function request(string $method, string $path, array $params = [], ?string $idempotencyKey = null): array
+    public static function request(string $method, string $path, array $params = [], ?string $idempotencyKey = null, ?string $stripeAccount = null): array
     {
         $key = self::secretKey();
         if ($key === '') {
@@ -57,6 +58,10 @@ final class StripeClient
         $headers = ['Authorization: Bearer ' . $key];
         if ($idempotencyKey !== null) {
             $headers[] = 'Idempotency-Key: ' . $idempotencyKey;
+        }
+        if ($stripeAccount !== null && $stripeAccount !== '') {
+            // Stripe Connect: act on a school's connected account (direct charges)
+            $headers[] = 'Stripe-Account: ' . $stripeAccount;
         }
 
         $ch = curl_init();
@@ -80,6 +85,67 @@ final class StripeClient
         $err    = curl_error($ch);
         curl_close($ch);
 
+        if ($raw === false) {
+            throw new \RuntimeException('Stripe request failed: ' . $err);
+        }
+        $data = json_decode((string)$raw, true);
+        if (!is_array($data)) {
+            throw new \RuntimeException("Stripe returned an invalid response (HTTP {$status}).");
+        }
+        if ($status >= 400) {
+            $msg = $data['error']['message'] ?? "HTTP {$status}";
+            throw new \RuntimeException('Stripe error: ' . $msg);
+        }
+
+        return $data;
+    }
+
+    /** Stripe API version used for v2 endpoints (override with STRIPE_V2_VERSION). */
+    public const V2_VERSION = '2026-09-30.endive';
+
+    /**
+     * Call a Stripe v2 endpoint (JSON body, Stripe-Version header), e.g.
+     *   requestV2('POST', 'core/accounts', [...])
+     *   requestV2('GET',  'core/accounts/acct_123', null, ['include' => ['configuration.merchant']])
+     *
+     * @throws \RuntimeException on network or Stripe errors
+     */
+    public static function requestV2(string $method, string $path, ?array $body = null, array $query = [], ?string $idempotencyKey = null): array
+    {
+        $key = self::secretKey();
+        if ($key === '') {
+            throw new \RuntimeException('Stripe is not configured (STRIPE_SECRET_KEY missing).');
+        }
+        $method  = strtoupper($method);
+        $version = (string)(env('STRIPE_V2_VERSION', '') ?: self::V2_VERSION);
+        $url     = 'https://api.stripe.com/v2/' . ltrim($path, '/');
+        if ($query !== []) {
+            $url .= '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);   // include[0]=…
+        }
+        $headers = [
+            'Authorization: Bearer ' . $key,
+            'Stripe-Version: ' . $version,
+            'Accept: application/json',
+        ];
+        if ($idempotencyKey !== null) {
+            $headers[] = 'Idempotency-Key: ' . $idempotencyKey;
+        }
+        $ch = curl_init($url);
+        if ($method !== 'GET') {
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body ?? new \stdClass()));
+            $headers[] = 'Content-Type: application/json';
+        }
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER     => $headers,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT        => 30,
+        ]);
+        $raw    = curl_exec($ch);
+        $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err    = curl_error($ch);
+        curl_close($ch);
         if ($raw === false) {
             throw new \RuntimeException('Stripe request failed: ' . $err);
         }

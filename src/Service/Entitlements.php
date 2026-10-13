@@ -65,14 +65,33 @@ final class Entitlements
         'StaffServiceApi'          => 'core',
         'StudentApi'               => 'core',
         'SubscriptionApi'          => 'core',   // phase 2 – billing screens
+        // privacy & security – free for every school (compliance, not a paid extra)
+        'SecurityApi'              => 'core',
+        'AuditApi'                 => 'core',
+        'RolesApi'                 => 'core',
+        'PrivacyApi'               => 'core',
+        'StudentRecordApi'         => 'core',   // guardians, medical, documents, custom fields
+        'MeetingApi'               => 'communication',   // parent–teacher meeting booking
+        'LocaleApi'                => 'core',   // region & formats (currency, dates, time zone)
+        'NotifyApi'                => 'core',   // automatic notifications, inbox, notice read receipts
+        'AnalyticsApi'             => 'core',   // school dashboard: attendance, at-risk, fees vs target, class performance
+        'OnlinePayApi'             => 'fees',   // phase 7 – online fee payments
 
         // ── Paid ─────────────────────────────────────────────────────────────
         'FeeApi'                   => 'fees',
         'HostelServiceApi'         => 'hostel',
         'TransportServiceApi'      => 'transport',
         'ExamServiceApi'           => 'exams',
+        'ReportCardApi'            => 'exams',  // grading scales + report cards
+        'StudentLeaveApi'          => 'attendance', // absence notes, student leave, late/early
+        'StaffAttendanceApi'       => 'attendance', // staff check-in, monthly staff attendance
         'DatesheetApi'             => 'exams',
+        'ExamLogisticsApi'         => 'exams',   // exam halls, seating plans, invigilation, admit cards
         'TimeTableServiceApi'      => 'academics',
+        'CoverApi'                 => 'academics',   // teacher cover & substitution
+        'CalendarApi'              => 'notices',     // calendar sync links (events, exams, meetings …)
+        'BusTrackingApi'           => 'transport',   // live bus tracking
+        'SafetyApi'                => 'attendance',  // visitors & authorised pick-up (with the late / early log)
         'HomeworkApi'              => 'academics',
         'LeaveApi'                 => 'academics',
         'QuestionBankApi'          => 'assessments',
@@ -241,6 +260,7 @@ final class Entitlements
             'communication' => 'Chat, Gallery, Certificates & ID Cards',
             'finance'       => 'Finance',
             'library'       => 'Library',
+            'messaging'     => 'SMS & WhatsApp messages',   // paid add-on (feature_key / module_key 'messaging')
         ];
 
         return $labels[$module ?? ''] ?? 'This feature';

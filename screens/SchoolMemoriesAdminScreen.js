@@ -16,6 +16,7 @@ import {
   uploadGalleryPhoto,
   deleteGalleryPhoto,
 } from "../services/GalleryServiceApi";
+import { _t, _tx } from "../services/i18n";
 
 const { width: SW } = Dimensions.get("window");
 const COLS  = 3;
@@ -28,7 +29,7 @@ function UploadModal({ visible }) {
       <View style={um.overlay}>
         <View style={um.box}>
           <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={um.txt}>Uploading…</Text>
+          <Text style={um.txt}>{_t("Uploading…")}</Text>
         </View>
       </View>
     </Modal>
@@ -42,7 +43,7 @@ const PhotoTile = React.memo(function PhotoTile({ photo, onDelete }) {
       <Image source={{ uri: photo.url }} style={st.tileImg} resizeMode="cover" />
       {!!photo.caption && (
         <View style={st.tileCaptionBar}>
-          <Text style={st.tileCaptionTxt} numberOfLines={1}>{photo.caption}</Text>
+          <Text style={st.tileCaptionTxt} numberOfLines={1}>{_tx(photo.caption)}</Text>
         </View>
       )}
       <TouchableOpacity style={st.deleteBtn} onPress={() => onDelete(photo)} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
@@ -73,7 +74,7 @@ export default function SchoolMemoriesAdminScreen({ navigation }) {
       setPhotos(photos);
       setPhotoLimit(limit);
     } catch (e) {
-      Alert.alert("Error", e?.message ?? "Failed to load photos");
+      Alert.alert(_t("Error"), _tx(e?.message) ?? _t("Failed to load photos"));
     } finally {
       setLoading(false);
     }
@@ -85,15 +86,15 @@ export default function SchoolMemoriesAdminScreen({ navigation }) {
   const pickImage = useCallback(async () => {
     if (atLimit) {
       Alert.alert(
-        "Gallery Full",
-        `You've reached the maximum of ${photoLimit} photos. Delete a photo to make room for a new one.`
+        _t("Gallery Full"),
+        _t("You've reached the maximum of {photoLimit} photos. Delete a photo to make room for a new one.", { photoLimit })
       );
       return;
     }
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("Permission needed", "Please allow access to your photo library.");
+        Alert.alert(_t("Permission needed"), _t("Please allow access to your photo library."));
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -106,7 +107,7 @@ export default function SchoolMemoriesAdminScreen({ navigation }) {
         setCaption("");
       }
     } catch (e) {
-      Alert.alert("Error", e?.message ?? "Could not open photo library.");
+      Alert.alert(_t("Error"), _tx(e?.message) ?? _t("Could not open photo library."));
     }
   }, [atLimit, photoLimit]);
 
@@ -120,7 +121,7 @@ export default function SchoolMemoriesAdminScreen({ navigation }) {
       setPending(null);
       setCaption("");
     } catch (e) {
-      Alert.alert("Upload Failed", e?.message ?? "Something went wrong");
+      Alert.alert(_t("Upload Failed"), _tx(e?.message) ?? _t("Something went wrong"));
     } finally {
       setUploading(false);
     }
@@ -129,18 +130,18 @@ export default function SchoolMemoriesAdminScreen({ navigation }) {
   // ── Delete ───────────────────────────────────────────────────────────────
   const handleDelete = useCallback((photo) => {
     Alert.alert(
-      "Delete Photo",
-      photo.caption ? `Delete "${photo.caption}"?` : "Delete this photo?",
+      _t("Delete Photo"),
+      photo.caption ? _t("Delete \"{caption}\"?", { caption: photo.caption }) : _t("Delete this photo?"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Delete", style: "destructive",
+          text: _t("Delete"), style: "destructive",
           onPress: async () => {
             try {
               await deleteGalleryPhoto(user, photo.id);
               setPhotos(prev => prev.filter(p => p.id !== photo.id));
             } catch (e) {
-              Alert.alert("Delete Failed", e?.message ?? "Could not delete photo. Please try again.");
+              Alert.alert(_t("Delete Failed"), _tx(e?.message) ?? _t("Could not delete photo. Please try again."));
             }
           },
         },
@@ -162,9 +163,9 @@ export default function SchoolMemoriesAdminScreen({ navigation }) {
           <Feather name="arrow-left" size={20} color="#2563eb" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={st.headerTitle}>Manage Memories</Text>
+          <Text style={st.headerTitle}>{_t("Manage Memories")}</Text>
           <Text style={st.headerSub}>
-            {loading ? "Loading…" : `${photos.length} / ${photoLimit} photos`}
+            {loading ? _t("Loading…") : _t("{length} / {photoLimit} photos", { length: photos.length, photoLimit })}
           </Text>
         </View>
         <TouchableOpacity
@@ -173,7 +174,7 @@ export default function SchoolMemoriesAdminScreen({ navigation }) {
           activeOpacity={0.8}
         >
           <Feather name="plus" size={18} color="#fff" />
-          <Text style={st.addBtnTxt}>{atLimit ? "Limit Reached" : "Add Photo"}</Text>
+          <Text style={st.addBtnTxt}>{atLimit ? _t("Limit Reached") : _t("Add Photo")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -181,9 +182,7 @@ export default function SchoolMemoriesAdminScreen({ navigation }) {
       {atLimit && !pending && (
         <View style={st.limitBanner}>
           <Feather name="info" size={14} color="#92400e" />
-          <Text style={st.limitTxt}>
-            Gallery is full ({photoLimit}/{photoLimit}). Delete a photo to upload a new one.
-          </Text>
+          <Text style={st.limitTxt}>{_t("Gallery is full ({photoLimit}/{photoLimit2}). Delete a photo to upload a new one.", { photoLimit, photoLimit2: photoLimit })}</Text>
         </View>
       )}
 
@@ -194,7 +193,7 @@ export default function SchoolMemoriesAdminScreen({ navigation }) {
           <View style={{ flex: 1 }}>
             <TextInput
               style={st.captionInput}
-              placeholder="Caption (optional)"
+              placeholder={_t("Caption (optional)")}
               placeholderTextColor="#94a3b8"
               value={caption}
               onChangeText={setCaption}
@@ -202,11 +201,11 @@ export default function SchoolMemoriesAdminScreen({ navigation }) {
             />
             <View style={st.uploadRow}>
               <TouchableOpacity style={st.cancelUploadBtn} onPress={() => setPending(null)}>
-                <Text style={st.cancelUploadTxt}>Cancel</Text>
+                <Text style={st.cancelUploadTxt}>{_t("Cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={st.uploadBtn} onPress={handleUpload}>
                 <Feather name="upload-cloud" size={15} color="#fff" />
-                <Text style={st.uploadBtnTxt}>Upload</Text>
+                <Text style={st.uploadBtnTxt}>{_t("Upload")}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -221,8 +220,8 @@ export default function SchoolMemoriesAdminScreen({ navigation }) {
       ) : photos.length === 0 && !pending ? (
         <View style={st.center}>
           <Feather name="image" size={56} color="#cbd5e1" />
-          <Text style={st.emptyTitle}>No photos yet</Text>
-          <Text style={st.emptySub}>Tap "Add Photo" to upload your first memory.</Text>
+          <Text style={st.emptyTitle}>{_t("No photos yet")}</Text>
+          <Text style={st.emptySub}>{_t("Tap \"Add Photo\" to upload your first memory.")}</Text>
         </View>
       ) : (
         <FlatList

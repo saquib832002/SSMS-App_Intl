@@ -11,6 +11,7 @@
  */
 import { BASE_URL } from '../Environment/EnvironmentConfig';
 import { safeFetch } from './apiInterceptor';
+import { _t } from "./i18n";
 
 const buildHeaders = (user) => ({
   Accept:           'application/json',
@@ -32,7 +33,7 @@ export async function fetchChatUsers(user) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.status === false)
-    throw new Error(data.message || 'Failed to load users');
+    throw new Error(data.message || _t("Failed to load users"));
   return data.users ?? [];
 }
 
@@ -63,7 +64,7 @@ export async function fetchConversations(user) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.status === false)
-    throw new Error(data.message || 'Failed to load conversations');
+    throw new Error(data.message || _t("Failed to load conversations"));
   return data.conversations ?? [];
 }
 
@@ -81,7 +82,7 @@ export async function fetchMessages(user, otherUsername, since = null, limit = 5
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.status === false)
-    throw new Error(data.message || 'Failed to load messages');
+    throw new Error(data.message || _t("Failed to load messages"));
   return {
     conversationId: data.conversation_id,
     messages:       data.messages ?? [],
@@ -97,6 +98,6 @@ export async function sendChatMessage(user, toUsername, body) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.status === false)
-    throw new Error(data.message || 'Failed to send message');
+    throw new Error(data.message || _t("Failed to send message"));
   return data; // { message_id, conversation_id }
 }

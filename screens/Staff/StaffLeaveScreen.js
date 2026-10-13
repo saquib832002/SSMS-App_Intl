@@ -25,6 +25,8 @@ import {
 } from "../../services/LeaveServiceApi";
 import { fetchSchoolSettings } from "../../services/SchoolSettingsServiceApi";
 
+import { fmtDate as fmtLocalDate } from "../../services/Locale";
+import { _t, _tx } from "../../services/i18n";
 // ── Palette ───────────────────────────────────────────────────────────────────
 const C = {
   primary: "#1e40af",
@@ -42,17 +44,17 @@ const C = {
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 const STATUS_META = {
-  pending:   { label: "Pending",   bg: "#fef3c7", color: C.amber },
-  approved:  { label: "Approved",  bg: "#dcfce7", color: C.green },
-  rejected:  { label: "Rejected",  bg: "#fee2e2", color: C.red   },
-  cancelled: { label: "Cancelled", bg: "#f1f5f9", color: C.slate },
+  pending:   { get label() { return _t("Pending"); },   bg: "#fef3c7", color: C.amber },
+  approved:  { get label() { return _t("Approved"); },  bg: "#dcfce7", color: C.green },
+  rejected:  { get label() { return _t("Rejected"); },  bg: "#fee2e2", color: C.red   },
+  cancelled: { get label() { return _t("Cancelled"); }, bg: "#f1f5f9", color: C.slate },
 };
 
 const Badge = ({ status }) => {
   const m = STATUS_META[status] ?? STATUS_META.pending;
   return (
     <View style={[st.badge, { backgroundColor: m.bg }]}>
-      <Text style={[st.badgeTxt, { color: m.color }]}>{m.label}</Text>
+      <Text style={[st.badgeTxt, { color: m.color }]}>{_tx(m.label)}</Text>
     </View>
   );
 };
@@ -71,10 +73,10 @@ const BalanceCard = ({ item }) => {
 
   return (
     <View style={st.balCard}>
-      <Text style={st.balAbbr}>{item.abbreviation || item.leave_type_name.slice(0,2)}</Text>
-      <Text style={st.balName} numberOfLines={1}>{item.leave_type_name}</Text>
+      <Text style={st.balAbbr}>{_tx(item.abbreviation) || item.leave_type_name.slice(0,2)}</Text>
+      <Text style={st.balName} numberOfLines={1}>{_tx(item.leave_type_name)}</Text>
       <Text style={st.balRemain}>{remaining % 1 === 0 ? remaining.toFixed(0) : remaining.toFixed(1)}</Text>
-      <Text style={st.balSub}>available</Text>
+      <Text style={st.balSub}>{_t("available")}</Text>
 
       {/* Stacked progress bar: approved (red) + pending (amber) + remaining (green) */}
       <View style={st.balBarBg}>
@@ -83,11 +85,11 @@ const BalanceCard = ({ item }) => {
       </View>
 
       <Text style={st.balUsed}>
-        {approved > 0 ? `${approved % 1 === 0 ? approved.toFixed(0) : approved.toFixed(1)} approved` : ""}
+        {approved > 0 ? _t("{v} approved", { v: approved % 1 === 0 ? approved.toFixed(0) : approved.toFixed(1) }) : ""}
         {approved > 0 && pending > 0 ? "  ·  " : ""}
-        {pending > 0 ? `${pending % 1 === 0 ? pending.toFixed(0) : pending.toFixed(1)} pending` : ""}
+        {pending > 0 ? _t("{v} pending", { v: pending % 1 === 0 ? pending.toFixed(0) : pending.toFixed(1) }) : ""}
         {(approved > 0 || pending > 0) ? "  ·  " : ""}
-        {`${total % 1 === 0 ? total.toFixed(0) : total.toFixed(1)} total`}
+        {_t("{v} total", { v: total % 1 === 0 ? total.toFixed(0) : total.toFixed(1) })}
       </Text>
     </View>
   );
@@ -96,8 +98,7 @@ const BalanceCard = ({ item }) => {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmtDate = (iso) => {
   if (!iso) return "";
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  return fmtLocalDate(iso, "medium");
 };
 
 const toISO = (d) => {
@@ -135,7 +136,7 @@ function DatePickerField({ label, value, onChange, minDate }) {
 
   return (
     <View style={st.dpWrap}>
-      <Text style={st.dpLabel}>{label}</Text>
+      <Text style={st.dpLabel}>{_tx(label)}</Text>
       <TouchableOpacity style={st.dpButton} onPress={() => setShow(true)} activeOpacity={0.75}>
         <Feather name="calendar" size={15} color={C.primary} />
         <Text style={st.dpButtonTxt}>{fmtDate(value)}</Text>
@@ -159,9 +160,9 @@ function DatePickerField({ label, value, onChange, minDate }) {
           <View style={st.iosOverlay}>
             <View style={st.iosSheet}>
               <View style={st.iosSheetHeader}>
-                <Text style={st.iosSheetTitle}>{label}</Text>
+                <Text style={st.iosSheetTitle}>{_tx(label)}</Text>
                 <TouchableOpacity onPress={() => setShow(false)}>
-                  <Text style={st.iosDone}>Done</Text>
+                  <Text style={st.iosDone}>{_t("Done")}</Text>
                 </TouchableOpacity>
               </View>
               <DateTimePicker
@@ -207,7 +208,8 @@ export default function StaffLeaveScreen({ navigation }) {
     isRefresh ? setRefreshing(true) : setLoading(true);
     try {
       // Fetch leave types first — this must always succeed
-      const types = await fetchLeaveTypes(user);
+      const rawTypes = await fetchLeaveTypes(user);
+      const types = Array.isArray(rawTypes) ? rawTypes : [];
       setLeaveTypes(types);
       if (types.length > 0) setSelTypeId(t => t ?? types[0].id);
 
@@ -217,15 +219,15 @@ export default function StaffLeaveScreen({ navigation }) {
         fetchMyLeaves(user),
         fetchSchoolSettings(user),
       ]);
-      setBalance(balResult.status    === "fulfilled" ? balResult.value    : []);
-      setMyLeaves(leavesResult.status === "fulfilled" ? leavesResult.value : []);
+      setBalance(balResult.status    === "fulfilled" && Array.isArray(balResult.value)    ? balResult.value    : []);
+      setMyLeaves(leavesResult.status === "fulfilled" && Array.isArray(leavesResult.value) ? leavesResult.value : []);
       if (settingsResult.status === "fulfilled" && settingsResult.value?.working_days) {
-        const nums = settingsResult.value.working_days
+        const nums = String(settingsResult.value.working_days)
           .split(",").map(Number).filter(n => n >= 1 && n <= 7);
         if (nums.length > 0) setWorkingDayNums(nums);
       }
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     } finally {
       isRefresh ? setRefreshing(false) : setLoading(false);
     }
@@ -262,9 +264,9 @@ export default function StaffLeaveScreen({ navigation }) {
 
   // ── Submit leave application ─────────────────────────────────────────────
   const handleSubmit = async () => {
-    if (!selTypeId)  return Alert.alert("Required", "Please select a leave type.");
-    if (!reason.trim()) return Alert.alert("Required", "Please provide a reason.");
-    if (fromDate > toDate) return Alert.alert("Invalid", "From date cannot be after To date.");
+    if (!selTypeId)  return Alert.alert(_t("Required"), _t("Please select a leave type."));
+    if (!reason.trim()) return Alert.alert(_t("Required"), _t("Please provide a reason."));
+    if (fromDate > toDate) return Alert.alert(_t("Invalid"), _t("From date cannot be after To date."));
 
     try {
       setSubmitting(true);
@@ -276,13 +278,13 @@ export default function StaffLeaveScreen({ navigation }) {
         is_half_day:   isHalf ? 1 : 0,
         half_day_slot: isHalf ? halfSlot : undefined,
       });
-      Alert.alert("Success", "Leave application submitted successfully!");
+      Alert.alert(_t("Success"), _t("Leave application submitted successfully!"));
       setReason("");
       setIsHalf(false);
       load(true);
       setTab("history");
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     } finally {
       setSubmitting(false);
     }
@@ -291,19 +293,19 @@ export default function StaffLeaveScreen({ navigation }) {
   // ── Cancel application ───────────────────────────────────────────────────
   const handleCancel = (item) => {
     Alert.alert(
-      "Cancel Leave",
-      `Cancel your ${item.leave_type_name} application from ${fmtDate(item.from_date)} to ${fmtDate(item.to_date)}?`,
+      _t("Cancel Leave"),
+      _t("Cancel your {leave_type_name} application from {from_date} to {to_date}?", { leave_type_name: item.leave_type_name, from_date: fmtDate(item.from_date), to_date: fmtDate(item.to_date) }),
       [
-        { text: "No", style: "cancel" },
+        { text: _t("No"), style: "cancel" },
         {
-          text: "Yes, Cancel",
+          text: _t("Yes, Cancel"),
           style: "destructive",
           onPress: async () => {
             try {
               await cancelLeave(user, item.id);
               load(true);
             } catch (e) {
-              Alert.alert("Error", e.message);
+              Alert.alert(_t("Error"), _tx(e.message));
             }
           },
         },
@@ -320,33 +322,29 @@ export default function StaffLeaveScreen({ navigation }) {
     <View style={st.leaveCard}>
       <View style={st.leaveCardTop}>
         <View style={{ flex: 1 }}>
-          <Text style={st.leaveTypeName}>{item.leave_type_name}
+          <Text style={st.leaveTypeName}>{_tx(item.leave_type_name)}
             {item.is_half_day == 1
-              ? <Text style={st.halfTag}> · Half Day ({item.half_day_slot})</Text>
+              ? <Text style={st.halfTag}>{_t("· Half Day ({half_day_slot})", { half_day_slot: item.half_day_slot })}</Text>
               : null}
           </Text>
-          <Text style={st.leaveDates}>
-            {fmtDate(item.from_date)}
-            {item.from_date !== item.to_date ? ` → ${fmtDate(item.to_date)}` : ""}
-            {"  ·  "}{item.days} day{item.days != 1 ? "s" : ""}
-          </Text>
+          <Text style={st.leaveDates}>{_t("{from_date}{v}  ·  {days} day{pl}", { from_date: fmtDate(item.from_date), v: item.from_date !== item.to_date ? ` → ${fmtDate(item.to_date)}` : "", days: item.days, pl: item.days != 1 ? "s" : "" })}</Text>
         </View>
         <Badge status={item.status} />
       </View>
-      <Text style={st.leaveReason} numberOfLines={2}>{item.reason}</Text>
+      <Text style={st.leaveReason} numberOfLines={2}>{_tx(item.reason)}</Text>
       {!!item.remarks && (
         <View style={st.remarksBox}>
           <Feather name="message-square" size={11} color={C.muted} />
-          <Text style={st.remarksText}>{item.remarks}</Text>
+          <Text style={st.remarksText}>{_tx(item.remarks)}</Text>
         </View>
       )}
       {item.status === "pending" && (
         <TouchableOpacity style={st.cancelBtn} onPress={() => handleCancel(item)}>
           <Feather name="x-circle" size={13} color={C.red} />
-          <Text style={st.cancelBtnTxt}>Cancel Application</Text>
+          <Text style={st.cancelBtnTxt}>{_t("Cancel Application")}</Text>
         </TouchableOpacity>
       )}
-      <Text style={st.leaveAppliedOn}>Applied: {fmtDate(item.created_at)}</Text>
+      <Text style={st.leaveAppliedOn}>{_t("Applied: {created_at}", { created_at: fmtDate(item.created_at) })}</Text>
     </View>
   );
 
@@ -365,7 +363,7 @@ export default function StaffLeaveScreen({ navigation }) {
         <TouchableOpacity style={st.backBtn} onPress={() => navigation.goBack()}>
           <Feather name="arrow-left" size={20} color="#fff" />
         </TouchableOpacity>
-        <Text style={st.headerTitle}>My Leave</Text>
+        <Text style={st.headerTitle}>{_t("My Leave")}</Text>
         <View style={{ width: 36 }} />
       </View>
 
@@ -391,16 +389,14 @@ export default function StaffLeaveScreen({ navigation }) {
           onPress={() => setTab("apply")}
         >
           <Feather name="plus-circle" size={14} color={tab === "apply" ? C.primary : C.muted} />
-          <Text style={[st.tabTxt, tab === "apply" && st.tabTxtActive]}>Apply</Text>
+          <Text style={[st.tabTxt, tab === "apply" && st.tabTxtActive]}>{_t("Apply")}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[st.tab, tab === "history" && st.tabActive]}
           onPress={() => setTab("history")}
         >
           <Feather name="list" size={14} color={tab === "history" ? C.primary : C.muted} />
-          <Text style={[st.tabTxt, tab === "history" && st.tabTxtActive]}>
-            My Applications {myLeaves.length > 0 ? `(${myLeaves.length})` : ""}
-          </Text>
+          <Text style={[st.tabTxt, tab === "history" && st.tabTxtActive]}>{_t("My Applications {v}", { v: myLeaves.length > 0 ? `(${myLeaves.length})` : "" })}</Text>
         </TouchableOpacity>
       </View>
 
@@ -412,23 +408,21 @@ export default function StaffLeaveScreen({ navigation }) {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
         >
           {/* Leave type picker */}
-          <Text style={st.fieldLabel}>Leave Type *</Text>
+          <Text style={st.fieldLabel}>{_t("Leave Type *")}</Text>
           <TouchableOpacity style={st.selector} onPress={() => setTypePickerV(true)}>
             <Text style={[st.selectorTxt, !selType && { color: C.muted }]}>
-              {selType ? `${selType.name} (max ${selType.max_days_per_year} days/yr)` : "Select leave type"}
+              {selType ? _t("{name} (max {max_days_per_year} days/yr)", { name: selType.name, max_days_per_year: selType.max_days_per_year }) : _t("Select leave type")}
             </Text>
             <Feather name="chevron-down" size={16} color={C.muted} />
           </TouchableOpacity>
           {selBalance && (
-            <Text style={st.balHint}>
-              Balance: {selBalance.remaining_days.toFixed(1)} day(s) remaining
-            </Text>
+            <Text style={st.balHint}>{_t("Balance: {v} day(s) remaining", { v: selBalance.remaining_days.toFixed(1) })}</Text>
           )}
 
           {/* Date pickers */}
           <View style={st.dateRow}>
             <DatePickerField
-              label="From Date"
+              label={_t("From Date")}
               value={fromDate}
               onChange={(v) => {
                 setFromDate(v);
@@ -437,7 +431,7 @@ export default function StaffLeaveScreen({ navigation }) {
             />
             <View style={{ width: 12 }} />
             <DatePickerField
-              label="To Date"
+              label={_t("To Date")}
               value={toDate}
               onChange={setToDate}
               minDate={new Date(fromDate + "T00:00:00")}
@@ -449,8 +443,8 @@ export default function StaffLeaveScreen({ navigation }) {
             <Feather name="clock" size={13} color={leaveDayCount === 0 ? C.red : C.primary} />
             <Text style={[st.dayCountTxt, leaveDayCount === 0 && { color: C.red }]}>
               {leaveDayCount === 0
-                ? "No working days in selected range"
-                : `${leaveDayCount} working day${leaveDayCount !== 1 ? "s" : ""} of leave`}
+                ? _t("No working days in selected range")
+                : _t("{leaveDayCount} working day{pl} of leave", { leaveDayCount, pl: leaveDayCount !== 1 ? "s" : "" })}
             </Text>
           </View>
 
@@ -459,7 +453,7 @@ export default function StaffLeaveScreen({ navigation }) {
             <View style={[st.checkbox, isHalf && st.checkboxOn]}>
               {isHalf && <Feather name="check" size={11} color="#fff" />}
             </View>
-            <Text style={st.halfTxt}>Half Day</Text>
+            <Text style={st.halfTxt}>{_t("Half Day")}</Text>
           </TouchableOpacity>
           {isHalf && (
             <View style={st.slotRow}>
@@ -478,10 +472,10 @@ export default function StaffLeaveScreen({ navigation }) {
           )}
 
           {/* Reason */}
-          <Text style={st.fieldLabel}>Reason *</Text>
+          <Text style={st.fieldLabel}>{_t("Reason *")}</Text>
           <TextInput
             style={st.textArea}
-            placeholder="Briefly describe the reason for your leave..."
+            placeholder={_t("Briefly describe the reason for your leave...")}
             placeholderTextColor={C.muted}
             value={reason}
             onChangeText={setReason}
@@ -499,7 +493,7 @@ export default function StaffLeaveScreen({ navigation }) {
               ? <ActivityIndicator size="small" color="#fff" />
               : <>
                   <Feather name="send" size={16} color="#fff" />
-                  <Text style={st.submitBtnTxt}>Submit Application</Text>
+                  <Text style={st.submitBtnTxt}>{_t("Submit Application")}</Text>
                 </>
             }
           </TouchableOpacity>
@@ -515,7 +509,7 @@ export default function StaffLeaveScreen({ navigation }) {
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
             >
               <Feather name="calendar" size={48} color={C.border} />
-              <Text style={st.emptyTxt}>No leave applications yet</Text>
+              <Text style={st.emptyTxt}>{_t("No leave applications yet")}</Text>
             </ScrollView>
           )
           : (
@@ -535,7 +529,7 @@ export default function StaffLeaveScreen({ navigation }) {
         <View style={st.modalOverlay}>
           <View style={st.modalSheet}>
             <View style={st.modalHeader}>
-              <Text style={st.modalTitle}>Select Leave Type</Text>
+              <Text style={st.modalTitle}>{_t("Select Leave Type")}</Text>
               <TouchableOpacity onPress={() => setTypePickerV(false)}>
                 <Feather name="x" size={20} color={C.text} />
               </TouchableOpacity>
@@ -549,13 +543,12 @@ export default function StaffLeaveScreen({ navigation }) {
                 <View style={st.typeLeft}>
                   <View style={[st.typeAbbrBadge, selTypeId === t.id && { backgroundColor: C.primary }]}>
                     <Text style={[st.typeAbbrTxt, selTypeId === t.id && { color: "#fff" }]}>
-                      {t.abbreviation || t.name.slice(0,2)}
+                      {_tx(t.abbreviation) || t.name.slice(0,2)}
                     </Text>
                   </View>
                   <View>
-                    <Text style={st.typeItemName}>{t.name}</Text>
-                    <Text style={st.typeItemSub}>{t.max_days_per_year} days / year
-                      {t.carry_forward == 1 ? " · Carry forward" : ""}</Text>
+                    <Text style={st.typeItemName}>{_tx(t.name)}</Text>
+                    <Text style={st.typeItemSub}>{_t("{max_days_per_year} days / year{v}", { max_days_per_year: t.max_days_per_year, v: t.carry_forward == 1 ? (" " + _t("· Carry forward") + "") : "" })}</Text>
                   </View>
                 </View>
                 {selTypeId === t.id && <Feather name="check" size={16} color={C.primary} />}

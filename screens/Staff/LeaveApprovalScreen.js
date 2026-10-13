@@ -18,6 +18,8 @@ import { Feather } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
 import { fetchPendingLeaves, fetchAllLeaves, approveLeave } from "../../services/LeaveServiceApi";
 
+import { fmtDate as fmtLocalDate } from "../../services/Locale";
+import { _t, _tx } from "../../services/i18n";
 // ── Palette ───────────────────────────────────────────────────────────────────
 const C = {
   primary: "#1e40af",
@@ -33,25 +35,24 @@ const C = {
 };
 
 const STATUS_META = {
-  pending:   { label: "Pending",   bg: "#fef3c7", color: C.amber },
-  approved:  { label: "Approved",  bg: "#dcfce7", color: C.green },
-  rejected:  { label: "Rejected",  bg: "#fee2e2", color: C.red   },
-  cancelled: { label: "Cancelled", bg: "#f1f5f9", color: C.slate },
+  pending:   { get label() { return _t("Pending"); },   bg: "#fef3c7", color: C.amber },
+  approved:  { get label() { return _t("Approved"); },  bg: "#dcfce7", color: C.green },
+  rejected:  { get label() { return _t("Rejected"); },  bg: "#fee2e2", color: C.red   },
+  cancelled: { get label() { return _t("Cancelled"); }, bg: "#f1f5f9", color: C.slate },
 };
 
 const Badge = ({ status }) => {
   const m = STATUS_META[status] ?? STATUS_META.pending;
   return (
     <View style={[st.badge, { backgroundColor: m.bg }]}>
-      <Text style={[st.badgeTxt, { color: m.color }]}>{m.label}</Text>
+      <Text style={[st.badgeTxt, { color: m.color }]}>{_tx(m.label)}</Text>
     </View>
   );
 };
 
 const fmtDate = (iso) => {
   if (!iso) return "";
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  return fmtLocalDate(iso, "medium");
 };
 
 // ── Leave Card ─────────────────────────────────────────────────────────────────
@@ -66,8 +67,8 @@ function LeaveCard({ item, onAction }) {
           </Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={st.staffName}>{item.staff_name}</Text>
-          <Text style={st.designation}>{item.designation}</Text>
+          <Text style={st.staffName}>{_tx(item.staff_name)}</Text>
+          <Text style={st.designation}>{_tx(item.designation)}</Text>
         </View>
         <Badge status={item.status} />
       </View>
@@ -76,7 +77,7 @@ function LeaveCard({ item, onAction }) {
       <View style={st.detailRow}>
         <View style={st.detailChip}>
           <Feather name="tag" size={11} color={C.primary} />
-          <Text style={st.detailChipTxt}>{item.leave_type_name}</Text>
+          <Text style={st.detailChipTxt}>{_tx(item.leave_type_name)}</Text>
         </View>
         <View style={st.detailChip}>
           <Feather name="calendar" size={11} color={C.primary} />
@@ -87,25 +88,22 @@ function LeaveCard({ item, onAction }) {
         </View>
         <View style={st.detailChip}>
           <Feather name="clock" size={11} color={C.primary} />
-          <Text style={st.detailChipTxt}>
-            {item.days} day{item.days != 1 ? "s" : ""}
-            {item.is_half_day == 1 ? " (half)" : ""}
-          </Text>
+          <Text style={st.detailChipTxt}>{_t("{days} day{pl}{v}", { days: item.days, pl: item.days != 1 ? "s" : "", v: item.is_half_day == 1 ? (" " + _t("(half)") + "") : "" })}</Text>
         </View>
       </View>
 
       {/* Reason */}
-      <Text style={st.reasonTxt}>{item.reason}</Text>
+      <Text style={st.reasonTxt}>{_tx(item.reason)}</Text>
 
       {/* Approver remarks */}
       {!!item.remarks && (
         <View style={st.remarksBox}>
           <Feather name="message-square" size={11} color={C.muted} />
-          <Text style={st.remarksTxt}>{item.remarks}</Text>
+          <Text style={st.remarksTxt}>{_tx(item.remarks)}</Text>
         </View>
       )}
       {item.status === "approved" && !!item.approved_by_name && (
-        <Text style={st.approvedBy}>Approved by {item.approved_by_name} · {fmtDate(item.approved_at)}</Text>
+        <Text style={st.approvedBy}>{_t("Approved by {approved_by_name} · {approved_at}", { approved_by_name: item.approved_by_name, approved_at: fmtDate(item.approved_at) })}</Text>
       )}
 
       {/* Action buttons (pending only) */}
@@ -116,19 +114,19 @@ function LeaveCard({ item, onAction }) {
             onPress={() => onAction(item, "approved")}
           >
             <Feather name="check" size={14} color={C.green} />
-            <Text style={[st.actionBtnTxt, { color: C.green }]}>Approve</Text>
+            <Text style={[st.actionBtnTxt, { color: C.green }]}>{_t("Approve")}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[st.actionBtn, { backgroundColor: "#fee2e2", borderColor: C.red }]}
             onPress={() => onAction(item, "rejected")}
           >
             <Feather name="x" size={14} color={C.red} />
-            <Text style={[st.actionBtnTxt, { color: C.red }]}>Reject</Text>
+            <Text style={[st.actionBtnTxt, { color: C.red }]}>{_t("Reject")}</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      <Text style={st.appliedOn}>Applied: {fmtDate(item.created_at)}</Text>
+      <Text style={st.appliedOn}>{_t("Applied: {created_at}", { created_at: fmtDate(item.created_at) })}</Text>
     </View>
   );
 }
@@ -155,14 +153,18 @@ export default function LeaveApprovalScreen({ navigation }) {
   const load = useCallback(async (isRefresh = false) => {
     try {
       isRefresh ? setRefreshing(true) : setLoading(true);
-      const [p, all] = await Promise.all([
+      const [rp, rAll] = await Promise.allSettled([
         fetchPendingLeaves(user),
         fetchAllLeaves(user, {}),
       ]);
-      setPending(p);
-      setAllLeaves(all);
+      const p   = rp.status   === "fulfilled" ? rp.value   : null;
+      const all = rAll.status === "fulfilled" ? rAll.value : null;
+      setPending(Array.isArray(p) ? p : []);
+      setAllLeaves(Array.isArray(all) ? all : []);
+      const failed = [rp, rAll].find(r => r.status === "rejected");
+      if (failed) Alert.alert(_t("Error"), _tx(failed.reason?.message) || _t("Failed to load leaves"));
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     } finally {
       isRefresh ? setRefreshing(false) : setLoading(false);
     }
@@ -190,12 +192,12 @@ export default function LeaveApprovalScreen({ navigation }) {
       });
       setActionModal(false);
       Alert.alert(
-        actionType === "approved" ? "Approved!" : "Rejected",
-        `${actionItem.staff_name}'s leave has been ${actionType}.`
+        actionType === "approved" ? _t("Approved!") : _t("Rejected"),
+        _t("{staff_name}'s leave has been {actionType}.", { staff_name: actionItem.staff_name, actionType })
       );
       load(true);
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert(_t("Error"), _tx(e.message));
     } finally {
       setSubmitting(false);
     }
@@ -211,11 +213,11 @@ export default function LeaveApprovalScreen({ navigation }) {
   });
 
   const STATUS_FILTERS = [
-    { key: "",           label: "All"       },
-    { key: "pending",    label: "Pending"   },
-    { key: "approved",   label: "Approved"  },
-    { key: "rejected",   label: "Rejected"  },
-    { key: "cancelled",  label: "Cancelled" },
+    { key: "",           label: _t("All")       },
+    { key: "pending",    label: _t("Pending")   },
+    { key: "approved",   label: _t("Approved")  },
+    { key: "rejected",   label: _t("Rejected")  },
+    { key: "cancelled",  label: _t("Cancelled") },
   ];
 
   if (loading) {
@@ -233,7 +235,7 @@ export default function LeaveApprovalScreen({ navigation }) {
         <TouchableOpacity style={st.backBtn} onPress={() => navigation.goBack()}>
           <Feather name="arrow-left" size={20} color="#fff" />
         </TouchableOpacity>
-        <Text style={st.headerTitle}>Leave Approval</Text>
+        <Text style={st.headerTitle}>{_t("Leave Approval")}</Text>
         <View style={{ width: 36 }} />
       </View>
 
@@ -244,16 +246,14 @@ export default function LeaveApprovalScreen({ navigation }) {
           onPress={() => setTab("pending")}
         >
           <Feather name="inbox" size={14} color={tab === "pending" ? C.primary : C.muted} />
-          <Text style={[st.tabTxt, tab === "pending" && st.tabTxtActive]}>
-            Pending {pending.length > 0 ? `(${pending.length})` : ""}
-          </Text>
+          <Text style={[st.tabTxt, tab === "pending" && st.tabTxtActive]}>{_t("Pending {v}", { v: pending.length > 0 ? `(${pending.length})` : "" })}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[st.tab, tab === "all" && st.tabActive]}
           onPress={() => setTab("all")}
         >
           <Feather name="list" size={14} color={tab === "all" ? C.primary : C.muted} />
-          <Text style={[st.tabTxt, tab === "all" && st.tabTxtActive]}>All Leaves</Text>
+          <Text style={[st.tabTxt, tab === "all" && st.tabTxtActive]}>{_t("All Leaves")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -266,8 +266,8 @@ export default function LeaveApprovalScreen({ navigation }) {
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
             >
               <Feather name="check-circle" size={52} color={C.border} />
-              <Text style={st.emptyTitle}>All caught up!</Text>
-              <Text style={st.emptySubtitle}>No pending leave applications</Text>
+              <Text style={st.emptyTitle}>{_t("All caught up!")}</Text>
+              <Text style={st.emptySubtitle}>{_t("No pending leave applications")}</Text>
             </ScrollView>
           )
           : (
@@ -292,7 +292,7 @@ export default function LeaveApprovalScreen({ navigation }) {
             <Feather name="search" size={16} color={C.muted} />
             <TextInput
               style={st.searchInput}
-              placeholder="Search by staff name or leave type..."
+              placeholder={_t("Search by staff name or leave type...")}
               placeholderTextColor={C.muted}
               value={search}
               onChangeText={setSearch}
@@ -312,7 +312,7 @@ export default function LeaveApprovalScreen({ navigation }) {
                 style={[st.chip, filterSt === f.key && st.chipActive]}
                 onPress={() => setFilterSt(f.key)}
               >
-                <Text style={[st.chipTxt, filterSt === f.key && st.chipTxtActive]}>{f.label}</Text>
+                <Text style={[st.chipTxt, filterSt === f.key && st.chipTxtActive]}>{_tx(f.label)}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -324,7 +324,7 @@ export default function LeaveApprovalScreen({ navigation }) {
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
               >
                 <Feather name="calendar" size={48} color={C.border} />
-                <Text style={st.emptySubtitle}>No records found</Text>
+                <Text style={st.emptySubtitle}>{_t("No records found")}</Text>
               </ScrollView>
             )
             : (
@@ -352,7 +352,7 @@ export default function LeaveApprovalScreen({ navigation }) {
           <View style={st.modalSheet}>
             <View style={st.modalHeader}>
               <Text style={st.modalTitle}>
-                {actionType === "approved" ? "Approve Leave" : "Reject Leave"}
+                {actionType === "approved" ? _t("Approve Leave") : _t("Reject Leave")}
               </Text>
               <TouchableOpacity onPress={() => setActionModal(false)}>
                 <Feather name="x" size={20} color={C.text} />
@@ -361,21 +361,17 @@ export default function LeaveApprovalScreen({ navigation }) {
 
             {actionItem && (
               <View style={st.modalBody}>
-                <Text style={st.modalStaffName}>{actionItem.staff_name}</Text>
-                <Text style={st.modalMeta}>
-                  {actionItem.leave_type_name}  ·  {fmtDate(actionItem.from_date)}
-                  {actionItem.from_date !== actionItem.to_date ? ` → ${fmtDate(actionItem.to_date)}` : ""}
-                  {"  ·  "}{actionItem.days} day{actionItem.days != 1 ? "s" : ""}
-                </Text>
-                <Text style={st.modalReason}>{actionItem.reason}</Text>
+                <Text style={st.modalStaffName}>{_tx(actionItem.staff_name)}</Text>
+                <Text style={st.modalMeta}>{_t("{leave_type_name}  ·  {from_date}{v}  ·  {days} day{pl}", { leave_type_name: actionItem.leave_type_name, from_date: fmtDate(actionItem.from_date), v: actionItem.from_date !== actionItem.to_date ? ` → ${fmtDate(actionItem.to_date)}` : "", days: actionItem.days, pl: actionItem.days != 1 ? "s" : "" })}</Text>
+                <Text style={st.modalReason}>{_tx(actionItem.reason)}</Text>
 
-                <Text style={st.remarksLabel}>Remarks (optional)</Text>
+                <Text style={st.remarksLabel}>{_t("Remarks (optional)")}</Text>
                 <TextInput
                   style={st.remarksInput}
                   placeholder={
                     actionType === "approved"
-                      ? "Any message for the staff member..."
-                      : "Reason for rejection..."
+                      ? _t("Any message for the staff member...")
+                      : _t("Reason for rejection...")
                   }
                   placeholderTextColor={C.muted}
                   value={remarks}
@@ -399,7 +395,7 @@ export default function LeaveApprovalScreen({ navigation }) {
                     : <>
                         <Feather name={actionType === "approved" ? "check" : "x"} size={16} color="#fff" />
                         <Text style={st.confirmBtnTxt}>
-                          {actionType === "approved" ? "Confirm Approval" : "Confirm Rejection"}
+                          {actionType === "approved" ? _t("Confirm Approval") : _t("Confirm Rejection")}
                         </Text>
                       </>
                   }

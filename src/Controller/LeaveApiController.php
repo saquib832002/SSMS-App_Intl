@@ -195,6 +195,16 @@ class LeaveApiController extends AppController
             $id = (int)$db->execute('SELECT LAST_INSERT_ID() AS id')->fetch('assoc')['id'];
         }
 
+        // paid / unpaid (used by staff attendance → payroll); needs the 2026_10_staff_attendance migration
+        if (array_key_exists('is_paid', $body)) {
+            try {
+                $db->execute('UPDATE ssms_leave_types SET is_paid = ? WHERE id = ? AND client_code = ?',
+                    [(int)(bool)$body['is_paid'], $id, $this->clientCode()]);
+            } catch (\Throwable $e) {
+                \Cake\Log\Log::warning('saveLeaveType is_paid: ' . $e->getMessage());
+            }
+        }
+
         return $this->json(['status' => true, 'message' => 'Saved successfully', 'id' => $id]);
     }
 
@@ -253,7 +263,7 @@ class LeaveApiController extends AppController
         }
 
         // Check balance
-        $year    = (int)date('Y');
+        $year    = (int)$this->schoolToday('Y');
         $balance = $this->getOrCreateBalance($staffId, $branchId, $this->clientCode(), $typeId, $year);
         $remaining = $balance['total_days'] + $balance['carried_days'] - $balance['used_days'];
 
@@ -288,7 +298,7 @@ class LeaveApiController extends AppController
             return $this->json(['status' => false, 'message' => 'Staff not found'], 403);
         }
 
-        $year = (int)($this->request->getQuery('year') ?: date('Y'));
+        $year = (int)($this->request->getQuery('year') ?: $this->schoolToday('Y'));
 
         $rows = $this->db()->execute(
             "SELECT la.*,
@@ -347,7 +357,7 @@ class LeaveApiController extends AppController
         }
 
         $branchId = $this->branchId();
-        $year     = (int)($this->request->getQuery('year')     ?: date('Y'));
+        $year     = (int)($this->request->getQuery('year')     ?: $this->schoolToday('Y'));
         $staffId  = (int)($this->request->getQuery('staff_id') ?: 0);
         $status   = $this->request->getQuery('status') ?: '';
 
@@ -435,6 +445,9 @@ class LeaveApiController extends AppController
             );
         }
 
+        // keep staff attendance in line (approved school days → "L")
+        \App\Service\StaffAttendance::syncLeave($this->clientCode(), $id);
+
         $msg = $action === 'approved' ? 'Leave approved' : 'Leave rejected';
         return $this->json(['status' => true, 'message' => $msg]);
     }
@@ -486,6 +499,9 @@ class LeaveApiController extends AppController
             );
         }
 
+        // put back the attendance days this leave had marked "L"
+        \App\Service\StaffAttendance::syncLeave($this->clientCode(), $id);
+
         return $this->json(['status' => true, 'message' => 'Leave application cancelled']);
     }
 
@@ -510,7 +526,7 @@ class LeaveApiController extends AppController
         }
 
         $branchId = $this->branchId();
-        $year     = (int)($this->request->getQuery('year') ?: date('Y'));
+        $year     = (int)($this->request->getQuery('year') ?: $this->schoolToday('Y'));
 
         // Get all active leave types belonging to this school
         $types = $this->db()->execute(

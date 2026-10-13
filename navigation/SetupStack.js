@@ -14,6 +14,7 @@ import SessionSetupScreen       from "../screens/Setup/SessionSetupScreen";
 import ClassSetupScreen         from "../screens/Setup/ClassSetupScreen";
 import SectionSetupScreen       from "../screens/Setup/SectionSetupScreen";
 import UserSetupScreen          from "../screens/Setup/UserSetupScreen";
+import OnlinePaymentsScreen     from "../screens/Setup/OnlinePaymentsScreen";
 import StaffCategoryScreen      from "../screens/Staff/StaffCategoryScreen";
 import SubjectSetupScreen       from "../screens/Setup/SubjectSetupScreen";
 import ClassSubjectScreen       from "../screens/Setup/ClassSubjectScreen";
@@ -24,6 +25,8 @@ import MasterTimetableScreen    from "../screens/timetable/MasterTimetableScreen
 import SubjectTeacherScreen     from "../screens/Staff/SubjectTeacherScreen";
 import SubjectMaxMarksScreen    from "../screens/Setup/SubjectMaxMarksScreen";
 import SchoolSettingsScreen     from "../screens/Setup/SchoolSettingsScreen";
+import RegionFormatsScreen      from "../screens/Setup/RegionFormatsScreen";
+import NotificationSettingsScreen from "../screens/Setup/NotificationSettingsScreen";
 import IdCardSettingsScreen     from "../screens/Setup/IdCardSettingsScreen";
 import RoleGuideScreen         from "../screens/Guide/RoleGuideScreen";
 
@@ -33,6 +36,7 @@ import FeeItemScreen            from "../screens/Finance/FeeItemScreen";
 import ClassFeeStructureScreen  from "../screens/Finance/ClassFeeStructureScreen";
 import HostelFeeStructureScreen from "../screens/Finance/HostelFeeStructureScreen";
 import TransportFeeStructureScreen from "../screens/Finance/TransportFeeStructureScreen";
+import { _t } from "../services/i18n";
 
 
 const Stack = createStackNavigator();
@@ -44,23 +48,27 @@ export default function SetupStack() {
       <Stack.Screen name="SetupHome"        component={SetupScreen}            options={{ headerShown: false }} />
 
       {/* School Setup */}
-      <Stack.Screen name="SchoolSettings"   component={SchoolSettingsScreen}   options={{ title: "School Settings" }} />
-      <Stack.Screen name="IdCardSettings"   component={IdCardSettingsScreen}   options={{ title: "ID Card Layout" }} />
-      <Stack.Screen name="InstituteDetails" component={InstituteDetailsScreen} options={{ title: "Institute Details" }} />
-      <Stack.Screen name="BranchSetup"      component={BranchSetupScreen}      options={{ title: "Branches" }} />
-      <Stack.Screen name="SessionSetup"     component={SessionSetupScreen}     options={{ title: "Sessions" }} />
-      <Stack.Screen name="ClassSetup"       component={ClassSetupScreen}       options={{ title: "Classes" }} />
-      <Stack.Screen name="SectionSetup"     component={SectionSetupScreen}     options={{ title: "Sections" }} />
-      <Stack.Screen name="UserSetup"        component={UserSetupScreen}        options={{ title: "Users" }} />
-      <Stack.Screen name="RoleGuide"        component={RoleGuideScreen}        options={{ title: "User Role Guide" }} />
-      <Stack.Screen name="StaffCategory"    component={StaffCategoryScreen}    options={{ title: "Staff Categories" }} />
-      <Stack.Screen name="SubjectSetup"     component={SubjectSetupScreen}     options={{ title: "Subjects" }} />
-      <Stack.Screen name="ClassSubject"       component={ClassSubjectScreen}       options={{ title: "Class Subjects" }} />
-      <Stack.Screen name="PeriodSetup"       component={PeriodSetupScreen}        options={{ title: "Periods" }} />
-      <Stack.Screen name="Timetable"         component={TimetableScreen}          options={{ title: "Timetable" }} />
-      <Stack.Screen name="TeacherTimetable"  component={TeacherTimetableScreen}   options={{ title: "Teacher Timetable" }} />
-      <Stack.Screen name="MasterTimetable"  component={MasterTimetableScreen}    options={{ title: "Master Timetable" }} />
-      <Stack.Screen name="SubjectMaxMarks"  component={SubjectMaxMarksScreen}  options={{ title: "Max Marks" }} />
+      <Stack.Screen name="SchoolSettings"   component={SchoolSettingsScreen}   options={{ title: _t("School Settings") }} />
+      <Stack.Screen name="RegionFormats"    component={RegionFormatsScreen}    options={{ title: _t("Region & Formats") }} />
+      <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} options={{ title: _t("Notifications") }} />
+      <Stack.Screen name="IdCardSettings"   component={IdCardSettingsScreen}   options={{ title: _t("ID Card Layout") }} />
+      <Stack.Screen name="InstituteDetails" component={InstituteDetailsScreen} options={{ title: _t("Institute Details") }} />
+      <Stack.Screen name="BranchSetup"      component={BranchSetupScreen}      options={{ title: _t("Branches") }} />
+      <Stack.Screen name="SessionSetup"     component={SessionSetupScreen}     options={{ title: _t("Sessions") }} />
+      <Stack.Screen name="ClassSetup"       component={ClassSetupScreen}       options={{ title: _t("Classes") }} />
+      <Stack.Screen name="SectionSetup"     component={SectionSetupScreen}     options={{ title: _t("Sections") }} />
+      <Stack.Screen name="UserSetup"        component={UserSetupScreen}        options={{ title: _t("Users") }} />
+      <Stack.Screen name="OnlinePayments"   component={OnlinePaymentsScreen}   options={{ title: _t("Online Payments"), headerShown: false }} />
+      <Stack.Screen name="RoleGuide"        component={RoleGuideScreen}        options={{ title: _t("User Role Guide") }} />
+      <Stack.Screen name="StaffCategory"    component={StaffCategoryScreen}    options={{ title: _t("Staff Categories") }} />
+      <Stack.Screen name="SubjectSetup"     component={SubjectSetupScreen}     options={{ title: _t("Subjects") }} />
+      <Stack.Screen name="ClassSubject"       component={ClassSubjectScreen}       options={{ title: _t("Class Subjects") }} />
+      <Stack.Screen name="PeriodSetup"       component={PeriodSetupScreen}        options={{ title: _t("Periods") }} />
+      <Stack.Screen name="Timetable"         component={TimetableScreen}          options={{ title: _t("Timetable") }} />
+      <Stack.Screen name="TeacherTimetable"  component={TeacherTimetableScreen}   options={{ title: _t("Teacher Timetable") }} />
+      <Stack.Screen name="MasterTimetable"  component={MasterTimetableScreen}    options={{ title: _t("Master Timetable") }} />
+      <Stack.Screen name="SubjectMaxMarks"  component={SubjectMaxMarksScreen}  options={{ title: _t("Max Marks") }} />
+      <Stack.Screen name="StudentFields"    getComponent={() => require("../screens/Setup/StudentFieldsScreen").default} options={{ title: _t("Student fields") }} />
     
     <Stack.Screen name="HostelBuildings" getComponent={() => require("../screens/Hostel/HostelBuildingScreen").default}
       />
@@ -70,17 +78,17 @@ export default function SetupStack() {
       />
       {/* Question Bank & Papers (reachable from Setup) */}
       <Stack.Screen name="ChapterManage"    getComponent={() => require("../screens/Exams/ChapterManageScreen").default}     options={{ headerShown: false }} />
-      <Stack.Screen name="QuestionBank"     getComponent={() => require("../screens/Exams/QuestionBankScreen").default}      options={{ title: "Question Bank"    }} />
-      <Stack.Screen name="AddEditQuestion"  getComponent={() => require("../screens/Exams/AddEditQuestionScreen").default}   options={{ title: "Question"         }} />
-      <Stack.Screen name="ImportQuestions"  getComponent={() => require("../screens/Exams/ImportQuestionsScreen").default}   options={{ title: "Import Questions" }} />
-      <Stack.Screen name="PaperList"       getComponent={() => require("../screens/Exams/PaperListScreen").default}      options={{ title: "Question Papers"  }} />
-      <Stack.Screen name="PaperHeader"     getComponent={() => require("../screens/Exams/PaperHeaderScreen").default}    options={{ title: "Paper Setup"      }} />
-      <Stack.Screen name="PaperBuilder"    getComponent={() => require("../screens/Exams/PaperBuilderScreen").default}   options={{ title: "Paper Builder"    }} />
-      <Stack.Screen name="PaperPreview"    getComponent={() => require("../screens/Exams/PaperPreviewScreen").default}   options={{ title: "Preview & Export" }} />
+      <Stack.Screen name="QuestionBank"     getComponent={() => require("../screens/Exams/QuestionBankScreen").default}      options={{ title: _t("Question Bank")    }} />
+      <Stack.Screen name="AddEditQuestion"  getComponent={() => require("../screens/Exams/AddEditQuestionScreen").default}   options={{ title: _t("Question")         }} />
+      <Stack.Screen name="ImportQuestions"  getComponent={() => require("../screens/Exams/ImportQuestionsScreen").default}   options={{ title: _t("Import Questions") }} />
+      <Stack.Screen name="PaperList"       getComponent={() => require("../screens/Exams/PaperListScreen").default}      options={{ title: _t("Question Papers")  }} />
+      <Stack.Screen name="PaperHeader"     getComponent={() => require("../screens/Exams/PaperHeaderScreen").default}    options={{ title: _t("Paper Setup")      }} />
+      <Stack.Screen name="PaperBuilder"    getComponent={() => require("../screens/Exams/PaperBuilderScreen").default}   options={{ title: _t("Paper Builder")    }} />
+      <Stack.Screen name="PaperPreview"    getComponent={() => require("../screens/Exams/PaperPreviewScreen").default}   options={{ title: _t("Preview & Export") }} />
 
       {/* Test Series (admin) */}
       <Stack.Screen name="TestSeriesManage"   getComponent={() => require("../screens/Exams/TestSeriesManageScreen").default}   options={{ headerShown: false }} />
-      <Stack.Screen name="TestManage"         getComponent={() => require("../screens/Exams/TestManageScreen").default}         options={{ title: "Manage Tests", headerShown: true }} />
+      <Stack.Screen name="TestManage"         getComponent={() => require("../screens/Exams/TestManageScreen").default}         options={{ title: _t("Manage Tests"), headerShown: true }} />
       <Stack.Screen name="TestCreate"         getComponent={() => require("../screens/Exams/TestCreateScreen").default}         options={{ headerShown: false }} />
       <Stack.Screen name="TestQuestionPicker" getComponent={() => require("../screens/Exams/TestQuestionPickerScreen").default}  options={{ headerShown: false }} />
       <Stack.Screen name="TestResult"         getComponent={() => require("../screens/Exams/TestResultScreen").default}         options={{ headerShown: false }} />
@@ -88,12 +96,12 @@ export default function SetupStack() {
       <Stack.Screen name="TestLeaderboard"    getComponent={() => require("../screens/Exams/TestLeaderboardScreen").default}    options={{ headerShown: false }} />
 
       {/* Finance (reachable from Setup) */}
-      <Stack.Screen name="FeeItem"            component={FeeItemScreen}             options={{ title: "Fee Items" }} />
-      <Stack.Screen name="ClassFeeStructure"  component={ClassFeeStructureScreen}   options={{ title: "Class Fees" }} />
-      <Stack.Screen name="HostelFeeStructure" component={HostelFeeStructureScreen}  options={{ title: "Hostel Fees" }} />
+      <Stack.Screen name="FeeItem"            component={FeeItemScreen}             options={{ title: _t("Fee Items") }} />
+      <Stack.Screen name="ClassFeeStructure"  component={ClassFeeStructureScreen}   options={{ title: _t("Class Fees") }} />
+      <Stack.Screen name="HostelFeeStructure" component={HostelFeeStructureScreen}  options={{ title: _t("Hostel Fees") }} />
       <Stack.Screen name="TransportFeeStructure" component={TransportFeeStructureScreen} />
-      <Stack.Screen name="FeeDemandSlip"         getComponent={() => require("../screens/Finance/FeeDemandSlipScreen").default}          options={{ title: "Demand Slip", headerShown: false }} />
-      <Stack.Screen name="FeeCollectionApproval" getComponent={() => require("../screens/Finance/FeeCollectionApprovalScreen").default}   options={{ title: "Approve Collection" }} />
+      <Stack.Screen name="FeeDemandSlip"         getComponent={() => require("../screens/Finance/FeeDemandSlipScreen").default}          options={{ title: _t("Demand Slip"), headerShown: false }} />
+      <Stack.Screen name="FeeCollectionApproval" getComponent={() => require("../screens/Finance/FeeCollectionApprovalScreen").default}   options={{ title: _t("Approve Collection") }} />
 
       {/* Chat */}
       <Stack.Screen name="ChatList" getComponent={() => require("../screens/Chat/ChatListScreen").default} options={{ headerShown: false }} />

@@ -1,3 +1,4 @@
+import { TIMEZONE_COUNTRY } from "./TimeZoneCountries";
 /**
  * constants/Countries.js
  *
@@ -275,4 +276,42 @@ export function guessCountryCode() {
 /** Device IANA time zone (e.g. "Europe/London"), or "" if unavailable. */
 export function deviceTimeZone() {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch { return ""; }
+}
+
+/**
+ * Country the device is in (ISO code), best effort, no native module needed:
+ *   1. device time zone  (e.g. "Asia/Dubai" → "AE")   – follows where the phone is
+ *   2. device locale region (e.g. "en-GB" → "GB")      – language/region setting
+ *   3. fallback (default "IN")
+ */
+export function guessDeviceCountry(fallback = "IN") {
+  try {
+    const cc = TIMEZONE_COUNTRY[deviceTimeZone()];
+    if (cc && findCountry(cc)?.dial) return cc;
+  } catch {}
+  try {
+    const loc = Intl.DateTimeFormat().resolvedOptions().locale || "";
+    const m = loc.match(/[-_]([A-Z]{2})(?:$|[-_])/);
+    if (m && findCountry(m[1])?.dial) return m[1];
+  } catch {}
+  return fallback;
+}
+
+/**
+ * Default phone prefix for forms used by a logged-in school user:
+ *   1. the school's own country (ssms_clients.country_code, sent at login)
+ *   2. Indian (legacy) schools without a country → +91
+ *   3. otherwise the device's country (time zone / locale), then +91
+ */
+export function defaultDialFor(user) {
+  const c = findCountry(String(user?.schoolCountry || "").toUpperCase());
+  if (c?.dial) return c.dial;
+  if (user && user.billingModel !== "subscription") return "+91";
+  return deviceDialCode("+91");
+}
+
+/** Dial code ("+971") for the device's country – used as the default phone prefix. */
+export function deviceDialCode(fallback = "+91") {
+  const c = findCountry(guessDeviceCountry(""));
+  return c?.dial || fallback;
 }

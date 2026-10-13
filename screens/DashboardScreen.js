@@ -15,6 +15,7 @@ import { HOST_NAME } from "../Environment/EnvironmentConfig";
 import {
   fetchUpcomingEvents, createEvent, updateEvent, deleteEvent,
 } from "../services/SchoolEventsServiceApi";
+import { getUpcoming, eventsAsUpcoming, UPCOMING_STYLE, upcomingTitle, upcomingTarget } from "../services/CalendarApi";
 import { fetchNotices } from "../services/NoticeServiceApi";
 import {
   scheduleClassReminders,
@@ -24,7 +25,11 @@ import {
 } from "../services/NotificationService";
 import { fetchGalleryPhotos } from "../services/GalleryServiceApi";
 import { fetchInstituteDetails } from "../services/UserServiceApi";
+import { wasJustLocked } from "../services/apiInterceptor";
+import AnalyticsInsightsCard from "../components/AnalyticsInsightsCard";
 
+import { fmtDate, fmtTime } from "../services/Locale";
+import { _t, _tx } from "../services/i18n";
 // ── Constants ─────────────────────────────────────────────────────────────────
 const COLORS = [
   "#2f7ef5", "#10b981", "#f59e0b", "#ef4444",
@@ -44,8 +49,7 @@ const DAY_LABELS     = ["Su","Mo","Tu","We","Th","Fr","Sa"];
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt = (d) => {
   if (!d) return "";
-  const dt = new Date(d + "T00:00:00");
-  return dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return fmtDate(d, "medium");
 };
 
 const daysLeft = (dateStr) => {
@@ -54,10 +58,10 @@ const daysLeft = (dateStr) => {
     (new Date(dateStr + "T00:00:00") - new Date(new Date().toDateString())) / 86400000
   );
   if (diff < 0)  return null;
-  if (diff === 0) return { label: "Today",    urgent: true  };
-  if (diff === 1) return { label: "Tomorrow", urgent: true  };
-  if (diff <= 3)  return { label: `In ${diff} days`, urgent: true  };
-  return              { label: `In ${diff} days`, urgent: false };
+  if (diff === 0) return { label: _t("Today"),    urgent: true  };
+  if (diff === 1) return { label: _t("Tomorrow"), urgent: true  };
+  if (diff <= 3)  return { label: _t("In {diff} days", { diff }), urgent: true  };
+  return              { label: _t("In {diff} days", { diff }), urgent: false };
 };
 
 const toYMD = (y, m, d) =>
@@ -201,7 +205,7 @@ function CalendarPicker({ visible, onClose, value, onChange, title = "Select Dat
 
           {/* ── Title ── */}
           <View style={cal.titleRow}>
-            <Text style={cal.titleTxt}>{title}</Text>
+            <Text style={cal.titleTxt}>{_tx(title)}</Text>
             <TouchableOpacity onPress={onClose} style={cal.closeBtn}>
               <Feather name="x" size={14} color="#64748b" />
             </TouchableOpacity>
@@ -219,11 +223,11 @@ function CalendarPicker({ visible, onClose, value, onChange, title = "Select Dat
               ) : (
                 <>
                   <TouchableOpacity onPress={() => setMode(mode === "months" ? "days" : "months")} style={cal.navMonthBtn}>
-                    <Text style={cal.navMonthTxt}>{MONTH_NAMES[viewMonth]}</Text>
+                    <Text style={cal.navMonthTxt}>{_tx(MONTH_NAMES[viewMonth])}</Text>
                     <Feather name={mode === "months" ? "chevron-up" : "chevron-down"} size={12} color="#1e40af" />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => setMode(mode === "years" ? "days" : "years")} style={cal.navYearBtn}>
-                    <Text style={cal.navYearSmTxt}>{viewYear}</Text>
+                    <Text style={cal.navYearSmTxt}>{_tx(viewYear)}</Text>
                     <Feather name={mode === "years" ? "chevron-up" : "chevron-down"} size={11} color="#64748b" />
                   </TouchableOpacity>
                 </>
@@ -243,7 +247,7 @@ function CalendarPicker({ visible, onClose, value, onChange, title = "Select Dat
                 return (
                   <TouchableOpacity key={mn} style={[cal.monthCell, isCur && cal.monthCellSel]}
                     onPress={() => { setViewMonth(idx); setMode("days"); }}>
-                    <Text style={[cal.monthCellTxt, isCur && cal.monthCellSelTxt]}>{mn}</Text>
+                    <Text style={[cal.monthCellTxt, isCur && cal.monthCellSelTxt]}>{_tx(mn)}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -262,7 +266,7 @@ function CalendarPicker({ visible, onClose, value, onChange, title = "Select Dat
                 return (
                   <TouchableOpacity style={[cal.yearCell, isCur && cal.yearCellSel]}
                     onPress={() => { setViewYear(y); setMode("days"); }}>
-                    <Text style={[cal.yearCellTxt, isCur && cal.yearCellSelTxt]}>{y}</Text>
+                    <Text style={[cal.yearCellTxt, isCur && cal.yearCellSelTxt]}>{_tx(y)}</Text>
                   </TouchableOpacity>
                 );
               }}
@@ -275,7 +279,7 @@ function CalendarPicker({ visible, onClose, value, onChange, title = "Select Dat
               {/* Day-of-week header */}
               <View style={cal.dowRow}>
                 {DAY_LABELS.map(dl => (
-                  <Text key={dl} style={cal.dowTxt}>{dl}</Text>
+                  <Text key={dl} style={cal.dowTxt}>{_tx(dl)}</Text>
                 ))}
               </View>
 
@@ -295,7 +299,7 @@ function CalendarPicker({ visible, onClose, value, onChange, title = "Select Dat
                       disabled={disabled}
                     >
                       <Text style={[cal.dayCellTxt, isSel && cal.dayCellSelTxt, isToday && !isSel && cal.dayCellTodayTxt, disabled && cal.dayCellDisTxt]}>
-                        {d}
+                        {_tx(d)}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -306,7 +310,7 @@ function CalendarPicker({ visible, onClose, value, onChange, title = "Select Dat
 
           {/* ── Selected display ── */}
           {value ? (
-            <Text style={cal.selectedTxt}>Selected: {fmt(value)}</Text>
+            <Text style={cal.selectedTxt}>{_t("Selected: {value}", { value: fmt(value) })}</Text>
           ) : null}
 
         </TouchableOpacity>
@@ -321,7 +325,7 @@ function DateField({ label, required, value, onChange, minDate, disabled }) {
   return (
     <>
       <Text style={st.fLabel}>
-        {label}{required && <Text style={{ color: "#ef4444" }}> *</Text>}
+        {_tx(label)}{required && <Text style={{ color: "#ef4444" }}> *</Text>}
       </Text>
       <TouchableOpacity
         style={[st.datePicker, disabled && { opacity: 0.5 }]}
@@ -330,7 +334,7 @@ function DateField({ label, required, value, onChange, minDate, disabled }) {
       >
         <Feather name="calendar" size={14} color={value ? "#1e40af" : "#94a3b8"} />
         <Text style={[st.datePickerTxt, !value && st.datePickerPh]}>
-          {value ? fmt(value) : "Tap to pick date"}
+          {value ? fmt(value) : _t("Tap to pick date")}
         </Text>
         {value && (
           <TouchableOpacity onPress={() => !disabled && onChange("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -343,7 +347,7 @@ function DateField({ label, required, value, onChange, minDate, disabled }) {
         onClose={() => setOpen(false)}
         value={value}
         onChange={(v) => { onChange(v); setOpen(false); }}
-        title={label}
+        title={_tx(label)}
         minDate={minDate}
       />
     </>
@@ -391,90 +395,95 @@ export default function DashboardScreen({ navigation }) {
 
     return [
       {
-        key: "students", label: "Students", icon: "school",
+        key: "students", label: _t("Students"), icon: "school",
         color: "#1d4ed8", bg: "#eff6ff", show: isStaff,
         links: [
-          isStaff && { icon: "person-add",     label: "Add Student",  nav: go("School", { screen: "Registration"        }) },
-          isStaff && { icon: "group",           label: "Students",     nav: go("School", { screen: "StudentsList"        }) },
-          isStaff && { icon: "how-to-reg",      label: "Enrollment",   nav: go("School", { screen: "EnrolledStudents"    }) },
-          (isStaff && !isAdm) && { icon: "calendar-view-day", label: "My Classes", nav: go("Setup",  { screen: "TeacherTimetable"   }) },
-          isAdm   && { icon: "badge",           label: "ID Cards",     nav: go("School", { screen: "StudentIdCard"       }) },
-          isAdm   && { icon: "manage-accounts", label: "Accounts",     nav: go("School", { screen: "StudentUserAccounts" }) },
+          isStaff && { icon: "person-add",     label: _t("Add Student"),  nav: go("School", { screen: "Registration"        }) },
+          isStaff && { icon: "group",           label: _t("Students"),     nav: go("School", { screen: "StudentsList"        }) },
+          isStaff && { icon: "how-to-reg",      label: _t("Enrollment"),   nav: go("School", { screen: "EnrolledStudents"    }) },
+          (isStaff && !isAdm) && { icon: "calendar-view-day", label: _t("My Classes"), nav: go("Setup",  { screen: "TeacherTimetable"   }) },
+          isAdm   && { icon: "badge",           label: _t("ID Cards"),     nav: go("School", { screen: "StudentIdCard"       }) },
+          isAdm   && { icon: "manage-accounts", label: _t("Accounts"),     nav: go("School", { screen: "StudentUserAccounts" }) },
         ].filter(Boolean),
       },
       {
-        key: "attendance", label: "Attendance", icon: "fact-check",
+        key: "attendance", label: _t("Attendance"), icon: "fact-check",
         color: "#15803d", bg: "#f0fdf4", show: isStaff,
         links: [
-          isStaff && { icon: "check-circle", label: "Mark Attend.", nav: go("School",          { screen: "Attendance" }) },
-          isStaff && { icon: "bar-chart",    label: "Report",       nav: go("AttendanceReport"                        ) },
-          !isAdm  && { icon: "person",       label: "My Attendance",nav: go("MyAttendance"                            ) },
+          isStaff && { icon: "check-circle", label: _t("Mark Attend."), nav: go("School",          { screen: "Attendance" }) },
+          isStaff && { icon: "bar-chart",    label: _t("Report"),       nav: go("AttendanceReport"                        ) },
+          isStaff && { icon: "event-busy",   label: _t("Student Leave"), nav: go("School",          { screen: "StudentLeave" }) },
+          isStaff && { icon: "schedule",     label: _t("Late & Early"), nav: go("School",          { screen: "ArrivalLog" }) },
+          !isAdm  && { icon: "person",       label: _t("My Attendance"),nav: go("MyAttendance"                            ) },
+          (isStaff && !isAdm) && { icon: "login", label: _t("Check In"),  nav: go("School",          { screen: "MyCheckIn" }) },
+          isAdm   && { icon: "badge",        label: _t("Staff Attend."), nav: go("School",          { screen: "StaffAttendance" }) },
         ].filter(Boolean),
       },
       {
-        key: "examination", label: "Examination", icon: "assignment",
+        key: "examination", label: _t("Examination"), icon: "assignment",
         color: "#7c3aed", bg: "#f5f3ff", show: isStaff,
         links: [
-          isAdm   && { icon: "list-alt",     label: "Exams",       nav: go("School", { screen: "Exam"              }) },
-          isStaff && { icon: "edit",         label: "Enter Marks", nav: go("School", { screen: "AddMarks"          }) },
-          isStaff && { icon: "description",  label: "Marksheet",   nav: go("School", { screen: "GenerateMarksheet" }) },
-          isAdm   && { icon: "emoji-events", label: "Rankings",    nav: go("School", { screen: "ExamResultsRank"   }) },
-          isStaff && { icon: "quiz",         label: "Quick Test",  nav: go("School", { screen: "QuickTestSetup"    }) },
-          isStaff && { icon: "book",         label: "Homework",    nav: go("School", { screen: "Homework"          }) },
+          isAdm   && { icon: "list-alt",     label: _t("Exams"),       nav: go("School", { screen: "Exam"              }) },
+          isStaff && { icon: "edit",         label: _t("Enter Marks"), nav: go("School", { screen: "AddMarks"          }) },
+          isStaff && { icon: "description",  label: _t("Marksheet"),   nav: go("School", { screen: "GenerateMarksheet" }) },
+          isAdm   && { icon: "emoji-events", label: _t("Rankings"),    nav: go("School", { screen: "ExamResultsRank"   }) },
+          isStaff && { icon: "workspace-premium", label: _t("Report Cards"), nav: go("School", { screen: "ReportCards" }) },
+          isStaff && { icon: "quiz",         label: _t("Quick Test"),  nav: go("School", { screen: "QuickTestSetup"    }) },
+          isStaff && { icon: "book",         label: _t("Homework"),    nav: go("School", { screen: "Homework"          }) },
         ].filter(Boolean),
       },
       isFin && {
-        key: "finance", label: "Finance", icon: "account-balance-wallet",
+        key: "finance", label: _t("Finance"), icon: "account-balance-wallet",
         color: "#059669", bg: "#ecfdf5",
         links: [
-          { icon: "payment",   label: "Fee Collection", nav: go("School", { screen: "FeeCollection"        }) },
-          { icon: "receipt",   label: "Fee Items",      nav: go("School", { screen: "FeeItem"               }) },
-          isAdm && { icon: "discount", label: "Discount",       nav: go("School", { screen: "StudentDiscount"       }) },
-          isAdm && { icon: "task-alt", label: "Approval",       nav: go("School", { screen: "FeeCollectionApproval" }) },
+          { icon: "payment",   label: _t("Fee Collection"), nav: go("School", { screen: "FeeCollection"        }) },
+          { icon: "receipt",   label: _t("Fee Items"),      nav: go("School", { screen: "FeeItem"               }) },
+          isAdm && { icon: "discount", label: _t("Discount"),       nav: go("School", { screen: "StudentDiscount"       }) },
+          isAdm && { icon: "task-alt", label: _t("Approval"),       nav: go("School", { screen: "FeeCollectionApproval" }) },
         ].filter(Boolean),
       },
       isStaff && {
-        key: "timetable", label: "Timetable", icon: "event-note",
+        key: "timetable", label: _t("Timetable"), icon: "event-note",
         color: "#b45309", bg: "#fffbeb",
         links: [
-          isAdm  && { icon: "table-chart", label: "Timetable", nav: go("Setup", { screen: "Timetable"       }) },
-          isAdm  && { icon: "schedule",    label: "Master TT", nav: go("Setup", { screen: "MasterTimetable" }) },
-          isAdm  && { icon: "timer",             label: "Periods",    nav: go("Setup", { screen: "PeriodSetup"      }) },
+          isAdm  && { icon: "table-chart", label: _t("Timetable"), nav: go("Setup", { screen: "Timetable"       }) },
+          isAdm  && { icon: "schedule",    label: _t("Master TT"), nav: go("Setup", { screen: "MasterTimetable" }) },
+          isAdm  && { icon: "timer",             label: _t("Periods"),    nav: go("Setup", { screen: "PeriodSetup"      }) },
         ].filter(Boolean),
       },
       isAdm && {
-        key: "staff", label: "Staff & HR", icon: "people",
+        key: "staff", label: _t("Staff & HR"), icon: "people",
         color: "#4338ca", bg: "#eef2ff",
         links: [
-          { icon: "person-add", label: "Add Staff",    nav: go("School", { screen: "StaffRegistration" }) },
-          { icon: "groups",     label: "Hired Staff",  nav: go("School", { screen: "HiredStaff"        }) },
-          { icon: "work",       label: "Categories",   nav: go("Setup",  { screen: "StaffCategory"     }) },
-          { icon: "school",     label: "Sub. Teacher", nav: go("School", { screen: "SubjectTeacher"    }) },
+          { icon: "person-add", label: _t("Add Staff"),    nav: go("School", { screen: "StaffRegistration" }) },
+          { icon: "groups",     label: _t("Hired Staff"),  nav: go("School", { screen: "HiredStaff"        }) },
+          { icon: "work",       label: _t("Categories"),   nav: go("Setup",  { screen: "StaffCategory"     }) },
+          { icon: "school",     label: _t("Sub. Teacher"), nav: go("School", { screen: "SubjectTeacher"    }) },
         ],
       },
       isAdm && showPaid("hostel") && {
-        key: "hostel", label: "Hostel", icon: "hotel",
+        key: "hostel", label: _t("Hostel"), icon: "hotel",
         color: "#0369a1", bg: "#f0f9ff",
         links: [
-          { icon: "apartment",  label: "Buildings",  nav: go("Hostel", { screen: "HostelBuildings" }) },
-          { icon: "door-front", label: "Rooms",      nav: go("Hostel", { screen: "HostelRooms"     }) },
-          { icon: "how-to-reg", label: "Enrollment", nav: go("Hostel", { screen: "HostelEnrollment"}) },
-          { icon: "payment",    label: "Hostel Fee", nav: go("Hostel", { screen: "HostelFee"       }) },
+          { icon: "apartment",  label: _t("Buildings"),  nav: go("Hostel", { screen: "HostelBuildings" }) },
+          { icon: "door-front", label: _t("Rooms"),      nav: go("Hostel", { screen: "HostelRooms"     }) },
+          { icon: "how-to-reg", label: _t("Enrollment"), nav: go("Hostel", { screen: "HostelEnrollment"}) },
+          { icon: "payment",    label: _t("Hostel Fee"), nav: go("Hostel", { screen: "HostelFee"       }) },
         ],
       },
       (isAdm || isFin) && {
-        key: "setup", label: "Setup", icon: "settings",
+        key: "setup", label: _t("Setup"), icon: "settings",
         color: "#475569", bg: "#f8fafc",
         links: [
-          isAdm && { icon: "corporate-fare",  label: "School",       nav: go("Setup", { screen: "SchoolSettings"       }) },
-          isAdm && { icon: "account-tree",    label: "Branch",       nav: go("Setup", { screen: "BranchSetup"          }) },
-          isAdm && { icon: "class",           label: "Classes",      nav: go("Setup", { screen: "ClassSetup"           }) },
-          isAdm && { icon: "subject",         label: "Subjects",     nav: go("Setup", { screen: "SubjectSetup"         }) },
-          isAdm && { icon: "manage-accounts", label: "Users",        nav: go("Setup", { screen: "UserSetup"            }) },
-          { icon: "monetization-on",          label: "Fee Struct",   nav: go("Setup", { screen: "ClassFeeStructure"    }) },
-          { icon: "receipt-long",             label: "Fee Items",    nav: go("School", { screen: "FeeItem"             }) },
-          isAdm && showPaid("hostel") && { icon: "hotel",            label: "Hostel Fee", nav: go("Setup", { screen: "HostelFeeStructure"    }) },
-          isAdm && showPaid("transport") && { icon: "directions-bus", label: "Trans. Fee", nav: go("Setup", { screen: "TransportFeeStructure" }) },
+          isAdm && { icon: "corporate-fare",  label: _t("School"),       nav: go("Setup", { screen: "SchoolSettings"       }) },
+          isAdm && { icon: "account-tree",    label: _t("Branch"),       nav: go("Setup", { screen: "BranchSetup"          }) },
+          isAdm && { icon: "class",           label: _t("Classes"),      nav: go("Setup", { screen: "ClassSetup"           }) },
+          isAdm && { icon: "subject",         label: _t("Subjects"),     nav: go("Setup", { screen: "SubjectSetup"         }) },
+          isAdm && { icon: "manage-accounts", label: _t("Users"),        nav: go("Setup", { screen: "UserSetup"            }) },
+          { icon: "monetization-on",          label: _t("Fee Struct"),   nav: go("Setup", { screen: "ClassFeeStructure"    }) },
+          { icon: "receipt-long",             label: _t("Fee Items"),    nav: go("School", { screen: "FeeItem"             }) },
+          isAdm && showPaid("hostel") && { icon: "hotel",            label: _t("Hostel Fee"), nav: go("Setup", { screen: "HostelFeeStructure"    }) },
+          isAdm && showPaid("transport") && { icon: "directions-bus", label: _t("Trans. Fee"), nav: go("Setup", { screen: "TransportFeeStructure" }) },
         ].filter(Boolean),
       },
     ].filter(m => m && m.show !== false && m.links && m.links.length > 0);
@@ -529,11 +538,18 @@ export default function DashboardScreen({ navigation }) {
     try {
       setEvLoading(true);
       setEvError("");
-      const data = await fetchUpcomingEvents(user, 20);
-      setEvents(data);
+      // events and holidays together with exams, parent meetings, exam duties, cover periods and leave
+      let data;
+      try { data = await getUpcoming(user, { limit: 20 }); }
+      catch { data = eventsAsUpcoming(await fetchUpcomingEvents(user, 20)); }   // older server
+      setEvents(Array.isArray(data) ? data : []);
     } catch (e) {
       console.log("Events error:", e);
-      setEvError(e.message || "Failed to load events");
+      setEvents([]);
+      // Permission denied (403) / module locked (402): leave the widget quietly empty.
+      const msg = e?.message || "";
+      const denied = wasJustLocked() || /permission|HTTP 40[23]/i.test(msg);
+      if (!denied) setEvError(msg || _t("Failed to load events"));
     } finally { setEvLoading(false); }
   }, [user, hasModule]);
 
@@ -543,14 +559,14 @@ export default function DashboardScreen({ navigation }) {
     if (hasModule("notices")) {
       try {
         const data = await fetchNotices(user, { limit: 5 });
-        setNotices(data);
-      } catch (e) { console.log("Notices error:", e); }
+        setNotices(Array.isArray(data) ? data : []);
+      } catch (e) { console.log("Notices error:", e); setNotices([]); }
     } else {
       setNotices([]);
     }
     // Gallery preview (non-critical — silent fail)
     if (hasModule("communication")) {
-      fetchGalleryPhotos(user).then(({ photos }) => setGallery(photos.slice(0, 6))).catch(() => {});
+      fetchGalleryPhotos(user).then((g) => setGallery(Array.isArray(g?.photos) ? g.photos.slice(0, 6) : [])).catch(() => {});
     } else {
       setGallery([]);
     }
@@ -571,7 +587,7 @@ export default function DashboardScreen({ navigation }) {
     Promise.all([getLeadTime(), getEnabled()]).then(([mins, en]) => {
       setLeadMins(mins);
       setNotifEnabled(en);
-    });
+    }).catch(() => {});
   }, [isTeacher]);
 
   // ── Schedule class reminders every time the screen gains focus ────────────
@@ -584,7 +600,8 @@ export default function DashboardScreen({ navigation }) {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadDashboard(), loadEvents(), loadNotices()]);
+    // allSettled: one denied widget must never leave the refresh spinner stuck
+    await Promise.allSettled([loadDashboard(), loadEvents(), loadNotices()]);
     setRefreshing(false);
   }, [loadDashboard, loadEvents, loadNotices]);
 
@@ -611,8 +628,8 @@ export default function DashboardScreen({ navigation }) {
   };
 
   const handleSave = async () => {
-    if (!title.trim()) { Alert.alert("Required", "Event title is required."); return; }
-    if (!evDate)       { Alert.alert("Required", "Event date is required.");  return; }
+    if (!title.trim()) { Alert.alert(_t("Required"), _t("Event title is required.")); return; }
+    if (!evDate)       { Alert.alert(_t("Required"), _t("Event date is required."));  return; }
     try {
       setSaving(true);
       const payload = {
@@ -631,15 +648,15 @@ export default function DashboardScreen({ navigation }) {
       setModal(false);
       loadEvents();
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to save event.");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to save event."));
     } finally { setSaving(false); }
   };
 
   const handleDelete = () => {
-    Alert.alert("Delete Event", `Delete "${editing?.event_title}"?`, [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(_t("Delete Event"), _t("Delete \"{event_title}\"?", { event_title: editing?.event_title }), [
+      { text: _t("Cancel"), style: "cancel" },
       {
-        text: "Delete", style: "destructive",
+        text: _t("Delete"), style: "destructive",
         onPress: async () => {
           try {
             setSaving(true);
@@ -647,7 +664,7 @@ export default function DashboardScreen({ navigation }) {
             setModal(false);
             loadEvents();
           } catch (e) {
-            Alert.alert("Error", e.message || "Failed to delete.");
+            Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to delete."));
           } finally { setSaving(false); }
         },
       },
@@ -689,7 +706,7 @@ export default function DashboardScreen({ navigation }) {
               </TouchableOpacity>
             ) : null}
             {schoolName ? (
-              <Text style={st.schoolNameTxt}>{schoolName}</Text>
+              <Text style={st.schoolNameTxt}>{_tx(schoolName)}</Text>
             ) : null}
           </View>
         ) : null}
@@ -704,10 +721,10 @@ export default function DashboardScreen({ navigation }) {
 
         {/* Stats */}
         <View style={st.grid}>
-          <Stat icon="school"   label="Students" value={metrics.students}      colors={["#4f46e5","#6366f1"]} />
-          <Stat icon="person"   label="Teachers" value={metrics.teachers}      colors={["#16a34a","#22c55e"]} />
-          <Stat icon="business" label="Branches" value={metrics.branches}      colors={["#0ea5e9","#38bdf8"]} />
-          <Stat icon="class"    label="Classes / Sec"  value={`${metrics.classes} / ${metrics.sections}`} colors={["#f59e0b","#fbbf24"]} />
+          <Stat icon="school"   label={_t("Students")} value={metrics.students}      colors={["#4f46e5","#6366f1"]} />
+          <Stat icon="person"   label={_t("Teachers")} value={metrics.teachers}      colors={["#16a34a","#22c55e"]} />
+          <Stat icon="business" label={_t("Branches")} value={metrics.branches}      colors={["#0ea5e9","#38bdf8"]} />
+          <Stat icon="class"    label={_t("Classes / Sec")}  value={`${metrics.classes} / ${metrics.sections}`} colors={["#f59e0b","#fbbf24"]} />
         </View>
 
         {/* Attendance */}
@@ -716,9 +733,9 @@ export default function DashboardScreen({ navigation }) {
           <View style={st.attHeader}>
             <View style={st.attTitleRow}>
               <MaterialIcons name="bar-chart" size={15} color="#1e40af" />
-              <Text style={st.sectionTitle}>Attendance Overview</Text>
+              <Text style={st.sectionTitle}>{_t("Attendance Overview")}</Text>
             </View>
-            <Text style={st.attPct}>{metrics.attendance}%</Text>
+            <Text style={st.attPct}>{_tx(metrics.attendance)}%</Text>
           </View>
           {/* Progress bar */}
           <View style={st.attBarBg}>
@@ -729,19 +746,22 @@ export default function DashboardScreen({ navigation }) {
           <View style={st.attLegend}>
             <View style={st.attLegendItem}>
               <View style={[st.attDot, { backgroundColor: "#16a34a" }]} />
-              <Text style={st.attLegendTxt}>Present {metrics.attendance}%</Text>
+              <Text style={st.attLegendTxt}>{_t("Present {attendance}%", { attendance: metrics.attendance })}</Text>
             </View>
             <View style={st.attLegendItem}>
               <View style={[st.attDot, { backgroundColor: "#f87171" }]} />
-              <Text style={st.attLegendTxt}>Absent {Math.max(0, 100 - metrics.attendance)}%</Text>
+              <Text style={st.attLegendTxt}>{_t("Absent {v}%", { v: Math.max(0, 100 - metrics.attendance) })}</Text>
             </View>
           </View>
         </View>
 
+        {/* School insights (Reports & analytics) – hides itself if not allowed or unavailable */}
+        <AnalyticsInsightsCard navigation={navigation} />
+
         {/* ── Module Quick Actions ── */}
         <View style={st.qaHeader}>
           <MaterialIcons name="flash-on" size={15} color="#1d4ed8" />
-          <Text style={st.qaHeaderTxt}>Quick Actions</Text>
+          <Text style={st.qaHeaderTxt}>{_t("Quick Actions")}</Text>
         </View>
 
         {quickModules.map(mod => (
@@ -751,7 +771,7 @@ export default function DashboardScreen({ navigation }) {
               <View style={[st.modIconWrap, { backgroundColor: mod.bg }]}>
                 <MaterialIcons name={mod.icon} size={15} color={mod.color} />
               </View>
-              <Text style={[st.modTitle, { color: mod.color }]}>{mod.label}</Text>
+              <Text style={[st.modTitle, { color: mod.color }]}>{_tx(mod.label)}</Text>
             </View>
             {/* Links grid */}
             <View style={st.modLinks}>
@@ -763,7 +783,7 @@ export default function DashboardScreen({ navigation }) {
                       <MaterialIcons name={link.icon} size={20} color={locked ? "#94a3b8" : mod.color} />
                       {locked && <LockBadge />}
                     </View>
-                    <Text style={[st.modLinkTxt, locked && { color: "#94a3b8" }]} numberOfLines={2}>{link.label}</Text>
+                    <Text style={[st.modLinkTxt, locked && { color: "#94a3b8" }]} numberOfLines={2}>{_tx(link.label)}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -776,7 +796,7 @@ export default function DashboardScreen({ navigation }) {
           <TouchableOpacity style={st.notifPill} onPress={() => setNotifSettingsVis(true)}>
             <Feather name={notifEnabled ? "bell" : "bell-off"} size={12} color={notifEnabled ? "#7c3aed" : "#94a3b8"} />
             <Text style={[st.notifPillTxt, !notifEnabled && { color: "#94a3b8" }]}>
-              {notifEnabled ? `Class reminders: ${leadMins} min before` : "Class reminders: off"}
+              {notifEnabled ? _t("Class reminders: {leadMins} min before", { leadMins }) : _t("Class reminders: off")}
             </Text>
             <Feather name="settings" size={11} color="#94a3b8" />
           </TouchableOpacity>
@@ -787,11 +807,11 @@ export default function DashboardScreen({ navigation }) {
           <Modal visible={notifSettingsVis} transparent animationType="fade" onRequestClose={() => setNotifSettingsVis(false)}>
             <View style={st.notifOverlay}>
               <View style={st.notifSheet}>
-                <Text style={st.notifSheetTitle}>Class Reminder Settings</Text>
-                <Text style={st.notifSheetSub}>Notify me before each period starts</Text>
+                <Text style={st.notifSheetTitle}>{_t("Class Reminder Settings")}</Text>
+                <Text style={st.notifSheetSub}>{_t("Notify me before each period starts")}</Text>
 
                 <View style={st.notifRow}>
-                  <Text style={st.notifRowLabel}>Enable reminders</Text>
+                  <Text style={st.notifRowLabel}>{_t("Enable reminders")}</Text>
                   <Switch
                     value={notifEnabled}
                     onValueChange={async v => {
@@ -806,7 +826,7 @@ export default function DashboardScreen({ navigation }) {
 
                 {notifEnabled && (
                   <View style={st.notifRow}>
-                    <Text style={st.notifRowLabel}>Minutes before period</Text>
+                    <Text style={st.notifRowLabel}>{_t("Minutes before period")}</Text>
                     <View style={st.notifStepper}>
                       {[2, 5, 10, 15].map(m => (
                         <TouchableOpacity
@@ -814,7 +834,7 @@ export default function DashboardScreen({ navigation }) {
                           style={[st.notifStep, leadMins === m && st.notifStepSel]}
                           onPress={() => setLeadMins(m)}
                         >
-                          <Text style={[st.notifStepTxt, leadMins === m && st.notifStepSelTxt]}>{m}</Text>
+                          <Text style={[st.notifStepTxt, leadMins === m && st.notifStepSelTxt]}>{_tx(m)}</Text>
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -823,7 +843,7 @@ export default function DashboardScreen({ navigation }) {
 
                 <View style={st.notifBtns}>
                   <TouchableOpacity style={st.notifCancelBtn} onPress={() => setNotifSettingsVis(false)}>
-                    <Text style={st.notifCancelTxt}>Cancel</Text>
+                    <Text style={st.notifCancelTxt}>{_t("Cancel")}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={st.notifSaveBtn}
@@ -838,7 +858,7 @@ export default function DashboardScreen({ navigation }) {
                   >
                     {savingNotif
                       ? <ActivityIndicator size={14} color="#fff" />
-                      : <Text style={st.notifSaveTxt}>Save</Text>}
+                      : <Text style={st.notifSaveTxt}>{_t("Save")}</Text>}
                   </TouchableOpacity>
                 </View>
               </View>
@@ -851,16 +871,16 @@ export default function DashboardScreen({ navigation }) {
           <View style={st.noticeHead}>
             <View style={st.noticeHeadLeft}>
               <Feather name="bell" size={15} color="#7c3aed" />
-              <Text style={st.noticeHeadTitle}>Notices &amp; Circulars</Text>
+              <Text style={st.noticeHeadTitle}>{_t("Notices & Circulars")}</Text>
             </View>
             <TouchableOpacity onPress={() => navigation.navigate("NoticeBoard")} style={st.noticeViewAll}>
-              <Text style={st.noticeViewAllTxt}>View All</Text>
+              <Text style={st.noticeViewAllTxt}>{_t("View All")}</Text>
               <Feather name="chevron-right" size={12} color="#7c3aed" />
             </TouchableOpacity>
           </View>
           {notices.length === 0 ? (
             <View style={st.noticeEmpty}>
-              <Text style={st.noticeEmptyTxt}>No notices posted yet</Text>
+              <Text style={st.noticeEmptyTxt}>{_t("No notices posted yet")}</Text>
             </View>
           ) : (
             notices.slice(0, 4).map((n, i) => {
@@ -875,11 +895,11 @@ export default function DashboardScreen({ navigation }) {
                 >
                   <View style={[st.noticeDot, { backgroundColor: dotColor }]} />
                   <View style={{ flex: 1 }}>
-                    <Text style={st.noticeTitle} numberOfLines={1}>{n.title}</Text>
-                    <Text style={st.noticeDate}>{n.category}  ·  {
+                    <Text style={st.noticeTitle} numberOfLines={1}>{_tx(n.title)}</Text>
+                    <Text style={st.noticeDate}>{_tx(n.category)}  ·  {
                       (() => {
                         const dt = new Date(String(n.created_at ?? "").replace(" ", "T"));
-                        return isNaN(dt.getTime()) ? "" : dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+                        return isNaN(dt.getTime()) ? "" : fmtDate(dt, "dayMonth");
                       })()
                     }</Text>
                   </View>
@@ -896,10 +916,10 @@ export default function DashboardScreen({ navigation }) {
             <View style={st.galHead}>
               <View style={st.galHeadLeft}>
                 <Feather name="image" size={15} color="#db2777" />
-                <Text style={st.galHeadTitle}>School Gallery</Text>
+                <Text style={st.galHeadTitle}>{_t("School Gallery")}</Text>
               </View>
               <TouchableOpacity style={st.galViewAll} onPress={() => navigation.navigate("SchoolMemories")} activeOpacity={0.7}>
-                <Text style={st.galViewAllTxt}>See all</Text>
+                <Text style={st.galViewAllTxt}>{_t("See all")}</Text>
                 <Feather name="chevron-right" size={12} color="#db2777" />
               </TouchableOpacity>
             </View>
@@ -924,11 +944,11 @@ export default function DashboardScreen({ navigation }) {
             <Text style={st.waEmoji}>💬</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={st.waBannerTitle}>Join our WhatsApp Community</Text>
-            <Text style={st.waBannerSub}>Stay updated with school announcements</Text>
+            <Text style={st.waBannerTitle}>{_t("Join our WhatsApp Community")}</Text>
+            <Text style={st.waBannerSub}>{_t("Stay updated with school announcements")}</Text>
           </View>
           <View style={[st.waJoinBtn, !communityLink && st.waBtnDisabled]}>
-            <Text style={[st.waJoinTxt, !communityLink && st.waBtnDisabledTxt]}>Join</Text>
+            <Text style={[st.waJoinTxt, !communityLink && st.waBtnDisabledTxt]}>{_t("Join")}</Text>
             <Feather name="arrow-right" size={12} color={communityLink ? "#fff" : "#94a3b8"} />
           </View>
         </TouchableOpacity>
@@ -944,11 +964,11 @@ export default function DashboardScreen({ navigation }) {
             <Text style={st.waEmoji}>📢</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={st.waChBannerTitle}>Follow our WhatsApp Channel</Text>
-            <Text style={st.waChBannerSub}>Get school updates &amp; announcements</Text>
+            <Text style={st.waChBannerTitle}>{_t("Follow our WhatsApp Channel")}</Text>
+            <Text style={st.waChBannerSub}>{_t("Get school updates & announcements")}</Text>
           </View>
           <View style={[st.waChFollowBtn, !channelLink && st.waBtnDisabled]}>
-            <Text style={[st.waChFollowTxt, !channelLink && st.waBtnDisabledTxt]}>Follow</Text>
+            <Text style={[st.waChFollowTxt, !channelLink && st.waBtnDisabledTxt]}>{_t("Follow")}</Text>
             <Feather name="arrow-right" size={12} color={channelLink ? "#fff" : "#94a3b8"} />
           </View>
         </TouchableOpacity>
@@ -958,14 +978,20 @@ export default function DashboardScreen({ navigation }) {
           <View style={st.evHead}>
             <View style={st.evHeadLeft}>
               <Feather name="calendar" size={15} color="#2f7ef5" />
-              <Text style={st.evHeadTitle}>Upcoming Events &amp; Holidays</Text>
+              <Text style={st.evHeadTitle}>{_t("Upcoming events, exams & meetings")}</Text>
             </View>
-            {isAdmin && (
-              <TouchableOpacity style={st.evAddBtn} onPress={openAdd}>
-                <Feather name="plus" size={13} color="#2f7ef5" />
-                <Text style={st.evAddBtnTxt}>Add</Text>
+            <View style={{ flexDirection: "row", gap: 6 }}>
+              <TouchableOpacity style={st.evAddBtn} onPress={() => navigation.navigate("CalendarSync")} accessibilityLabel={_t("Sync to my calendar")}>
+                <Feather name="refresh-cw" size={12} color="#2f7ef5" />
+                <Text style={st.evAddBtnTxt}>{_t("Sync")}</Text>
               </TouchableOpacity>
-            )}
+              {isAdmin && (
+                <TouchableOpacity style={st.evAddBtn} onPress={openAdd}>
+                  <Feather name="plus" size={13} color="#2f7ef5" />
+                  <Text style={st.evAddBtnTxt}>{_t("Add")}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           {evLoading ? (
@@ -973,58 +999,60 @@ export default function DashboardScreen({ navigation }) {
           ) : evError ? (
             <View style={st.evEmpty}>
               <Feather name="alert-circle" size={28} color="#ef4444" />
-              <Text style={[st.evEmptyTxt, { color: "#ef4444" }]}>{evError}</Text>
+              <Text style={[st.evEmptyTxt, { color: "#ef4444" }]}>{_tx(evError)}</Text>
               <TouchableOpacity style={st.evEmptyAdd} onPress={loadEvents}>
-                <Text style={st.evEmptyAddTxt}>Retry</Text>
+                <Text style={st.evEmptyAddTxt}>{_t("Retry")}</Text>
               </TouchableOpacity>
             </View>
           ) : events.length === 0 ? (
             <View style={st.evEmpty}>
               <Feather name="calendar" size={32} color="#cbd5e1" />
-              <Text style={st.evEmptyTxt}>No upcoming events</Text>
+              <Text style={st.evEmptyTxt}>{_t("No upcoming events")}</Text>
               {isAdmin && (
                 <TouchableOpacity style={st.evEmptyAdd} onPress={openAdd}>
-                  <Text style={st.evEmptyAddTxt}>Add one now</Text>
+                  <Text style={st.evEmptyAddTxt}>{_t("Add one now")}</Text>
                 </TouchableOpacity>
               )}
             </View>
           ) : (
             <View style={st.evGrid}>
-              {events.map(ev => {
-                const dl    = daysLeft(ev.event_date);
-                const isHol = ev.event_type === "holiday";
+              {events.map((it, idx) => {
+                const ev    = it.event;   // a school event / holiday (the office can edit it)
+                const dl    = daysLeft(it.date);
+                const look  = UPCOMING_STYLE[it.kind] ?? UPCOMING_STYLE.event;
+                const target = upcomingTarget(it, false);
+                const tap   = ev ? (isAdmin ? () => openEdit(ev) : null) : target ? () => { try { navigation.navigate(target[0], target[1]); } catch { /* not available */ } } : null;
                 return (
                   <TouchableOpacity
-                    key={String(ev.event_id)}
+                    key={`${it.kind}-${ev?.event_id ?? idx}-${it.date}`}
                     style={st.evItem}
-                    onPress={() => isAdmin && openEdit(ev)}
-                    activeOpacity={isAdmin ? 0.7 : 1}
+                    onPress={tap ?? undefined}
+                    activeOpacity={tap ? 0.7 : 1}
                   >
                     <View style={st.evTitleRow}>
-                      <View style={[st.evDot, { backgroundColor: ev.event_color || "#2f7ef5" }]} />
-                      <Text style={st.evTitle} numberOfLines={2}>{ev.event_title}</Text>
+                      <View style={[st.evDot, { backgroundColor: (ev && ev.event_color) || look.color }]} />
+                      <Text style={st.evTitle} numberOfLines={2}>{_tx(upcomingTitle(it))}</Text>
                     </View>
                     <View style={st.evDateRow}>
-                      <Feather name="calendar" size={10} color="#94a3b8" />
-                      <Text style={st.evDate}>{fmt(ev.event_date)}</Text>
-                      {!!ev.event_end_date && ev.event_end_date !== ev.event_date && (
-                        <Text style={st.evDate}> – {fmt(ev.event_end_date)}</Text>
+                      <Feather name={look.icon} size={10} color="#94a3b8" />
+                      <Text style={st.evDate}>{fmt(it.date)}</Text>
+                      {!!it.end_date && it.end_date !== it.date && (
+                        <Text style={st.evDate}> – {fmt(it.end_date)}</Text>
                       )}
+                      {!!it.start && <Text style={st.evDate}> · {fmtTime(it.start)}</Text>}
                     </View>
                     <View style={st.evBadges}>
-                      <View style={[st.evBadge, isHol ? st.evBadgeHol : st.evBadgeEv]}>
-                        <Text style={[st.evBadgeTxt, isHol ? st.evBadgeTxtHol : st.evBadgeTxtEv]}>
-                          {isHol ? "Holiday" : "Event"}
-                        </Text>
+                      <View style={[st.evBadge, { backgroundColor: look.bg }]}>
+                        <Text style={[st.evBadgeTxt, { color: look.color }]}>{look.label}</Text>
                       </View>
-                      {!!ev.event_category && (
+                      {!!ev?.event_category && (
                         <View style={st.evCatBadge}>
-                          <Text style={st.evCatTxt}>{ev.event_category}</Text>
+                          <Text style={st.evCatTxt}>{_tx(ev.event_category)}</Text>
                         </View>
                       )}
                       {dl && (
                         <Text style={[st.evDaysLeft, dl.urgent && st.evDaysLeftUrgent]}>
-                          {dl.label}
+                          {_tx(dl.label)}
                         </Text>
                       )}
                     </View>
@@ -1045,7 +1073,7 @@ export default function DashboardScreen({ navigation }) {
             <View style={st.modalCard}>
 
               <View style={st.modalHead}>
-                <Text style={st.modalTitle}>{editing ? "Edit Event" : "New Event"}</Text>
+                <Text style={st.modalTitle}>{editing ? _t("Edit Event") : _t("New Event")}</Text>
                 <TouchableOpacity onPress={() => setModal(false)} disabled={saving} style={st.modalClose}>
                   <Feather name="x" size={15} color="#64748b" />
                 </TouchableOpacity>
@@ -1054,31 +1082,31 @@ export default function DashboardScreen({ navigation }) {
               <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
                 {/* Title */}
-                <Text style={st.fLabel}>Event Title <Text style={{ color: "#ef4444" }}>*</Text></Text>
+                <Text style={st.fLabel}>{_t("Event Title")}{" "}<Text style={{ color: "#ef4444" }}>*</Text></Text>
                 <TextInput style={st.input} value={title} onChangeText={setTitle}
-                  placeholder="e.g. Annual Sports Day" placeholderTextColor="#94a3b8" editable={!saving} />
+                  placeholder={_t("e.g. Annual Sports Day")} placeholderTextColor="#94a3b8" editable={!saving} />
 
                 {/* Type */}
-                <Text style={st.fLabel}>Type</Text>
+                <Text style={st.fLabel}>{_t("Type")}</Text>
                 <View style={st.toggleRow}>
                   {EVENT_TYPES.map(t => (
                     <TouchableOpacity key={t} style={[st.toggleBtn, evType === t && st.toggleBtnAct]}
                       onPress={() => setEvType(t)}>
                       <Text style={[st.toggleTxt, evType === t && st.toggleTxtAct]}>
-                        {t === "holiday" ? "Holiday" : "Event"}
+                        {t === "holiday" ? _t("Holiday") : _t("Event")}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
 
                 {/* Category */}
-                <Text style={st.fLabel}>Category</Text>
+                <Text style={st.fLabel}>{_t("Category")}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
                   <View style={{ flexDirection: "row", gap: 6 }}>
                     {EVENT_CATEGORIES.map(c => (
                       <TouchableOpacity key={c} style={[st.chipBtn, category === c && st.chipBtnAct]}
                         onPress={() => setCategory(category === c ? "" : c)}>
-                        <Text style={[st.chipTxt, category === c && st.chipTxtAct]}>{c}</Text>
+                        <Text style={[st.chipTxt, category === c && st.chipTxtAct]}>{_tx(c)}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -1086,7 +1114,7 @@ export default function DashboardScreen({ navigation }) {
 
                 {/* Event Date — calendar picker */}
                 <DateField
-                  label="Event Date"
+                  label={_t("Event Date")}
                   required
                   value={evDate}
                   onChange={setEvDate}
@@ -1095,7 +1123,7 @@ export default function DashboardScreen({ navigation }) {
 
                 {/* End Date — calendar picker, minDate = evDate */}
                 <DateField
-                  label="End Date (optional, for multi-day)"
+                  label={_t("End Date (optional, for multi-day)")}
                   value={endDate}
                   onChange={setEndDate}
                   minDate={evDate || undefined}
@@ -1103,13 +1131,13 @@ export default function DashboardScreen({ navigation }) {
                 />
 
                 {/* Description */}
-                <Text style={st.fLabel}>Description</Text>
+                <Text style={st.fLabel}>{_t("Description")}</Text>
                 <TextInput style={[st.input, { height: 72, textAlignVertical: "top" }]}
                   value={desc} onChangeText={setDesc} multiline
-                  placeholder="Optional description…" placeholderTextColor="#94a3b8" editable={!saving} />
+                  placeholder={_t("Optional description…")} placeholderTextColor="#94a3b8" editable={!saving} />
 
                 {/* Color */}
-                <Text style={st.fLabel}>Event Colour</Text>
+                <Text style={st.fLabel}>{_t("Event Colour")}</Text>
                 <View style={st.palette}>
                   {COLORS.map(c => (
                     <TouchableOpacity key={c} style={[st.paletteDot, { backgroundColor: c }, color === c && st.paletteDotSel]}
@@ -1119,7 +1147,7 @@ export default function DashboardScreen({ navigation }) {
 
                 {/* Public toggle */}
                 <View style={st.switchRow}>
-                  <Text style={st.fLabel}>Visible to Students/Parents</Text>
+                  <Text style={st.fLabel}>{_t("Visible to Students/Parents")}</Text>
                   <Switch value={isPublic} onValueChange={setIsPublic}
                     trackColor={{ false: "#e2e8f0", true: "#bfdbfe" }}
                     thumbColor={isPublic ? "#2f7ef5" : "#94a3b8"} disabled={saving} />
@@ -1132,18 +1160,18 @@ export default function DashboardScreen({ navigation }) {
                 {editing && (
                   <TouchableOpacity style={st.deleteBtn} onPress={handleDelete} disabled={saving}>
                     <Feather name="trash-2" size={14} color="#dc2626" />
-                    <Text style={st.deleteBtnTxt}>Delete</Text>
+                    <Text style={st.deleteBtnTxt}>{_t("Delete")}</Text>
                   </TouchableOpacity>
                 )}
                 <View style={{ flex: 1 }} />
                 <TouchableOpacity style={st.cancelBtn} onPress={() => setModal(false)} disabled={saving}>
-                  <Text style={st.cancelBtnTxt}>Cancel</Text>
+                  <Text style={st.cancelBtnTxt}>{_t("Cancel")}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[st.saveBtn, saving && { opacity: 0.6 }]}
                   onPress={handleSave} disabled={saving}>
                   {saving
                     ? <ActivityIndicator color="#fff" size="small" />
-                    : <><Feather name="check" size={14} color="#fff" /><Text style={st.saveBtnTxt}>Save</Text></>}
+                    : <><Feather name="check" size={14} color="#fff" /><Text style={st.saveBtnTxt}>{_t("Save")}</Text></>}
                 </TouchableOpacity>
               </View>
 
@@ -1159,15 +1187,15 @@ export default function DashboardScreen({ navigation }) {
 const Stat = ({ icon, label, value, colors }) => (
   <LinearGradient colors={colors} style={st.statCard}>
     <MaterialIcons name={icon} size={18} color="rgba(255,255,255,0.85)" />
-    <Text style={st.statValue}>{value}</Text>
-    <Text style={st.statLabel}>{label}</Text>
+    <Text style={st.statValue}>{_tx(value)}</Text>
+    <Text style={st.statLabel}>{_tx(label)}</Text>
   </LinearGradient>
 );
 
 const Action = ({ icon, title, onPress, disabled }) => (
   <TouchableOpacity style={[st.action, disabled && { opacity: 0.45 }]} onPress={onPress} activeOpacity={disabled ? 1 : 0.8} disabled={!onPress}>
     <MaterialIcons name={icon} size={22} color="#fff" />
-    <Text style={st.actionText}>{title}</Text>
+    <Text style={st.actionText}>{_tx(title)}</Text>
   </TouchableOpacity>
 );
 

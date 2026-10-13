@@ -15,6 +15,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
 import { saveResponses, submitAttempt } from "../../services/TestSeriesServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const OPTIONS = ["A", "B", "C", "D"];
@@ -96,10 +97,10 @@ function OptionBtn({ label, text, selected, onPress }) {
         {selected && <View style={s.optRadioDot} />}
       </View>
       <View style={[s.optLabelBadge, selected && s.optLabelBadgeSel]}>
-        <Text style={[s.optLabelTxt, selected && s.optLabelTxtSelected]}>{label}</Text>
+        <Text style={[s.optLabelTxt, selected && s.optLabelTxtSelected]}>{_tx(label)}</Text>
       </View>
       <Text style={[s.optText, selected && s.optTextSelected]} numberOfLines={4}>
-        {text}
+        {_tx(text)}
       </Text>
     </TouchableOpacity>
   );
@@ -118,10 +119,10 @@ function CheckboxBtn({ label, text, selected, onPress }) {
         {selected && <Feather name="check" size={11} color="#fff" />}
       </View>
       <View style={[s.optLabelBadge, selected && s.optLabelBadgeSel]}>
-        <Text style={[s.optLabelTxt, selected && s.optLabelTxtSelected]}>{label}</Text>
+        <Text style={[s.optLabelTxt, selected && s.optLabelTxtSelected]}>{_tx(label)}</Text>
       </View>
       <Text style={[s.optText, selected && s.optTextSelected]} numberOfLines={4}>
-        {text}
+        {_tx(text)}
       </Text>
     </TouchableOpacity>
   );
@@ -284,7 +285,7 @@ export default function TestAttemptScreen({ navigation, route }) {
     if (!attemptId) return;
     try {
       await saveResponses(effectiveUser, attemptId, buildPayload(responses));
-      if (showAlert) Alert.alert("Saved", "Your responses have been saved.");
+      if (showAlert) Alert.alert(_t("Saved"), _t("Your responses have been saved."));
     } catch (_) {
       // silent fail on auto-save
     }
@@ -317,7 +318,7 @@ export default function TestAttemptScreen({ navigation, route }) {
       await submitAttempt(effectiveUser, attemptId, elapsed, buildPayload(finalResponses));
       navigation.replace("TestResult", { attemptId, test });
     } catch (e) {
-      Alert.alert("Submission Error", e.message || "Auto-submit failed.");
+      Alert.alert(_t("Submission Error"), _tx(e.message) || _t("Auto-submit failed."));
     }
   }, [effectiveUser, attemptId, responses, buildPayload, test, currentKey, currentQuestion, numInput]);
 
@@ -332,12 +333,12 @@ export default function TestAttemptScreen({ navigation, route }) {
     }).length;
 
     Alert.alert(
-      "Submit Test",
-      `Are you sure you want to submit?\n\n${unattempted} question${unattempted !== 1 ? "s" : ""} unattempted.`,
+      _t("Submit Test"),
+      _t("Are you sure you want to submit?\n\n{unattempted} question{pl} unattempted.", { unattempted, pl: unattempted !== 1 ? "s" : "" }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Submit",
+          text: _t("Submit"),
           style: "destructive",
           onPress: async () => {
             setShowPalette(false);
@@ -349,7 +350,7 @@ export default function TestAttemptScreen({ navigation, route }) {
               await submitAttempt(effectiveUser, attemptId, elapsed, buildPayload(responses));
               navigation.replace("TestResult", { attemptId, test });
             } catch (e) {
-              Alert.alert("Error", e.message || "Submission failed. Please try again.");
+              Alert.alert(_t("Error"), _tx(e.message) || _t("Submission failed. Please try again."));
               setSubmitting(false);
             }
           },
@@ -360,11 +361,11 @@ export default function TestAttemptScreen({ navigation, route }) {
 
   const promptLeave = () => {
     Alert.alert(
-      "Leave Test?",
-      "Your progress is auto-saved. The timer will keep running if you leave.",
+      _t("Leave Test?"),
+      _t("Your progress is auto-saved. The timer will keep running if you leave."),
       [
-        { text: "Stay", style: "cancel" },
-        { text: "Leave", style: "destructive", onPress: () => navigation.goBack() },
+        { text: _t("Stay"), style: "cancel" },
+        { text: _t("Leave"), style: "destructive", onPress: () => navigation.goBack() },
       ]
     );
   };
@@ -548,7 +549,7 @@ export default function TestAttemptScreen({ navigation, route }) {
   if (!questions.length) {
     return (
       <View style={[s.root, { justifyContent: "center", alignItems: "center" }]}>
-        <Text style={{ color: "#64748b", fontSize: 14 }}>No questions found for this test.</Text>
+        <Text style={{ color: "#64748b", fontSize: 14 }}>{_t("No questions found for this test.")}</Text>
       </View>
     );
   }
@@ -563,7 +564,7 @@ export default function TestAttemptScreen({ navigation, route }) {
         </TouchableOpacity>
 
         <Text style={s.headerTitle} numberOfLines={1}>
-          {test?.title ?? "Test"}
+          {_tx(test?.title) ?? _t("Test")}
         </Text>
 
         <View style={[s.timerWrap, timeLeft < 300 && s.timerWrapRed]}>
@@ -572,7 +573,7 @@ export default function TestAttemptScreen({ navigation, route }) {
         </View>
 
         <TouchableOpacity style={s.headerSubmitBtn} onPress={handleSubmitConfirm}>
-          <Text style={s.headerSubmitTxt}>Submit</Text>
+          <Text style={s.headerSubmitTxt}>{_t("Submit")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -598,10 +599,10 @@ export default function TestAttemptScreen({ navigation, route }) {
                 }}
               >
                 <Text style={[s.sectionTabTxt, active && s.sectionTabTxtActive]}>
-                  {sec.name}
+                  {_tx(sec.name)}
                 </Text>
                 <Text style={[s.sectionTabCount, active && s.sectionTabCountActive]}>
-                  {stats.attempted}/{stats.total}
+                  {_tx(stats.attempted)}/{_tx(stats.total)}
                 </Text>
               </TouchableOpacity>
             );
@@ -635,9 +636,9 @@ export default function TestAttemptScreen({ navigation, route }) {
 
                   {/* Left — question number */}
                   <View style={s.qNumWrap}>
-                    <Text style={s.qNumLabel}>Q</Text>
+                    <Text style={s.qNumLabel}>{_t("Q")}</Text>
                     <Text style={s.qNumVal}>{currentIdx + 1}</Text>
-                    <Text style={s.qNumOf}>/{activeQuestions.length}</Text>
+                    <Text style={s.qNumOf}>/{_tx(activeQuestions.length)}</Text>
                   </View>
 
                   {/* Centre — status chips */}
@@ -645,13 +646,13 @@ export default function TestAttemptScreen({ navigation, route }) {
                     {!!currentResp?.is_attempted && (
                       <View style={s.answeredChip}>
                         <Feather name="check-circle" size={10} color="#16a34a" />
-                        <Text style={s.answeredChipTxt}>Answered</Text>
+                        <Text style={s.answeredChipTxt}>{_t("Answered")}</Text>
                       </View>
                     )}
                     {isMarked && (
                       <View style={s.reviewChip}>
                         <Feather name="bookmark" size={10} color="#ea580c" />
-                        <Text style={s.reviewChipTxt}>Review</Text>
+                        <Text style={s.reviewChipTxt}>{_t("Review")}</Text>
                       </View>
                     )}
                   </View>
@@ -660,13 +661,13 @@ export default function TestAttemptScreen({ navigation, route }) {
                   <View style={s.qMarksGroup}>
                     {currentQuestion.marks != null && (
                       <View style={s.marksTag}>
-                        <Text style={s.marksTagPos}>+{currentQuestion.marks}</Text>
-                        <Text style={s.marksTagLabel}> pts</Text>
+                        <Text style={s.marksTagPos}>+{_tx(currentQuestion.marks)}</Text>
+                        <Text style={s.marksTagLabel}>{" "}{_t("pts")}</Text>
                       </View>
                     )}
                     {Number(currentQuestion.negative_marks) > 0 && (
                       <View style={[s.marksTag, s.marksTagNegWrap]}>
-                        <Text style={s.marksTagNeg}>−{currentQuestion.negative_marks}</Text>
+                        <Text style={s.marksTagNeg}>−{_tx(currentQuestion.negative_marks)}</Text>
                       </View>
                     )}
                   </View>
@@ -677,7 +678,7 @@ export default function TestAttemptScreen({ navigation, route }) {
 
                 {/* Question text — hero element */}
                 <Text style={s.qText}>
-                  {currentQuestion.question_text ?? currentQuestion.text ?? "Question text not available"}
+                  {_tx(currentQuestion.question_text) ?? _tx(currentQuestion.text) ?? _t("Question text not available")}
                 </Text>
 
                 {/* Question image */}
@@ -697,7 +698,7 @@ export default function TestAttemptScreen({ navigation, route }) {
               {!isNumerical && (
                 <View style={s.optionsWrap}>
                   {isMultiCorrect && (
-                    <Text style={s.multiHint}>Select all correct options</Text>
+                    <Text style={s.multiHint}>{_t("Select all correct options")}</Text>
                   )}
                   {OPTIONS.map((label, i) => {
                     // Extract option text — supports both {text,…} objects and plain strings
@@ -721,8 +722,8 @@ export default function TestAttemptScreen({ navigation, route }) {
                       return (
                         <CheckboxBtn
                           key={label}
-                          label={label}
-                          text={optText}
+                          label={_tx(label)}
+                          text={_tx(optText)}
                           selected={selectedLetters.includes(origLetter)}
                           onPress={() => toggleMultiOption(origLetter)}
                         />
@@ -732,8 +733,8 @@ export default function TestAttemptScreen({ navigation, route }) {
                     return (
                       <OptionBtn
                         key={label}
-                        label={label}
-                        text={optText}
+                        label={_tx(label)}
+                        text={_tx(optText)}
                         selected={currentResp?.selected_option === origLetter}
                         onPress={() => selectOption(origLetter)}
                       />
@@ -745,7 +746,7 @@ export default function TestAttemptScreen({ navigation, route }) {
               {/* Numerical input */}
               {isNumerical && (
                 <View style={s.numWrap}>
-                  <Text style={s.numLabel}>Enter your answer:</Text>
+                  <Text style={s.numLabel}>{_t("Enter your answer:")}</Text>
                   <TextInput
                     style={s.numInput}
                     value={numInput}
@@ -762,7 +763,7 @@ export default function TestAttemptScreen({ navigation, route }) {
                       }));
                     }}
                     keyboardType="numeric"
-                    placeholder="Type your numerical answer…"
+                    placeholder={_t("Type your numerical answer…")}
                     placeholderTextColor="#94a3b8"
                     returnKeyType="done"
                   />
@@ -773,7 +774,7 @@ export default function TestAttemptScreen({ navigation, route }) {
             </>
           ) : (
             <View style={s.center}>
-              <Text style={s.emptyTxt}>No question available</Text>
+              <Text style={s.emptyTxt}>{_t("No question available")}</Text>
             </View>
           )}
         </ScrollView>
@@ -787,36 +788,36 @@ export default function TestAttemptScreen({ navigation, route }) {
           disabled={currentIdx === 0}
         >
           <Feather name="chevron-left" size={16} color={currentIdx === 0 ? "#94a3b8" : "#0f172a"} />
-          <Text style={[s.bottomBtnTxt, currentIdx === 0 && s.btnDisabledTxt]}>Prev</Text>
+          <Text style={[s.bottomBtnTxt, currentIdx === 0 && s.btnDisabledTxt]}>{_t("Prev")}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={[s.bottomBtn, s.reviewBtn]} onPress={markAndNext}>
           <Feather name="bookmark" size={13} color="#ea580c" />
-          <Text style={[s.bottomBtnTxt, { color: "#ea580c" }]}>Review</Text>
+          <Text style={[s.bottomBtnTxt, { color: "#ea580c" }]}>{_t("Review")}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={[s.bottomBtn, s.clearBtn]} onPress={clearResponse}>
           <Feather name="x" size={13} color="#64748b" />
-          <Text style={[s.bottomBtnTxt, { color: "#64748b" }]}>Clear</Text>
+          <Text style={[s.bottomBtnTxt, { color: "#64748b" }]}>{_t("Clear")}</Text>
         </TouchableOpacity>
 
         {isLastQuestionOverall ? (
           // Last question of last section → Submit
           <TouchableOpacity style={[s.bottomBtn, s.saveBtn]} onPress={handleSubmitConfirm}>
             <Feather name="send" size={13} color="#fff" />
-            <Text style={[s.bottomBtnTxt, { color: "#fff" }]}>Submit</Text>
+            <Text style={[s.bottomBtnTxt, { color: "#fff" }]}>{_t("Submit")}</Text>
           </TouchableOpacity>
         ) : isLastOfSection ? (
           // Last question of a section but more sections remain → Next Section
           <TouchableOpacity style={[s.bottomBtn, s.saveBtn, { backgroundColor: "#7c3aed" }]} onPress={goNextSection}>
             <Feather name="arrow-right-circle" size={13} color="#fff" />
-            <Text style={[s.bottomBtnTxt, { color: "#fff" }]}>Next Section</Text>
+            <Text style={[s.bottomBtnTxt, { color: "#fff" }]}>{_t("Next Section")}</Text>
           </TouchableOpacity>
         ) : (
           // Normal question → Save & Next
           <TouchableOpacity style={[s.bottomBtn, s.saveBtn]} onPress={saveAndNext}>
             <Feather name="check" size={13} color="#fff" />
-            <Text style={[s.bottomBtnTxt, { color: "#fff" }]}>Save & Next</Text>
+            <Text style={[s.bottomBtnTxt, { color: "#fff" }]}>{_t("Save & Next")}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -825,7 +826,7 @@ export default function TestAttemptScreen({ navigation, route }) {
       {submitting && (
         <View style={s.submitOverlay}>
           <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={s.submitOverlayTxt}>Submitting your test…</Text>
+          <Text style={s.submitOverlayTxt}>{_t("Submitting your test…")}</Text>
         </View>
       )}
 
@@ -844,7 +845,7 @@ export default function TestAttemptScreen({ navigation, route }) {
         <View style={[s.palette, { paddingBottom: insets.bottom + 16 }]}>
           {/* Palette header */}
           <View style={s.paletteHeader}>
-            <Text style={s.paletteTitle}>Question Palette</Text>
+            <Text style={s.paletteTitle}>{_t("Question Palette")}</Text>
             <TouchableOpacity
               onPress={() => setShowPalette(false)}
               style={s.paletteClose}
@@ -856,19 +857,13 @@ export default function TestAttemptScreen({ navigation, route }) {
           {/* Stats row */}
           <View style={s.paletteStats}>
             <View style={[s.statChip, { backgroundColor: PALETTE.answered.bg }]}>
-              <Text style={[s.statChipTxt, { color: PALETTE.answered.color }]}>
-                {paletteStats.answered} Answered
-              </Text>
+              <Text style={[s.statChipTxt, { color: PALETTE.answered.color }]}>{_t("{answered} Answered", { answered: paletteStats.answered })}</Text>
             </View>
             <View style={[s.statChip, { backgroundColor: PALETTE.unanswered.bg }]}>
-              <Text style={[s.statChipTxt, { color: PALETTE.unanswered.color }]}>
-                {paletteStats.unanswered} Not Answered
-              </Text>
+              <Text style={[s.statChipTxt, { color: PALETTE.unanswered.color }]}>{_t("{unanswered} Not Answered", { unanswered: paletteStats.unanswered })}</Text>
             </View>
             <View style={[s.statChip, { backgroundColor: PALETTE.reviewed.bg }]}>
-              <Text style={[s.statChipTxt, { color: PALETTE.reviewed.color }]}>
-                {paletteStats.reviewed} For Review
-              </Text>
+              <Text style={[s.statChipTxt, { color: PALETTE.reviewed.color }]}>{_t("{reviewed} For Review", { reviewed: paletteStats.reviewed })}</Text>
             </View>
           </View>
 
@@ -909,15 +904,15 @@ export default function TestAttemptScreen({ navigation, route }) {
           {/* Legend */}
           <View style={s.legend}>
             {[
-              { key: "notVisited",        label: "Not Visited"     },
-              { key: "unanswered",        label: "Not Answered"    },
-              { key: "answered",          label: "Answered"        },
-              { key: "reviewed",          label: "Marked Review"   },
-              { key: "answeredReviewed",  label: "Ans + Review"    },
+              { key: "notVisited",        label: _t("Not Visited")     },
+              { key: "unanswered",        label: _t("Not Answered")    },
+              { key: "answered",          label: _t("Answered")        },
+              { key: "reviewed",          label: _t("Marked Review")   },
+              { key: "answeredReviewed",  label: _t("Ans + Review")    },
             ].map(({ key, label }) => (
               <View key={key} style={s.legendItem}>
                 <View style={[s.legendDot, { backgroundColor: PALETTE[key].bg, borderColor: PALETTE[key].border }]} />
-                <Text style={s.legendTxt}>{label}</Text>
+                <Text style={s.legendTxt}>{_tx(label)}</Text>
               </View>
             ))}
           </View>
@@ -928,7 +923,7 @@ export default function TestAttemptScreen({ navigation, route }) {
             onPress={handleSubmitConfirm}
           >
             <MaterialIcons name="send" size={16} color="#fff" />
-            <Text style={s.paletteSubmitTxt}>Submit Test</Text>
+            <Text style={s.paletteSubmitTxt}>{_t("Submit Test")}</Text>
           </TouchableOpacity>
         </View>
       </Modal>

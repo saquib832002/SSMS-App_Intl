@@ -39,6 +39,7 @@ import { Feather } from "@expo/vector-icons";
 import {
   fetchClasses, fetchSessions, fetchBranches, registerStudent,
 } from '../../services/StudentServiceApi';
+import { _t, _tx } from "../../services/i18n";
 
 // ─── Module-level constants ───────────────────────────────────────────────────
 const { width, height } = Dimensions.get('window');
@@ -63,11 +64,11 @@ const C = {
 };
 
 const STEPS = [
-  { key: 'student',  label: 'Student',  icon: 'person',          color: C.sectionA },
-  { key: 'academic', label: 'Academic', icon: 'school',          color: C.sectionB },
-  { key: 'parent',   label: 'Parent',   icon: 'family-restroom', color: C.sectionC },
-  { key: 'address',  label: 'Address',  icon: 'location-on',     color: '#0e7490' },
-  { key: 'photo',    label: 'Photo',    icon: 'photo-camera',    color: C.sectionD },
+  { key: 'student',  get label() { return _t("Student"); },  icon: 'person',          color: C.sectionA },
+  { key: 'academic', get label() { return _t("Academic"); }, icon: 'school',          color: C.sectionB },
+  { key: 'parent',   get label() { return _t("Parent"); },   icon: 'family-restroom', color: C.sectionC },
+  { key: 'address',  get label() { return _t("Address"); },  icon: 'location-on',     color: '#0e7490' },
+  { key: 'photo',    get label() { return _t("Photo"); },    icon: 'photo-camera',    color: C.sectionD },
 ];
 
 const C_ADDRESS = '#0e7490';
@@ -96,14 +97,14 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
         activeOpacity={0.7}
       >
         <Text style={[_ddSt.triggerTxt, !selected?.value && _ddSt.placeholder]} numberOfLines={1}>
-          {loading ? "Loading…" : (selected?.label ?? label)}
+          {loading ? _t("Loading…") : (_tx(selected?.label) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={16} color="#475569" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={_ddSt.overlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={_ddSt.sheet}>
-            <Text style={_ddSt.sheetTitle}>{label}</Text>
+            <Text style={_ddSt.sheetTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={(o, i) => String(o.value) + i}
@@ -113,7 +114,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[_ddSt.optionTxt, String(o.value) === String(value) && _ddSt.optionTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) && <Feather name="check" size={14} color="#2563eb" />}
                 </TouchableOpacity>
@@ -226,18 +227,22 @@ export default function HostelRegistrationScreen({ navigation }) {
 
   // ── Load dropdowns ────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!user) return;
+    if (!user) { setLoadingLists(false); return; }
     (async () => {
       try {
         setLoadingLists(true);
-        const [cls, ses, br] = await Promise.all([
+        // allSettled: a 403 on one list must not block the others
+        const results = await Promise.allSettled([
           fetchClasses(user), fetchSessions(user), fetchBranches(user),
         ]);
-        setClasses(cls  || []);
-        setSessions(ses || []);
-        setBranches(br  || []);
+        const [cls, ses, br] = results.map(r => (r.status === 'fulfilled' && Array.isArray(r.value) ? r.value : []));
+        setClasses(cls);
+        setSessions(ses);
+        setBranches(br);
+        const failed = results.find(r => r.status === 'rejected');
+        if (failed) Alert.alert(_t("Error"), _tx(failed.reason?.message) || _t("Failed to load dropdown data"));
       } catch (e) {
-        Alert.alert('Error', e.message || 'Failed to load dropdown data');
+        Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load dropdown data"));
       } finally {
         setLoadingLists(false);
       }
@@ -251,7 +256,7 @@ export default function HostelRegistrationScreen({ navigation }) {
   // ── DOB confirm ───────────────────────────────────────────────────────────
   const confirmDob = useCallback(() => {
     const iso     = `${dobYear}-${String(dobMonth).padStart(2,'0')}-${String(dobDay).padStart(2,'0')}`;
-    const display = `${String(dobDay).padStart(2,'0')} ${MONTHS[dobMonth-1]} ${dobYear}`;
+    const display = `${String(dobDay).padStart(2,'0')} ${_tx(MONTHS[dobMonth-1])} ${dobYear}`;
     dobIsoRef.current = iso;
     setDobText(display);
     setDobModal(false);
@@ -269,19 +274,19 @@ export default function HostelRegistrationScreen({ navigation }) {
   const pickImage = useCallback(async () => {
     try {
       const p = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (p.status !== 'granted') { Alert.alert('Permission Required', 'Allow photo library access.'); return; }
+      if (p.status !== 'granted') { Alert.alert(_t("Permission Required"), _t("Allow photo library access.")); return; }
       const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1,1], quality: 1 });
       if (!r.canceled) await processImage(r.assets[0]);
-    } catch (e) { Alert.alert('Error', e?.message || 'Could not open photo library.'); }
+    } catch (e) { Alert.alert(_t("Error"), _tx(e?.message) || _t("Could not open photo library.")); }
   }, [processImage]);
 
   const takePhoto = useCallback(async () => {
     try {
       const p = await ImagePicker.requestCameraPermissionsAsync();
-      if (p.status !== 'granted') { Alert.alert('Permission Required', 'Allow camera access.'); return; }
+      if (p.status !== 'granted') { Alert.alert(_t("Permission Required"), _t("Allow camera access.")); return; }
       const r = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1,1], quality: 1 });
       if (!r.canceled) await processImage(r.assets[0]);
-    } catch (e) { Alert.alert('Error', e?.message || 'Could not open camera.'); }
+    } catch (e) { Alert.alert(_t("Error"), _tx(e?.message) || _t("Could not open camera.")); }
   }, [processImage]);
 
   // ── Stable select handlers ────────────────────────────────────────────────
@@ -333,7 +338,7 @@ export default function HostelRegistrationScreen({ navigation }) {
   const onSubmit = useCallback(async () => {
     if (!validate()) {
       setStep(0);
-      Alert.alert('Validation Error', 'Please fill all required fields.');
+      Alert.alert(_t("Validation Error"), _t("Please fill all required fields."));
       return;
     }
     const formData = {
@@ -378,10 +383,10 @@ export default function HostelRegistrationScreen({ navigation }) {
       setSubmitting(true);
       setUploadPct(0);
       const res = await registerStudent({ form: formData, photoAsset: photo, user, onProgress: setUploadPct });
-      Alert.alert('Success 🎉', res.message || 'Student registered successfully!');
+      Alert.alert(_t("Success 🎉"), _tx(res?.message) || _t("Student registered successfully!"));
       resetAll();
     } catch (e) {
-      Alert.alert('Error', e.message || 'Registration failed.');
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Registration failed."));
     } finally {
       setSubmitting(false);
       setUploadPct(0);
@@ -410,8 +415,8 @@ export default function HostelRegistrationScreen({ navigation }) {
       <SafeAreaView style={st.safeArea}>
         <View style={st.loaderWrap}>
           <ActivityIndicator size="large" color={C.primary} />
-          <Text style={st.loaderTitle}>Preparing Form</Text>
-          <Text style={st.loaderSub}>Loading classes, sessions and branches…</Text>
+          <Text style={st.loaderTitle}>{_t("Preparing Form")}</Text>
+          <Text style={st.loaderSub}>{_t("Loading classes, sessions and branches…")}</Text>
         </View>
       </SafeAreaView>
     );
@@ -426,11 +431,11 @@ export default function HostelRegistrationScreen({ navigation }) {
           <MaterialIcons name="arrow-back-ios" size={20} color={C.primary} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={st.pageTitle}>Hostel Registration</Text>
-          <Text style={st.pageSub}>Complete all sections to enrol a new student</Text>
+          <Text style={st.pageTitle}>{_t("Hostel Registration")}</Text>
+          <Text style={st.pageSub}>{_t("Complete all sections to enrol a new student")}</Text>
         </View>
         <View style={st.stepPill}>
-          <Text style={st.stepPillText}>{step + 1} / {STEPS.length}</Text>
+          <Text style={st.stepPillText}>{step + 1} / {_tx(STEPS.length)}</Text>
         </View>
       </View>
 
@@ -461,7 +466,7 @@ export default function HostelRegistrationScreen({ navigation }) {
                 selSessionId={selSessionId} onSessionChange={onSessionChange}
                 branchItems={branchItems} classItems={classItems} sessionItems={sessionItems}
                 // dob
-                dobText={dobText} onDobPress={() => setDobModal(true)}
+                dobText={_tx(dobText)} onDobPress={() => setDobModal(true)}
                 // errors
                 errors={fieldErrors}
               />
@@ -500,9 +505,9 @@ export default function HostelRegistrationScreen({ navigation }) {
                 photo={photo}
                 onPickImage={pickImage} onTakePhoto={takePhoto}
                 onRemovePhoto={() => setPhoto(null)}
-                selTitle={selTitle} refFirstName={refFirstName}
+                selTitle={_tx(selTitle)} refFirstName={refFirstName}
                 refMiddleName={refMiddleName} refLastName={refLastName}
-                refMobile={refMobile} dobText={dobText}
+                refMobile={refMobile} dobText={_tx(dobText)}
                 selGender={selGender} summaryClass={summaryClass}
                 summaryBranch={summaryBranch} summarySession={summarySession}
                 selAdmission={selAdmission}
@@ -516,14 +521,14 @@ export default function HostelRegistrationScreen({ navigation }) {
             {step > 0 ? (
               <TouchableOpacity style={st.navBtnBack} onPress={() => setStep(s => s - 1)}>
                 <MaterialIcons name="arrow-back" size={18} color={C.primary} />
-                <Text style={st.navBtnBackText}>Back</Text>
+                <Text style={st.navBtnBackText}>{_t("Back")}</Text>
               </TouchableOpacity>
             ) : <View style={{ flex: 1 }} />}
 
             {step < STEPS.length - 1 ? (
               <TouchableOpacity style={[st.navBtnNext, { backgroundColor: STEPS[step].color }]}
                 onPress={() => setStep(s => s + 1)}>
-                <Text style={st.navBtnNextText}>Next  →  {STEPS[step + 1].label}</Text>
+                <Text style={st.navBtnNextText}>{_t("Next  →  {label}", { label: STEPS[step + 1].label })}</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
@@ -533,13 +538,13 @@ export default function HostelRegistrationScreen({ navigation }) {
                   <View style={st.submitRow}>
                     <ActivityIndicator color="#fff" size="small" />
                     <Text style={st.navBtnNextText}>
-                      {uploadPct > 0 ? `Uploading ${uploadPct}%…` : 'Submitting…'}
+                      {uploadPct > 0 ? _t("Uploading {uploadPct}%…", { uploadPct }) : _t("Submitting…")}
                     </Text>
                   </View>
                 ) : (
                   <View style={st.submitRow}>
                     <MaterialIcons name="how-to-reg" size={20} color="#fff" />
-                    <Text style={st.navBtnNextText}>Submit Registration</Text>
+                    <Text style={st.navBtnNextText}>{_t("Submit Registration")}</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -581,61 +586,61 @@ const StepStudent = React.memo(function StepStudent({
 }) {
   return (
     <SectionCard color={C.sectionA} icon="person"
-      title="Student Information" subtitle="Personal & contact details">
+      title={_t("Student Information")} subtitle={_t("Personal & contact details")}>
 
       <RowPair>
-        <ModalSelect label="Title" icon="title" value={selTitle}
-          onChange={onTitleChange} options={OPT_TITLE} placeholder="Select Title" />
-        <ModalSelect label="Gender *" icon="wc" value={selGender}
-          onChange={onGenderChange} options={OPT_GENDER} placeholder="Select Gender"
+        <ModalSelect label={_t("Title")} icon="title" value={selTitle}
+          onChange={onTitleChange} options={OPT_TITLE} placeholder={_t("Select Title")} />
+        <ModalSelect label={_t("Gender *")} icon="wc" value={selGender}
+          onChange={onGenderChange} options={OPT_GENDER} placeholder={_t("Select Gender")}
           error={errors.gender} />
       </RowPair>
 
       <RowPair>
-        <FieldRef label="First Name *" icon="person-outline"
-          fieldRef={refFirstName} placeholder="First name" error={errors.firstName} />
-        <FieldRef label="Middle Name" icon="person-outline"
-          fieldRef={refMiddleName} placeholder="Middle name" />
+        <FieldRef label={_t("First Name *")} icon="person-outline"
+          fieldRef={refFirstName} placeholder={_t("First name")} error={errors.firstName} />
+        <FieldRef label={_t("Middle Name")} icon="person-outline"
+          fieldRef={refMiddleName} placeholder={_t("Middle name")} />
       </RowPair>
 
-      <FieldRef label="Last Name *" icon="person-outline"
-        fieldRef={refLastName} placeholder="Last name" error={errors.lastName} />
+      <FieldRef label={_t("Last Name *")} icon="person-outline"
+        fieldRef={refLastName} placeholder={_t("Last name")} error={errors.lastName} />
 
       <RowPair>
-        <FieldRef label="Email Address" icon="mail-outline"
+        <FieldRef label={_t("Email Address")} icon="mail-outline"
           fieldRef={refEmail} placeholder="email@example.com"
           keyboardType="email-address" autoCapitalize="none" />
-        <FieldRef label="Mobile Number *" icon="phone-iphone"
-          fieldRef={refMobile} placeholder="+91 XXXXX XXXXX"
+        <FieldRef label={_t("Mobile Number *")} icon="phone-iphone"
+          fieldRef={refMobile} placeholder={_t("+91 XXXXX XXXXX")}
           keyboardType="phone-pad" error={errors.mobileNumber} />
       </RowPair>
 
-      <Text style={ff.label}>Date of Birth</Text>
+      <Text style={ff.label}>{_t("Date of Birth")}</Text>
       <TouchableOpacity style={st.dateBtn} onPress={onDobPress}>
         <MaterialIcons name="event" size={18} color={dobText ? C.primary : C.muted} />
         <Text style={[st.dateBtnText, dobText && { color: C.text, fontWeight: '700' }]}>
-          {dobText || 'Tap to select date of birth'}
+          {_tx(dobText) || _t("Tap to select date of birth")}
         </Text>
         <MaterialIcons name="chevron-right" size={18} color={C.muted} />
       </TouchableOpacity>
 
       <RowPair>
-        <FieldRef label="Place of Birth" icon="place"
-          fieldRef={refPlaceOfBirth} placeholder="City / Town" />
-        <FieldRef label="Nationality" icon="public"
-          fieldRef={refNationality} placeholder="e.g. Indian" />
+        <FieldRef label={_t("Place of Birth")} icon="place"
+          fieldRef={refPlaceOfBirth} placeholder={_t("City / Town")} />
+        <FieldRef label={_t("Nationality")} icon="public"
+          fieldRef={refNationality} placeholder={_t("e.g. Indian")} />
       </RowPair>
 
-      <SectionDivider label="Academic Placement" />
+      <SectionDivider label={_t("Academic Placement")} />
 
-      <ModalSelect label="Branch *" icon="account-balance" value={selBranchId}
-        onChange={onBranchChange} options={branchItems} placeholder="Select Branch"
+      <ModalSelect label={_t("Branch *")} icon="account-balance" value={selBranchId}
+        onChange={onBranchChange} options={branchItems} placeholder={_t("Select Branch")}
         error={errors.branchId} />
-      <ModalSelect label="Class *" icon="class" value={selClassId}
-        onChange={onClassChange} options={classItems} placeholder="Select Class"
+      <ModalSelect label={_t("Class *")} icon="class" value={selClassId}
+        onChange={onClassChange} options={classItems} placeholder={_t("Select Class")}
         error={errors.classId} />
-      <ModalSelect label="Session *" icon="date-range" value={selSessionId}
-        onChange={onSessionChange} options={sessionItems} placeholder="Select Session"
+      <ModalSelect label={_t("Session *")} icon="date-range" value={selSessionId}
+        onChange={onSessionChange} options={sessionItems} placeholder={_t("Select Session")}
         error={errors.sessionId} />
     </SectionCard>
   );
@@ -646,18 +651,18 @@ const StepAcademic = React.memo(function StepAcademic({
 }) {
   return (
     <SectionCard color={C.sectionB} icon="school"
-      title="Academic & Health Details"
-      subtitle="Learning preferences and admission profile">
-      <FieldRef label="Course Medium" icon="translate"
-        fieldRef={refCourseMedium} placeholder="e.g. English, Hindi" />
-      <ModalSelect label="Admission Type / Category" icon="layers"
+      title={_t("Academic & Health Details")}
+      subtitle={_t("Learning preferences and admission profile")}>
+      <FieldRef label={_t("Course Medium")} icon="translate"
+        fieldRef={refCourseMedium} placeholder={_t("e.g. English, Hindi")} />
+      <ModalSelect label={_t("Admission Type / Category")} icon="layers"
         value={selAdmission} onChange={onAdmissionChange}
-        options={OPT_ADMISSION} placeholder="Select Admission Type" />
-      <ModalSelect label="Physically Challenged?" icon="accessible"
+        options={OPT_ADMISSION} placeholder={_t("Select Admission Type")} />
+      <ModalSelect label={_t("Physically Challenged?")} icon="accessible"
         value={selPhysical} onChange={onPhysicalChange}
-        options={OPT_PHYSICAL} placeholder="Select..." />
+        options={OPT_PHYSICAL} placeholder={_t("Select...")} />
       <InfoBox color={C.sectionB} icon="info-outline"
-        text="Physical challenge status is used only for government reporting." />
+        text={_t("Physical challenge status is used only for government reporting.")} />
     </SectionCard>
   );
 });
@@ -668,24 +673,24 @@ const StepParent = React.memo(function StepParent({
 }) {
   return (
     <SectionCard color={C.sectionC} icon="family-restroom"
-      title="Parent Information" subtitle="Primary guardian and family details">
-      <SectionDivider label="Father's Details" color="#c45c1a" />
+      title={_t("Parent Information")} subtitle={_t("Primary guardian and family details")}>
+      <SectionDivider label={_t("Father's Details")} color="#c45c1a" />
       <RowPair>
-        <FieldRef label="Father's Name" icon="person" fieldRef={refFatherName} placeholder="Full name" />
-        <FieldRef label="Father's Occupation" icon="work" fieldRef={refFatherOccupation} placeholder="Occupation" />
+        <FieldRef label={_t("Father's Name")} icon="person" fieldRef={refFatherName} placeholder={_t("Full name")} />
+        <FieldRef label={_t("Father's Occupation")} icon="work" fieldRef={refFatherOccupation} placeholder={_t("Occupation")} />
       </RowPair>
       <RowPair>
-        <FieldRef label="Father's Education" icon="school" fieldRef={refFatherEducation} placeholder="Qualification" />
-        <FieldRef label="Father's Age" icon="cake" fieldRef={refFatherAge} placeholder="Age" keyboardType="number-pad" />
+        <FieldRef label={_t("Father's Education")} icon="school" fieldRef={refFatherEducation} placeholder={_t("Qualification")} />
+        <FieldRef label={_t("Father's Age")} icon="cake" fieldRef={refFatherAge} placeholder={_t("Age")} keyboardType="number-pad" />
       </RowPair>
-      <SectionDivider label="Mother's Details" color="#c45c1a" />
+      <SectionDivider label={_t("Mother's Details")} color="#c45c1a" />
       <RowPair>
-        <FieldRef label="Mother's Name" icon="person" fieldRef={refMotherName} placeholder="Full name" />
-        <FieldRef label="Mother's Occupation" icon="work" fieldRef={refMotherOccupation} placeholder="Occupation" />
+        <FieldRef label={_t("Mother's Name")} icon="person" fieldRef={refMotherName} placeholder={_t("Full name")} />
+        <FieldRef label={_t("Mother's Occupation")} icon="work" fieldRef={refMotherOccupation} placeholder={_t("Occupation")} />
       </RowPair>
       <RowPair>
-        <FieldRef label="Mother's Education" icon="school" fieldRef={refMotherEducation} placeholder="Qualification" />
-        <FieldRef label="Mother's Age" icon="cake" fieldRef={refMotherAge} placeholder="Age" keyboardType="number-pad" />
+        <FieldRef label={_t("Mother's Education")} icon="school" fieldRef={refMotherEducation} placeholder={_t("Qualification")} />
+        <FieldRef label={_t("Mother's Age")} icon="cake" fieldRef={refMotherAge} placeholder={_t("Age")} keyboardType="number-pad" />
       </RowPair>
     </SectionCard>
   );
@@ -713,18 +718,18 @@ const StepAddress = React.memo(function StepAddress({
 
   return (
     <SectionCard color={C_ADDRESS} icon="location-on"
-      title="Address Details" subtitle="Current and permanent address (optional)">
+      title={_t("Address Details")} subtitle={_t("Current and permanent address (optional)")}>
 
-      <SectionDivider label="Current Address" color={C_ADDRESS} />
-      <FieldRef label="Address Line 1" icon="home"       fieldRef={refCLine1}  placeholder="House / Flat / Building" />
-      <FieldRef label="Address Line 2" icon="apartment"  fieldRef={refCLine2}  placeholder="Street / Colony / Area" />
+      <SectionDivider label={_t("Current Address")} color={C_ADDRESS} />
+      <FieldRef label={_t("Address Line 1")} icon="home"       fieldRef={refCLine1}  placeholder={_t("House / Flat / Building")} />
+      <FieldRef label={_t("Address Line 2")} icon="apartment"  fieldRef={refCLine2}  placeholder={_t("Street / Colony / Area")} />
       <RowPair>
-        <FieldRef label="City"       icon="location-city"  fieldRef={refCCity}  placeholder="City" />
-        <FieldRef label="State"      icon="map"            fieldRef={refCState} placeholder="State" />
+        <FieldRef label={_t("City")}       icon="location-city"  fieldRef={refCCity}  placeholder={_t("City")} />
+        <FieldRef label={_t("State")}      icon="map"            fieldRef={refCState} placeholder={_t("State")} />
       </RowPair>
       <RowPair>
-        <FieldRef label="ZIP Code"   icon="markunread-mailbox" fieldRef={refCZip}   placeholder="PIN / ZIP" keyboardType="number-pad" />
-        <FieldRef label="Home Phone" icon="phone"              fieldRef={refCPhone} placeholder="Landline number"  keyboardType="phone-pad" />
+        <FieldRef label={_t("ZIP Code")}   icon="markunread-mailbox" fieldRef={refCZip}   placeholder={_t("PIN / ZIP")} keyboardType="number-pad" />
+        <FieldRef label={_t("Home Phone")} icon="phone"              fieldRef={refCPhone} placeholder={_t("Landline number")}  keyboardType="phone-pad" />
       </RowPair>
 
       {/* Same as current toggle */}
@@ -735,26 +740,24 @@ const StepAddress = React.memo(function StepAddress({
         <View style={[addr.checkbox, sameAsCurrent && { backgroundColor: C_ADDRESS, borderColor: C_ADDRESS }]}>
           {sameAsCurrent && <MaterialIcons name="check" size={14} color="#fff" />}
         </View>
-        <Text style={[addr.sameToggleText, sameAsCurrent && { color: C_ADDRESS, fontWeight: '700' }]}>
-          Permanent address same as current address
-        </Text>
+        <Text style={[addr.sameToggleText, sameAsCurrent && { color: C_ADDRESS, fontWeight: '700' }]}>{_t("Permanent address same as current address")}</Text>
       </TouchableOpacity>
 
-      <SectionDivider label="Permanent Address" color={C_ADDRESS} />
-      <FieldRef label="Address Line 1" icon="home"       fieldRef={refPLine1}  placeholder="House / Flat / Building"
+      <SectionDivider label={_t("Permanent Address")} color={C_ADDRESS} />
+      <FieldRef label={_t("Address Line 1")} icon="home"       fieldRef={refPLine1}  placeholder={_t("House / Flat / Building")}
         defaultValue={sameAsCurrent ? refCLine1.current : undefined} />
-      <FieldRef label="Address Line 2" icon="apartment"  fieldRef={refPLine2}  placeholder="Street / Colony / Area"
+      <FieldRef label={_t("Address Line 2")} icon="apartment"  fieldRef={refPLine2}  placeholder={_t("Street / Colony / Area")}
         defaultValue={sameAsCurrent ? refCLine2.current : undefined} />
       <RowPair>
-        <FieldRef label="City"       icon="location-city"  fieldRef={refPCity}  placeholder="City"
+        <FieldRef label={_t("City")}       icon="location-city"  fieldRef={refPCity}  placeholder={_t("City")}
           defaultValue={sameAsCurrent ? refCCity.current : undefined} />
-        <FieldRef label="State"      icon="map"            fieldRef={refPState} placeholder="State"
+        <FieldRef label={_t("State")}      icon="map"            fieldRef={refPState} placeholder={_t("State")}
           defaultValue={sameAsCurrent ? refCState.current : undefined} />
       </RowPair>
       <RowPair>
-        <FieldRef label="ZIP Code"   icon="markunread-mailbox" fieldRef={refPZip}   placeholder="PIN / ZIP" keyboardType="number-pad"
+        <FieldRef label={_t("ZIP Code")}   icon="markunread-mailbox" fieldRef={refPZip}   placeholder={_t("PIN / ZIP")} keyboardType="number-pad"
           defaultValue={sameAsCurrent ? refCZip.current : undefined} />
-        <FieldRef label="Home Phone" icon="phone"              fieldRef={refPPhone} placeholder="Landline number"  keyboardType="phone-pad"
+        <FieldRef label={_t("Home Phone")} icon="phone"              fieldRef={refPPhone} placeholder={_t("Landline number")}  keyboardType="phone-pad"
           defaultValue={sameAsCurrent ? refCPhone.current : undefined} />
       </RowPair>
     </SectionCard>
@@ -770,7 +773,7 @@ const StepPhoto = React.memo(function StepPhoto({
     .filter(Boolean).join(' ') || '—';
   return (
     <SectionCard color={C.sectionD} icon="photo-camera"
-      title="Student Photo" subtitle="Square identity-ready photo (JPG, max 5 MB)">
+      title={_t("Student Photo")} subtitle={_t("Square identity-ready photo (JPG, max 5 MB)")}>
 
       <View style={st.photoPreviewWrap}>
         {photo?.uri ? (
@@ -778,7 +781,7 @@ const StepPhoto = React.memo(function StepPhoto({
             <Image source={{ uri: photo.uri }} style={st.photoPreview} />
             <View style={st.photoApprovedBadge}>
               <MaterialIcons name="check-circle" size={20} color={C.success} />
-              <Text style={st.photoApprovedText}>Photo Selected</Text>
+              <Text style={st.photoApprovedText}>{_t("Photo Selected")}</Text>
             </View>
           </View>
         ) : (
@@ -786,8 +789,8 @@ const StepPhoto = React.memo(function StepPhoto({
             <View style={st.photoPlaceholderIcon}>
               <MaterialIcons name="person" size={64} color={C.border} />
             </View>
-            <Text style={st.photoPlaceholderTitle}>No photo selected</Text>
-            <Text style={st.photoPlaceholderSub}>Upload or take a square passport-size photo</Text>
+            <Text style={st.photoPlaceholderTitle}>{_t("No photo selected")}</Text>
+            <Text style={st.photoPlaceholderSub}>{_t("Upload or take a square passport-size photo")}</Text>
           </View>
         )}
       </View>
@@ -796,35 +799,35 @@ const StepPhoto = React.memo(function StepPhoto({
         <TouchableOpacity style={[st.photoBtn, { borderColor: C.sectionD }]}
           onPress={onPickImage} activeOpacity={0.8}>
           <MaterialIcons name="photo-library" size={20} color={C.sectionD} />
-          <Text style={[st.photoBtnText, { color: C.sectionD }]}>Gallery</Text>
+          <Text style={[st.photoBtnText, { color: C.sectionD }]}>{_t("Gallery")}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[st.photoBtn, { borderColor: C.primary, backgroundColor: C.primary }]}
           onPress={onTakePhoto} activeOpacity={0.8}>
           <MaterialIcons name="camera-alt" size={20} color="#fff" />
-          <Text style={[st.photoBtnText, { color: '#fff' }]}>Camera</Text>
+          <Text style={[st.photoBtnText, { color: '#fff' }]}>{_t("Camera")}</Text>
         </TouchableOpacity>
       </View>
 
       {photo && (
         <TouchableOpacity style={st.photoRemoveBtn} onPress={onRemovePhoto}>
           <MaterialIcons name="delete-outline" size={16} color={C.error} />
-          <Text style={st.photoRemoveText}>Remove photo</Text>
+          <Text style={st.photoRemoveText}>{_t("Remove photo")}</Text>
         </TouchableOpacity>
       )}
 
       <InfoBox color={C.sectionD} icon="info-outline"
-        text="Photo filename on disk will match the student's name exactly." />
+        text={_t("Photo filename on disk will match the student's name exactly.")} />
 
-      <SectionDivider label="Registration Summary" color={C.sectionD} />
+      <SectionDivider label={_t("Registration Summary")} color={C.sectionD} />
       <View style={st.summaryGrid}>
-        <SummaryRow label="Full Name"  value={fullName} />
-        <SummaryRow label="Mobile"     value={refMobile.current     || '—'} />
-        <SummaryRow label="DOB"        value={dobText               || '—'} />
-        <SummaryRow label="Gender"     value={selGender             || '—'} />
-        <SummaryRow label="Class"      value={summaryClass} />
-        <SummaryRow label="Branch"     value={summaryBranch} />
-        <SummaryRow label="Session"    value={summarySession} />
-        <SummaryRow label="Admission"  value={selAdmission          || '—'} />
+        <SummaryRow label={_t("Full Name")}  value={fullName} />
+        <SummaryRow label={_t("Mobile")}     value={refMobile.current     || '—'} />
+        <SummaryRow label={_t("DOB")}        value={dobText               || '—'} />
+        <SummaryRow label={_t("Gender")}     value={selGender             || '—'} />
+        <SummaryRow label={_t("Class")}      value={summaryClass} />
+        <SummaryRow label={_t("Branch")}     value={summaryBranch} />
+        <SummaryRow label={_t("Session")}    value={summarySession} />
+        <SummaryRow label={_t("Admission")}  value={selAdmission          || '—'} />
       </View>
     </SectionCard>
   );
@@ -856,7 +859,7 @@ function ModalSelect({ label, icon, value, onChange, options, placeholder, error
       onPress={() => handleSelect(item.value)}
       activeOpacity={0.7}>
       <Text style={[ms.optionText, item.value === value && ms.optionTextActive]}>
-        {item.label}
+        {_tx(item.label)}
       </Text>
       {item.value === value && (
         <MaterialIcons name="check" size={18} color={C.primary} />
@@ -866,7 +869,7 @@ function ModalSelect({ label, icon, value, onChange, options, placeholder, error
 
   return (
     <View style={ff.wrap}>
-      <Text style={[ff.label, error && { color: C.error }]}>{label}</Text>
+      <Text style={[ff.label, error && { color: C.error }]}>{_tx(label)}</Text>
 
       <TouchableOpacity
         style={[ff.selectRow, error && ff.rowError]}
@@ -876,20 +879,20 @@ function ModalSelect({ label, icon, value, onChange, options, placeholder, error
           color={error ? C.error : C.muted} style={ff.icon} />}
         <Text style={[ff.selectText, !displayLabel && ff.selectPlaceholder]}
           numberOfLines={1}>
-          {displayLabel || placeholder}
+          {_tx(displayLabel) || _tx(placeholder)}
         </Text>
         <MaterialIcons name="keyboard-arrow-down" size={20} color={C.muted}
           style={{ marginRight: 10 }} />
       </TouchableOpacity>
 
-      {!!error && <Text style={ff.errorText}>{error}</Text>}
+      {!!error && <Text style={ff.errorText}>{_tx(error)}</Text>}
 
       <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
         <View style={ms.overlay}>
           <TouchableOpacity style={ms.backdrop} onPress={() => setOpen(false)} activeOpacity={1} />
           <View style={ms.sheet}>
             <View style={ms.sheetHeader}>
-              <Text style={ms.sheetTitle}>{label}</Text>
+              <Text style={ms.sheetTitle}>{_tx(label)}</Text>
               <TouchableOpacity style={ms.sheetClose} onPress={() => setOpen(false)}>
                 <MaterialIcons name="close" size={20} color={C.muted} />
               </TouchableOpacity>
@@ -916,14 +919,14 @@ const FieldRef = React.memo(function FieldRef({ label, icon, fieldRef, error, ..
   const handleChange = useCallback((text) => { fieldRef.current = text; }, [fieldRef]);
   return (
     <View style={ff.wrap}>
-      <Text style={[ff.label, error && { color: C.error }]}>{label}</Text>
+      <Text style={[ff.label, error && { color: C.error }]}>{_tx(label)}</Text>
       <View style={[ff.row, error && ff.rowError]}>
         {icon && <MaterialIcons name={icon} size={17}
           color={error ? C.error : C.muted} style={ff.icon} />}
         <TextInput style={ff.input} placeholderTextColor={C.muted}
           autoCorrect={false} onChangeText={handleChange} {...rest} />
       </View>
-      {!!error && <Text style={ff.errorText}>{error}</Text>}
+      {!!error && <Text style={ff.errorText}>{_tx(error)}</Text>}
     </View>
   );
 });
@@ -945,7 +948,7 @@ const StepperTabs = React.memo(function StepperTabs({ step, onPress }) {
                 color={active || done ? '#fff' : C.muted} />
             </View>
             <Text style={[st.stepLabel, active && { color: s.color, fontWeight: '800' }, done && { color: C.success }]}>
-              {s.label}
+              {_tx(s.label)}
             </Text>
           </TouchableOpacity>
         );
@@ -966,8 +969,8 @@ const SectionCard = React.memo(function SectionCard({ color, icon, title, subtit
           <MaterialIcons name={icon} size={22} color={color} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={sc.title}>{title}</Text>
-          {subtitle && <Text style={sc.subtitle}>{subtitle}</Text>}
+          <Text style={sc.title}>{_tx(title)}</Text>
+          {subtitle && <Text style={sc.subtitle}>{_tx(subtitle)}</Text>}
         </View>
       </View>
       <View style={sc.body}>{children}</View>
@@ -991,7 +994,7 @@ const DobModal = React.memo(function DobModal({
 
   const renderMonth = useCallback(({ item }) => (
     <TouchableOpacity style={[dob.item, item === dobMonth && dob.itemActive]} onPress={() => setDobMonth(item)}>
-      <Text style={[dob.itemText, item === dobMonth && dob.itemTextActive]}>{MONTHS[item-1]}</Text>
+      <Text style={[dob.itemText, item === dobMonth && dob.itemTextActive]}>{_tx(MONTHS[item-1])}</Text>
     </TouchableOpacity>
   ), [dobMonth]);
 
@@ -1009,7 +1012,7 @@ const DobModal = React.memo(function DobModal({
             <View style={st.modalIconWrap}>
               <MaterialIcons name="event" size={22} color={C.primary} />
             </View>
-            <Text style={st.modalTitle}>Date of Birth</Text>
+            <Text style={st.modalTitle}>{_t("Date of Birth")}</Text>
             <TouchableOpacity style={st.modalCloseBtn} onPress={onClose}>
               <MaterialIcons name="close" size={20} color={C.muted} />
             </TouchableOpacity>
@@ -1017,23 +1020,23 @@ const DobModal = React.memo(function DobModal({
 
           <View style={st.dobPreview}>
             <Text style={st.dobPreviewText}>
-              {String(dobDay).padStart(2,'0')} {MONTHS[dobMonth-1]} {dobYear}
+              {String(dobDay).padStart(2,'0')} {_tx(MONTHS[dobMonth-1])} {_tx(dobYear)}
             </Text>
           </View>
 
           <View style={dob.cols}>
             <View style={dob.col}>
-              <Text style={dob.colLabel}>Day</Text>
+              <Text style={dob.colLabel}>{_t("Day")}</Text>
               <FlatList data={days} keyExtractor={String} renderItem={renderDay}
                 style={dob.list} showsVerticalScrollIndicator={false} />
             </View>
             <View style={[dob.col, { flex: 1.6 }]}>
-              <Text style={dob.colLabel}>Month</Text>
+              <Text style={dob.colLabel}>{_t("Month")}</Text>
               <FlatList data={months} keyExtractor={String} renderItem={renderMonth}
                 style={dob.list} showsVerticalScrollIndicator={false} />
             </View>
             <View style={dob.col}>
-              <Text style={dob.colLabel}>Year</Text>
+              <Text style={dob.colLabel}>{_t("Year")}</Text>
               <FlatList data={years} keyExtractor={String} renderItem={renderYear}
                 style={dob.list} showsVerticalScrollIndicator={false} />
             </View>
@@ -1041,11 +1044,11 @@ const DobModal = React.memo(function DobModal({
 
           <View style={st.modalFooter}>
             <TouchableOpacity style={st.modalCancelBtn} onPress={onClose}>
-              <Text style={st.modalCancelText}>Cancel</Text>
+              <Text style={st.modalCancelText}>{_t("Cancel")}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={st.modalConfirmBtn} onPress={onConfirm}>
               <MaterialIcons name="check" size={18} color="#fff" style={{ marginRight: 6 }} />
-              <Text style={st.modalConfirmText}>Confirm</Text>
+              <Text style={st.modalConfirmText}>{_t("Confirm")}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1067,7 +1070,7 @@ function SectionDivider({ label, color = C.muted }) {
   return (
     <View style={dv.row}>
       <View style={[dv.line, { backgroundColor: color + '40' }]} />
-      <Text style={[dv.label, { color }]}>{label}</Text>
+      <Text style={[dv.label, { color }]}>{_tx(label)}</Text>
       <View style={[dv.line, { backgroundColor: color + '40' }]} />
     </View>
   );
@@ -1077,7 +1080,7 @@ const InfoBox = React.memo(function InfoBox({ icon, color, text }) {
   return (
     <View style={[ib.box, { backgroundColor: color + '0d', borderColor: color + '30' }]}>
       <MaterialIcons name={icon} size={16} color={color} style={{ marginTop: 1 }} />
-      <Text style={[ib.text, { color }]}>{text}</Text>
+      <Text style={[ib.text, { color }]}>{_tx(text)}</Text>
     </View>
   );
 });
@@ -1085,8 +1088,8 @@ const InfoBox = React.memo(function InfoBox({ icon, color, text }) {
 function SummaryRow({ label, value }) {
   return (
     <View style={sr.row}>
-      <Text style={sr.label}>{label}</Text>
-      <Text style={sr.value} numberOfLines={1}>{value}</Text>
+      <Text style={sr.label}>{_tx(label)}</Text>
+      <Text style={sr.value} numberOfLines={1}>{_tx(value)}</Text>
     </View>
   );
 }

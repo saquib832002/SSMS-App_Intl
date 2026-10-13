@@ -16,6 +16,7 @@ import {
   fetchClassSubjects,
 } from "../../services/SubjectServiceApi";
 import { fetchClasses } from "../../services/SetupServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ── Dropdown ──────────────────────────────────────────────────────────────────
 function Dropdown({ label, value, options, onChange, disabled, loading }) {
@@ -29,14 +30,14 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
         activeOpacity={0.7}
       >
         <Text style={[sc.dropTxt, !selected?.value && sc.dropPh]} numberOfLines={1}>
-          {loading ? "Loading…" : (selected?.label ?? label)}
+          {loading ? _t("Loading…") : (_tx(selected?.label) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={14} color="#64748b" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={sc.dropOverlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={sc.dropSheet}>
-            <Text style={sc.dropTitle}>{label}</Text>
+            <Text style={sc.dropTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={(o, i) => String(o.value) + i}
@@ -46,7 +47,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
                   onPress={() => { onChange(o.value); setOpen(false); }}
                 >
                   <Text style={[sc.dropOptionTxt, String(o.value) === String(value) && sc.dropOptionTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) &&
                     <Feather name="check" size={13} color="#1e40af" />}
@@ -64,7 +65,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading }) {
 // ── Marks input row ───────────────────────────────────────────────────────────
 const MarksInput = ({ label, value, onChangeText, disabled }) => (
   <View style={sc.marksRow}>
-    <Text style={sc.marksLabel}>{label}</Text>
+    <Text style={sc.marksLabel}>{_tx(label)}</Text>
     <TextInput
       style={sc.marksInput}
       placeholder="0"
@@ -113,14 +114,18 @@ export default function SubjectMaxMarksScreen() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const [recData, classData] = await Promise.all([
+      const [rRec, rCls] = await Promise.allSettled([
         fetchMaxMarks(user),
         fetchClasses(user),
       ]);
+      const recData   = rRec.status === "fulfilled" ? rRec.value : null;
+      const classData = rCls.status === "fulfilled" ? rCls.value : null;
       setRecords(Array.isArray(recData) ? recData : []);
-      setClasses(Array.isArray(classData) ? classData : classData?.data ?? []);
+      setClasses(Array.isArray(classData) ? classData : Array.isArray(classData?.data) ? classData.data : []);
+      const failed = [rRec, rCls].find(r => r.status === "rejected");
+      if (failed) Alert.alert(_t("Error"), _tx(failed.reason?.message) || _t("Failed to load data"));
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load data");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load data"));
     } finally {
       setLoading(false);
     }
@@ -135,7 +140,7 @@ export default function SubjectMaxMarksScreen() {
     setLoadingSubj(true);
     setSubjects([]); setField("subject_id", "");
     fetchClassSubjects(user, form.class_id)
-      .then(d => { if (!cancelled) setSubjects(Array.isArray(d) ? d : d?.data ?? []); })
+      .then(d => { if (!cancelled) setSubjects(Array.isArray(d) ? d : Array.isArray(d?.data) ? d.data : []); })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoadingSubj(false); });
     return () => { cancelled = true; };
@@ -167,9 +172,9 @@ export default function SubjectMaxMarksScreen() {
 
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!form.class_id)   { Alert.alert("Validation", "Please select a class.");   return; }
-    if (!form.subject_id) { Alert.alert("Validation", "Please select a subject."); return; }
-    if (maxMarks <= 0)    { Alert.alert("Validation", "Total marks must be greater than 0."); return; }
+    if (!form.class_id)   { Alert.alert(_t("Validation"), _t("Please select a class."));   return; }
+    if (!form.subject_id) { Alert.alert(_t("Validation"), _t("Please select a subject.")); return; }
+    if (maxMarks <= 0)    { Alert.alert(_t("Validation"), _t("Total marks must be greater than 0.")); return; }
     try {
       setSaving(true);
       const payload = { ...form, max_marks: maxMarks };
@@ -180,9 +185,9 @@ export default function SubjectMaxMarksScreen() {
       }
       setModalVisible(false);
       load();
-      Alert.alert("Success", editing ? "Max marks updated." : "Max marks added.");
+      Alert.alert(_t("Success"), editing ? _t("Max marks updated.") : _t("Max marks added."));
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to save");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to save"));
     } finally {
       setSaving(false);
     }
@@ -191,15 +196,15 @@ export default function SubjectMaxMarksScreen() {
   // ── Delete ────────────────────────────────────────────────────────────────
   const handleDelete = (item) => {
     Alert.alert(
-      "Delete",
-      `Delete max marks for "${item.subject_name}" (${item.class_name})?`,
+      _t("Delete"),
+      _t("Delete max marks for \"{subject_name}\" ({class_name})?", { subject_name: item.subject_name, class_name: item.class_name }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Delete", style: "destructive",
+          text: _t("Delete"), style: "destructive",
           onPress: async () => {
             try { await deleteMaxMarks(user, item.id); load(); }
-            catch (e) { Alert.alert("Error", e.message || "Failed to delete"); }
+            catch (e) { Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to delete")); }
           },
         },
       ]
@@ -207,9 +212,9 @@ export default function SubjectMaxMarksScreen() {
   };
 
   // ── Options ───────────────────────────────────────────────────────────────
-  const classOptions      = [{ label: "All Classes",  value: "" }, ...classes.map(c  => ({ label: c.class_name,   value: String(c.class_id)   }))];
-  const classFormOptions  = [{ label: "Select Class", value: "" }, ...classes.map(c  => ({ label: c.class_name,   value: String(c.class_id)   }))];
-  const subjectFormOptions = [{ label: "Select Subject", value: "" }, ...subjects.map(s => ({
+  const classOptions      = [{ label: _t("All Classes"),  value: "" }, ...classes.map(c  => ({ label: c.class_name,   value: String(c.class_id)   }))];
+  const classFormOptions  = [{ label: _t("Select Class"), value: "" }, ...classes.map(c  => ({ label: c.class_name,   value: String(c.class_id)   }))];
+  const subjectFormOptions = [{ label: _t("Select Subject"), value: "" }, ...subjects.map(s => ({
     label: s.subject_code ? `${s.subject_name} - ${s.subject_code}` : s.subject_name,
     value: String(s.subject_id),
   }))];
@@ -220,28 +225,28 @@ export default function SubjectMaxMarksScreen() {
       <View style={sc.cardBody}>
         {/* Header row */}
         <View style={sc.cardHead}>
-          <Text style={sc.subjectName} numberOfLines={1}>{item.subject_name}</Text>
-          {item.subject_code ? <View style={sc.codeBadge}><Text style={sc.codeTxt}>{item.subject_code}</Text></View> : null}
+          <Text style={sc.subjectName} numberOfLines={1}>{_tx(item.subject_name)}</Text>
+          {item.subject_code ? <View style={sc.codeBadge}><Text style={sc.codeTxt}>{_tx(item.subject_code)}</Text></View> : null}
         </View>
-        <Text style={sc.className}>{item.class_name}</Text>
+        <Text style={sc.className}>{_tx(item.class_name)}</Text>
 
         {/* Marks breakdown */}
         <View style={sc.marksStrip}>
           <View style={sc.markChip}>
-            <Text style={sc.markChipLabel}>Theory</Text>
-            <Text style={sc.markChipVal}>{item.theory_max_marks ?? 0}</Text>
+            <Text style={sc.markChipLabel}>{_t("Theory")}</Text>
+            <Text style={sc.markChipVal}>{_tx(item.theory_max_marks) ?? 0}</Text>
           </View>
           <View style={sc.markChip}>
-            <Text style={sc.markChipLabel}>Internal</Text>
-            <Text style={sc.markChipVal}>{item.internal_max_marks ?? 0}</Text>
+            <Text style={sc.markChipLabel}>{_t("Internal")}</Text>
+            <Text style={sc.markChipVal}>{_tx(item.internal_max_marks) ?? 0}</Text>
           </View>
           <View style={sc.markChip}>
-            <Text style={sc.markChipLabel}>Practical</Text>
-            <Text style={sc.markChipVal}>{item.practical_max_marks ?? 0}</Text>
+            <Text style={sc.markChipLabel}>{_t("Practical")}</Text>
+            <Text style={sc.markChipVal}>{_tx(item.practical_max_marks) ?? 0}</Text>
           </View>
           <View style={[sc.markChip, sc.markChipTotal]}>
-            <Text style={[sc.markChipLabel, { color: "#fff" }]}>Total</Text>
-            <Text style={[sc.markChipVal, { color: "#fff", fontSize: 15 }]}>{item.max_marks ?? 0}</Text>
+            <Text style={[sc.markChipLabel, { color: "#fff" }]}>{_t("Total")}</Text>
+            <Text style={[sc.markChipVal, { color: "#fff", fontSize: 15 }]}>{_tx(item.max_marks) ?? 0}</Text>
           </View>
         </View>
       </View>
@@ -266,15 +271,15 @@ export default function SubjectMaxMarksScreen() {
         <Text style={sc.subtitle}>{filtered.length} record{filtered.length !== 1 ? "s" : ""}</Text> */}
         <TouchableOpacity style={sc.addBtn} onPress={openAdd}>
           <Feather name="plus" size={16} color="#fff" />
-          <Text style={sc.addBtnTxt}>Add Max Marks</Text>
+          <Text style={sc.addBtnTxt}>{_t("Add Max Marks")}</Text>
         </TouchableOpacity>
       </View>
 
       {/* Class filter */}
       <View style={sc.filterWrap}>
-        <Text style={sc.filterLabel}>Filter by Class</Text>
+        <Text style={sc.filterLabel}>{_t("Filter by Class")}</Text>
         <Dropdown
-          label="All Classes"
+          label={_t("All Classes")}
           value={filterClass}
           options={classOptions}
           onChange={setFilterClass}
@@ -286,7 +291,7 @@ export default function SubjectMaxMarksScreen() {
       {loading
         ? <View style={sc.loader}>
             <ActivityIndicator size="large" color="#1e40af" />
-            <Text style={sc.loaderTxt}>Loading…</Text>
+            <Text style={sc.loaderTxt}>{_t("Loading…")}</Text>
           </View>
         : <FlatList
             data={filtered}
@@ -297,9 +302,9 @@ export default function SubjectMaxMarksScreen() {
             ListEmptyComponent={
               <View style={sc.empty}>
                 <Feather name="edit-3" size={38} color="#cbd5e1" />
-                <Text style={sc.emptyTxt}>No records found</Text>
+                <Text style={sc.emptyTxt}>{_t("No records found")}</Text>
                 <Text style={sc.emptySubTxt}>
-                  {filterClass ? "Try selecting a different class" : 'Tap "Add Max Marks" to create one'}
+                  {filterClass ? _t("Try selecting a different class") : _t("Tap \"Add Max Marks\" to create one")}
                 </Text>
               </View>
             }
@@ -311,7 +316,7 @@ export default function SubjectMaxMarksScreen() {
           <View style={sc.modalCard}>
 
             <View style={sc.modalHeader}>
-              <Text style={sc.modalTitle}>{editing ? "Edit Max Marks" : "Add Max Marks"}</Text>
+              <Text style={sc.modalTitle}>{editing ? _t("Edit Max Marks") : _t("Add Max Marks")}</Text>
               <TouchableOpacity style={sc.modalClose} onPress={() => setModalVisible(false)} disabled={saving}>
                 <Feather name="x" size={15} color="#64748b" />
               </TouchableOpacity>
@@ -324,9 +329,9 @@ export default function SubjectMaxMarksScreen() {
             >
 
             {/* Class */}
-            <Text style={sc.fieldLabel}>Class <Text style={{ color: "#ef4444" }}>*</Text></Text>
+            <Text style={sc.fieldLabel}>{_t("Class")}{" "}<Text style={{ color: "#ef4444" }}>*</Text></Text>
             <Dropdown
-              label="Select Class"
+              label={_t("Select Class")}
               value={form.class_id}
               options={classFormOptions}
               onChange={v => { setField("class_id", v); setField("subject_id", ""); }}
@@ -334,9 +339,9 @@ export default function SubjectMaxMarksScreen() {
             />
 
             {/* Subject — cascades from class */}
-            <Text style={sc.fieldLabel}>Subject <Text style={{ color: "#ef4444" }}>*</Text></Text>
+            <Text style={sc.fieldLabel}>{_t("Subject")}{" "}<Text style={{ color: "#ef4444" }}>*</Text></Text>
             <Dropdown
-              label="Select Subject"
+              label={_t("Select Subject")}
               value={form.subject_id}
               options={subjectFormOptions}
               onChange={v => setField("subject_id", v)}
@@ -346,21 +351,21 @@ export default function SubjectMaxMarksScreen() {
 
             {/* Marks inputs */}
             <View style={sc.marksCard}>
-              <Text style={sc.marksSectionLabel}>Marks Breakdown</Text>
+              <Text style={sc.marksSectionLabel}>{_t("Marks Breakdown")}</Text>
               <MarksInput
-                label="Theory"
+                label={_t("Theory")}
                 value={form.theory_max_marks}
                 onChangeText={v => setField("theory_max_marks", v)}
                 disabled={saving}
               />
               <MarksInput
-                label="Internal"
+                label={_t("Internal")}
                 value={form.internal_max_marks}
                 onChangeText={v => setField("internal_max_marks", v)}
                 disabled={saving}
               />
               <MarksInput
-                label="Practical"
+                label={_t("Practical")}
                 value={form.practical_max_marks}
                 onChangeText={v => setField("practical_max_marks", v)}
                 disabled={saving}
@@ -368,9 +373,9 @@ export default function SubjectMaxMarksScreen() {
 
               {/* Auto-calculated total */}
               <View style={[sc.marksRow, sc.totalRow]}>
-                <Text style={sc.totalLabel}>Total (Max Marks)</Text>
+                <Text style={sc.totalLabel}>{_t("Total (Max Marks)")}</Text>
                 <View style={sc.totalValueWrap}>
-                  <Text style={sc.totalValue}>{maxMarks}</Text>
+                  <Text style={sc.totalValue}>{_tx(maxMarks)}</Text>
                 </View>
               </View>
             </View>
@@ -379,12 +384,12 @@ export default function SubjectMaxMarksScreen() {
 
             <View style={sc.modalBtns}>
               <TouchableOpacity style={sc.cancelBtn} onPress={() => setModalVisible(false)} disabled={saving}>
-                <Text style={sc.cancelBtnTxt}>Cancel</Text>
+                <Text style={sc.cancelBtnTxt}>{_t("Cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[sc.saveBtn, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>
                 {saving
                   ? <ActivityIndicator color="#fff" size="small" />
-                  : <><Feather name="check" size={14} color="#fff" /><Text style={sc.saveBtnTxt}>{editing ? "Update" : "Save"}</Text></>}
+                  : <><Feather name="check" size={14} color="#fff" /><Text style={sc.saveBtnTxt}>{editing ? _t("Update") : _t("Save")}</Text></>}
               </TouchableOpacity>
             </View>
 

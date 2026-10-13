@@ -16,6 +16,7 @@ import { AuthContext } from "../../context/AuthContext";
 import {
   getTestsBySeriesId, deleteTest, publishTest,
 } from "../../services/TestSeriesServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 // ─── Status badge ──────────────────────────────────────────────────────────────
 
@@ -46,19 +47,19 @@ function TestCard({ test, series, navigation, onRefresh, user }) {
 
   const handlePublish = async () => {
     Alert.alert(
-      "Publish Test",
-      `Publish "${test.title}"? Students will be able to see and attempt it.`,
+      _t("Publish Test"),
+      _t("Publish \"{title}\"? Students will be able to see and attempt it.", { title: test.title }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Publish",
+          text: _t("Publish"),
           onPress: async () => {
             setBusy(true);
             try {
               await publishTest(user, test.id);
               onRefresh();
-            } catch {
-              Alert.alert("Error", "Failed to publish test");
+            } catch (e) {
+              Alert.alert(_t("Error"), _tx(e?.message) || _t("Failed to publish test"));
             } finally {
               setBusy(false);
             }
@@ -70,20 +71,20 @@ function TestCard({ test, series, navigation, onRefresh, user }) {
 
   const handleDelete = () => {
     Alert.alert(
-      "Delete Test",
-      `Delete "${test.title}"? This cannot be undone.`,
+      _t("Delete Test"),
+      _t("Delete \"{title}\"? This cannot be undone.", { title: test.title }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: _t("Cancel"), style: "cancel" },
         {
-          text: "Delete",
+          text: _t("Delete"),
           style: "destructive",
           onPress: async () => {
             setBusy(true);
             try {
               await deleteTest(user, test.id);
               onRefresh();
-            } catch {
-              Alert.alert("Error", "Failed to delete test");
+            } catch (e) {
+              Alert.alert(_t("Error"), _tx(e?.message) || _t("Failed to delete test"));
             } finally {
               setBusy(false);
             }
@@ -98,10 +99,8 @@ function TestCard({ test, series, navigation, onRefresh, user }) {
       {/* Header row */}
       <View style={card.head}>
         <View style={{ flex: 1 }}>
-          <Text style={card.title} numberOfLines={2}>{test.title}</Text>
-          <Text style={card.meta}>
-            {test.duration_minutes} min · {test.total_marks} marks · {test.question_count ?? 0} Qs
-          </Text>
+          <Text style={card.title} numberOfLines={2}>{_tx(test.title)}</Text>
+          <Text style={card.meta}>{_t("{duration_minutes} min · {total_marks} marks · {v} Qs", { duration_minutes: test.duration_minutes, total_marks: test.total_marks, v: test.question_count ?? 0 })}</Text>
         </View>
         <StatusBadge status={test.status} />
       </View>
@@ -115,7 +114,7 @@ function TestCard({ test, series, navigation, onRefresh, user }) {
           disabled={busy}
         >
           <Feather name="edit-2" size={14} color="#0369a1" />
-          <Text style={[card.btnTxt, { color: "#0369a1" }]}>Edit</Text>
+          <Text style={[card.btnTxt, { color: "#0369a1" }]}>{_t("Edit")}</Text>
         </TouchableOpacity>
 
         {/* Add Questions */}
@@ -125,7 +124,7 @@ function TestCard({ test, series, navigation, onRefresh, user }) {
           disabled={busy}
         >
           <Feather name="plus-circle" size={14} color="#7c3aed" />
-          <Text style={[card.btnTxt, { color: "#7c3aed" }]}>Questions</Text>
+          <Text style={[card.btnTxt, { color: "#7c3aed" }]}>{_t("Questions")}</Text>
         </TouchableOpacity>
 
         {/* Publish (only for drafts) */}
@@ -138,7 +137,7 @@ function TestCard({ test, series, navigation, onRefresh, user }) {
             {busy
               ? <ActivityIndicator size="small" color="#166534" />
               : <Feather name="send" size={14} color="#166534" />}
-            <Text style={[card.btnTxt, { color: "#166534" }]}>Publish</Text>
+            <Text style={[card.btnTxt, { color: "#166534" }]}>{_t("Publish")}</Text>
           </TouchableOpacity>
         )}
 
@@ -150,7 +149,7 @@ function TestCard({ test, series, navigation, onRefresh, user }) {
             disabled={busy}
           >
             <Feather name="bar-chart-2" size={14} color="#a16207" />
-            <Text style={[card.btnTxt, { color: "#a16207" }]}>Results</Text>
+            <Text style={[card.btnTxt, { color: "#a16207" }]}>{_t("Results")}</Text>
           </TouchableOpacity>
         )}
 
@@ -162,7 +161,7 @@ function TestCard({ test, series, navigation, onRefresh, user }) {
             disabled={busy}
           >
             <Feather name="award" size={14} color="#9d174d" />
-            <Text style={[card.btnTxt, { color: "#9d174d" }]}>Leaderboard</Text>
+            <Text style={[card.btnTxt, { color: "#9d174d" }]}>{_t("Leaderboard")}</Text>
           </TouchableOpacity>
         )}
 
@@ -173,7 +172,7 @@ function TestCard({ test, series, navigation, onRefresh, user }) {
           disabled={busy}
         >
           <Feather name="trash-2" size={14} color="#dc2626" />
-          <Text style={[card.btnTxt, { color: "#dc2626" }]}>Delete</Text>
+          <Text style={[card.btnTxt, { color: "#dc2626" }]}>{_t("Delete")}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -214,11 +213,11 @@ function EmptyState({ onAdd }) {
   return (
     <View style={em.wrap}>
       <Feather name="file-text" size={48} color="#cbd5e1" />
-      <Text style={em.title}>No tests yet</Text>
-      <Text style={em.sub}>Tap the + button to create the first test in this series.</Text>
+      <Text style={em.title}>{_t("No tests yet")}</Text>
+      <Text style={em.sub}>{_t("Tap the + button to create the first test in this series.")}</Text>
       <TouchableOpacity style={em.btn} onPress={onAdd}>
         <Feather name="plus" size={16} color="#fff" />
-        <Text style={em.btnTxt}>Create Test</Text>
+        <Text style={em.btnTxt}>{_t("Create Test")}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -259,7 +258,7 @@ export default function TestManageScreen({ route, navigation }) {
       const res = await getTestsBySeriesId(user, series.id);
       setTests(Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []);
     } catch (e) {
-      Alert.alert("Error", "Failed to load tests");
+      Alert.alert(_t("Error"), _tx(e?.message) || _t("Failed to load tests"));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -296,16 +295,14 @@ export default function TestManageScreen({ route, navigation }) {
       {/* Series info strip */}
       <View style={sc.strip}>
         <View style={{ flex: 1 }}>
-          <Text style={sc.stripLabel}>
-            {series.exam_type?.toUpperCase()} · {tests.length} test{tests.length !== 1 ? "s" : ""}
-          </Text>
+          <Text style={sc.stripLabel}>{_t("{v} · {length} test{pl}", { v: series.exam_type?.toUpperCase(), length: tests.length, pl: tests.length !== 1 ? "s" : "" })}</Text>
         </View>
         <TouchableOpacity
           style={sc.addBtn}
           onPress={() => navigation.navigate("TestCreate", { series, test: null })}
         >
           <Feather name="plus" size={16} color="#fff" />
-          <Text style={sc.addBtnTxt}>New Test</Text>
+          <Text style={sc.addBtnTxt}>{_t("New Test")}</Text>
         </TouchableOpacity>
       </View>
 

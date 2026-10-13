@@ -26,7 +26,7 @@ import React, {
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, Modal, Alert, ActivityIndicator, Platform,
-  RefreshControl, Dimensions, FlatList, Animated, Image, Linking,
+  RefreshControl, Dimensions, FlatList, Animated, Image, Linking, Share, AppState,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
@@ -36,18 +36,22 @@ import {
   sendReceiptEmail,
 } from '../../services/FeeServiceApi';
 import { HOST_NAME } from '../../Environment/EnvironmentConfig';
+import { getOnlinePayAvailability, createFeePayment, emailPayLink, getPaymentStatus } from '../../services/OnlinePayApi';
+import { isIndianSchool } from '../../constants/CourseMediums';
 
+import { fmtMoney, fmtDate as fmtLocalDate, currencySymbol, taxLabel, fmtDateTime } from "../../services/Locale";
+import { _t, _tx } from "../../services/i18n";
 const { width } = Dimensions.get('window');
 const isTablet  = width >= 768;
 // NOTE: useContext(AuthContext) moved inside the component function below
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt      = (v)    => (isNaN(parseFloat(v)) ? '0.00' : parseFloat(v).toFixed(2));
-const fmtCurr  = (v, sym = '₹') => `${sym} ${fmt(v)}`;
+const fmtCurr  = (v) => fmtMoney(v);   // Region & formats (the school's currency and number style)
 const fmtDate  = (d)    => {
   if (!d) return '—';
   const x = new Date(d);
-  return isNaN(x) ? d : x.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return isNaN(x) ? d : fmtLocalDate(x, 'medium');
 };
 const today = () => new Date().toISOString().split('T')[0];
 
@@ -60,13 +64,17 @@ const genCashReceipt = () => {
 };
 
 const PAYMENT_METHODS = [
-  { id: 'Cash',          icon: 'payments',               label: 'Cash',         color: '#15803d', bg: '#f0fdf4' },
+  { id: 'Cash',          icon: 'payments',               get label() { return _t("Cash"); },         color: '#15803d', bg: '#f0fdf4' },
   // { id: 'Card',          icon: 'credit-card',            label: 'Card',         color: '#0f4c81', bg: '#eff6ff' },
-  { id: 'PhonePe',       icon: 'smartphone',             label: 'PhonePe',      color: '#5f259f', bg: '#faf5ff' },
-  { id: 'Google Pay',    icon: 'account-balance-wallet', label: 'Google Pay',   color: '#1a73e8', bg: '#eff8ff' },
-  { id: 'Paytm',         icon: 'qr-code-2',              label: 'Paytm',        color: '#00b9f5', bg: '#f0fbff' },
+  { id: 'PhonePe',       icon: 'smartphone',             get label() { return _t("PhonePe"); },      color: '#5f259f', bg: '#faf5ff' },
+  { id: 'Google Pay',    icon: 'account-balance-wallet', get label() { return _t("Google Pay"); },   color: '#1a73e8', bg: '#eff8ff' },
+  { id: 'Paytm',         icon: 'qr-code-2',              get label() { return _t("Paytm"); },        color: '#00b9f5', bg: '#f0fbff' },
   // { id: 'Bank Transfer', icon: 'account-balance',        label: 'Bank Transfer',color: '#b45309', bg: '#fffbeb' },
 ];
+
+// International schools: cash at the desk, or card through the school's own Stripe account.
+const METHOD_CASH   = PAYMENT_METHODS[0];
+const METHOD_STRIPE = { id: 'Stripe', icon: 'credit-card', get label() { return _t("Card (Stripe)"); }, color: '#635bff', bg: '#f5f3ff' };
 
 // ─── PDF — demand letter helpers ─────────────────────────────────────────────
 let _Print = null, _Sharing = null, _FileSystem = null;
@@ -82,7 +90,7 @@ function fmtPdf(v) { return isNaN(parseFloat(v)) ? '0.00' : parseFloat(v).toFixe
 function fmtDatePdf(d) {
   if (!d) return '—';
   const x = new Date(d);
-  return isNaN(x) ? d : x.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+  return isNaN(x) ? d : fmtLocalDate(x, 'medium');
 }
 const DEMAND_PDF_STYLES = '<style>' +
   '*{margin:0;padding:0;box-sizing:border-box}' +
@@ -213,7 +221,7 @@ const DEMAND_STRINGS = {
 function buildDemandSlipHtml(stu, meta, lang = 'en') {
   const t = DEMAND_STRINGS[lang] ?? DEMAND_STRINGS.en;
   const dir = lang === 'ur' ? ' dir="rtl"' : '';
-  const { className, sessionName, branchName, schoolName, address, city, state, zip, email, phone, logo, currSym = '₹' } = meta;
+  const { className, sessionName, branchName, schoolName, address, city, state, zip, email, phone, logo, currSym = currencySymbol() } = meta;
   const logoHtml = logo
     ? `<img src="${logo}" style="width:56px;height:56px;object-fit:contain;flex-shrink:0;"/>`
     : `<div style="width:56px;height:56px;border-radius:50%;background:#0f4c81;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:900;flex-shrink:0;">${escH((schoolName ?? 'S')[0])}</div>`;
@@ -233,16 +241,16 @@ function buildDemandSlipHtml(stu, meta, lang = 'en') {
   const netTot=totalNetBase+totalTax;
   const addr=[address,city,state,zip].filter(Boolean).join(', ');
   const contact=[phone?`Ph: ${phone}`:'',email?`Email: ${email}`:''].filter(Boolean).join('  ·  ');
-  const genOn=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  const genDate=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
+  const genOn=fmtDateTime(new Date());
+  const genDate=fmtLocalDate(new Date(), 'full');
   const refNo=`FDS-${escH(String(stu.enrollment_id))}-${new Date().toISOString().slice(0,10).replace(/-/g,'')}`;
   let html=`<div class="lhdr"><div style="display:flex;align-items:center;gap:10px;">${logoHtml}<div><h1>${escH(schoolName)}</h1>${addr?`<div class="addr">${escH(addr)}</div>`:''} ${contact?`<div class="addr">${escH(contact)}</div>`:''}</div></div><div class="right"><strong>${t.noticeTitle}</strong>Date: ${escH(genDate)}<br/>Ref: ${escH(refNo)}</div></div>`;
   html+=`<div class="meta-row"><div class="meta-item"><div class="lbl">${t.academicSession}</div><div class="val">${escH(sessionName)}</div></div><div class="meta-item"><div class="lbl">${t.classLabel}</div><div class="val">${escH(className)}</div></div>${branchName?`<div class="meta-item"><div class="lbl">${t.branchLabel}</div><div class="val">${escH(branchName)}</div></div>`:''}<div class="meta-item" style="text-align:right"><div class="lbl">${t.generated}</div><div class="val">${escH(genOn)}</div></div></div>`;
   html+=`<div class="stu-block"><div class="stu-name">${escH(stu.student_name??'')}</div><div style="margin-top:4px"><span class="stu-badge">Enr # ${escH(String(stu.enrollment_id))}</span>${stu.registration_id?`<span class="stu-badge">Reg # ${escH(String(stu.registration_id))}</span>`:''}</div></div>`;
-  html+=`<div class="subj"><div class="title">${t.subjectLine} &mdash; ${escH(sessionName)}</div><div class="sub">${t.totalOutstanding}: ${currSym} ${fmtPdf(totalDue)}</div></div>`;
+  html+=`<div class="subj"><div class="title">${t.subjectLine} &mdash; ${escH(sessionName)}</div><div class="sub">${t.totalOutstanding}: ${fmtMoney(totalDue)}</div></div>`;
   html+=`<p class="para">${t.dearParent(escH(stu.student_name??''))}</p><p class="para">${t.bodyPara(escH(sessionName))}</p>`;
   const discTh=hasDisc?`<th class="r">${t.discount}</th>`:'';
-  const taxTh=hasTax?`<th class="r">${t.gstTax}</th>`:'';
+  const taxTh=hasTax?`<th class="r">${t === DEMAND_STRINGS.en ? taxLabel() : t.gstTax}</th>`:'';
   const lateTh=hasLate?`<th class="r">${t.lateFee}</th>`:'';
   const paidTh=hasPaid?`<th class="r">${t.paid}</th>`:'';
   html+=`<table><thead><tr><th>${t.feeItem}</th><th class="r">${t.feeAmount}</th>${discTh}<th class="r">${t.netPayable}</th>${taxTh}${paidTh}${lateTh}<th class="r">${t.balanceDue}</th></tr></thead><tbody>`;
@@ -252,18 +260,18 @@ function buildDemandSlipHtml(stu, meta, lang = 'en') {
     const disc=parseFloat(fi.discount_amount??0),tax=parseFloat(fi.tax_amount??0);
     const late=parseFloat(fi.late_fee??0),paid=parseFloat(fi.previously_paid??0);
     const net=parseFloat(fi.net_payable??fi.net_fee_amount??fi.fee_amount??0);
-    const dc=hasDisc?(disc>0?`<td class="disc">&minus;${currSym} ${fmtPdf(disc)}<div class="fn">(${parseFloat(fi.discount_percent??0).toFixed(1)}%)</div></td>`:'<td class="r" style="color:#94a3b8">&mdash;</td>'):'';
-    const tc=hasTax?(tax>0?`<td class="tax-c">+${currSym} ${fmtPdf(tax)}<div class="fn">(${parseFloat(fi.tax_percent??0).toFixed(1)}%)</div></td>`:'<td class="r" style="color:#94a3b8">&mdash;</td>'):'';
-    const lc=hasLate?(late>0?`<td class="late">+${currSym} ${fmtPdf(late)}</td>`:'<td class="r" style="color:#94a3b8">&mdash;</td>'):'';
-    const pc=hasPaid?(paid>0?`<td class="paid-c">${currSym} ${fmtPdf(paid)}</td>`:'<td class="r" style="color:#94a3b8">&mdash;</td>'):'';
-    html+=`<tr><td>${escH(fi.fee_item_name??'—')}${mn}${dd}</td><td class="r">${currSym} ${fmtPdf(fi.fee_amount)}</td>${dc}<td class="r">${currSym} ${fmtPdf(net)}</td>${tc}${pc}${lc}<td class="due">${currSym} ${fmtPdf(fi.balance_due)}</td></tr>`;
+    const dc=hasDisc?(disc>0?`<td class="disc">&minus;${fmtMoney(disc)}<div class="fn">(${parseFloat(fi.discount_percent??0).toFixed(1)}%)</div></td>`:'<td class="r" style="color:#94a3b8">&mdash;</td>'):'';
+    const tc=hasTax?(tax>0?`<td class="tax-c">+${fmtMoney(tax)}<div class="fn">(${parseFloat(fi.tax_percent??0).toFixed(1)}%)</div></td>`:'<td class="r" style="color:#94a3b8">&mdash;</td>'):'';
+    const lc=hasLate?(late>0?`<td class="late">+${fmtMoney(late)}</td>`:'<td class="r" style="color:#94a3b8">&mdash;</td>'):'';
+    const pc=hasPaid?(paid>0?`<td class="paid-c">${fmtMoney(paid)}</td>`:'<td class="r" style="color:#94a3b8">&mdash;</td>'):'';
+    html+=`<tr><td>${escH(fi.fee_item_name??'—')}${mn}${dd}</td><td class="r">${fmtMoney(fi.fee_amount)}</td>${dc}<td class="r">${fmtMoney(net)}</td>${tc}${pc}${lc}<td class="due">${fmtMoney(fi.balance_due)}</td></tr>`;
   });
-  const dtc=hasDisc?`<td class="disc">&minus;${currSym} ${fmtPdf(totalDisc)}</td>`:'';
-  const ttc=hasTax?`<td class="tax-c">+${currSym} ${fmtPdf(totalTax)}</td>`:'';
-  const ltc=hasLate?`<td class="late">+${currSym} ${fmtPdf(totalLate)}</td>`:'';
-  const ptc=hasPaid?`<td class="paid-c">${currSym} ${fmtPdf(totalPaid)}</td>`:'';
+  const dtc=hasDisc?`<td class="disc">&minus;${fmtMoney(totalDisc)}</td>`:'';
+  const ttc=hasTax?`<td class="tax-c">+${fmtMoney(totalTax)}</td>`:'';
+  const ltc=hasLate?`<td class="late">+${fmtMoney(totalLate)}</td>`:'';
+  const ptc=hasPaid?`<td class="paid-c">${fmtMoney(totalPaid)}</td>`:'';
   const gc=2+(hasDisc?1:0)+(hasTax?1:0)+(hasPaid?1:0)+(hasLate?1:0);
-  html+=`<tr class="tot"><td><strong>${t.subTotal}</strong></td><td class="r">${currSym} ${fmtPdf(totalFee)}</td>${dtc}<td class="r">${currSym} ${fmtPdf(netTot)}</td>${ttc}${ptc}${ltc}<td class="due">${currSym} ${fmtPdf(totalDue)}</td></tr><tr class="grand"><td colspan="${gc}">${t.totalBalanceDue}</td><td class="r" colspan="2" style="font-size:10px">${currSym} ${fmtPdf(totalDue)}</td></tr></tbody></table>`;
+  html+=`<tr class="tot"><td><strong>${t.subTotal}</strong></td><td class="r">${fmtMoney(totalFee)}</td>${dtc}<td class="r">${fmtMoney(netTot)}</td>${ttc}${ptc}${ltc}<td class="due">${fmtMoney(totalDue)}</td></tr><tr class="grand"><td colspan="${gc}">${t.totalBalanceDue}</td><td class="r" colspan="2" style="font-size:10px">${fmtMoney(totalDue)}</td></tr></tbody></table>`;
   html+=`<div class="sig-row"><div class="sig-box"><div class="sig-line"></div>${t.parentSig}</div><div class="sig-box"><div class="sig-line"></div>${t.accountsSig}</div></div>`;
   const footer=`<div class="slip-footer">${t.footerNote} &bull; ${escH(schoolName)} &bull; Enr # ${escH(String(stu.enrollment_id))}</div>`;
   return `<!DOCTYPE html><html lang="${lang}"${dir}><head><meta charset="UTF-8"/>${DEMAND_PDF_STYLES}</head><body><div class="slip">${html}${footer}</div></body></html>`;
@@ -312,6 +320,35 @@ export default function StudentFeeScreen({ route, navigation }) {
     ['admin', 'owner', 'accountant'].includes((user?.ssmsUserRole ?? user?.role ?? '').toLowerCase().trim()),
   [user]);
 
+  // ── Online payment link (school has Stripe / Razorpay connected) ────────
+  const [onlinePay, setOnlinePay] = useState({ available: false });
+  const [linkBusy,  setLinkBusy]  = useState(null);
+  useEffect(() => {
+    let alive = true;
+    if (user && canCollect) getOnlinePayAvailability(user).then(r => { if (alive) setOnlinePay(r || { available: false }); });
+    return () => { alive = false; };
+  }, [user, canCollect]);
+  const onEmailPayLink = useCallback(async () => {
+    setLinkBusy('email');
+    try {
+      const r = await emailPayLink(user, enrollment_id);
+      Alert.alert(_t("Payment link"), _tx(r.message) || _t("Payment link created."));
+    } catch (e) {
+      Alert.alert(_t("Payment link"), _tx(e?.message) || _t("Could not create the payment link."));
+    } finally { setLinkBusy(null); }
+  }, [user, enrollment_id]);
+  const onSharePayLink = useCallback(async () => {
+    setLinkBusy('share');
+    try {
+      const r = await createFeePayment(user, enrollment_id);
+      await Share.share({
+        message: _t("Fee payment for {v}: {v2} {currency}.\nPay securely online: {payUrl}", { v: student_name ?? _t("your child"), v2: Number(r.amount).toFixed(2), currency: r.currency, payUrl: r.payUrl }),
+      });
+    } catch (e) {
+      Alert.alert(_t("Payment link"), _tx(e?.message) || _t("Could not create the payment link."));
+    } finally { setLinkBusy(null); }
+  }, [user, enrollment_id, student_name]);
+
   // Data
   const [dueItems,     setDueItems]    = useState([]);   // joined fee_structure rows with balance
   const [paidRecords,  setPaidRecords] = useState([]);   // ssms_fee_paid_details rows (fully/partially paid)
@@ -321,7 +358,7 @@ export default function StudentFeeScreen({ route, navigation }) {
   // course_medium fetched from API — drives demand letter / WhatsApp language
   const [courseMedium, setCourseMedium] = useState('');
   // Currency symbol from school settings — fallback to ₹ if not set
-  const currSym = schoolDetails?.currency?.trim() || '₹';
+  const currSym = currencySymbol();
   const [loading,      setLoading]     = useState(true);
   const [refreshing,   setRefreshing]  = useState(false);
 
@@ -367,7 +404,7 @@ export default function StudentFeeScreen({ route, navigation }) {
   // ── Generate Demand Letter ────────────────────────────────────────────
   const generateDemandLetter = useCallback(async () => {
     if (!dueItems.length) {
-      Alert.alert('No Due Fees', 'No outstanding dues to generate a demand letter for.');
+      Alert.alert(_t("No Due Fees"), _t("No outstanding dues to generate a demand letter for."));
       return;
     }
     try {
@@ -401,32 +438,32 @@ export default function StudentFeeScreen({ route, navigation }) {
         className:   firstDue.class_name   ?? route?.params?.className ?? String(class_id ?? ''),
         sessionName: firstDue.session_name ?? String(session_id ?? ''),
         branchName:  firstDue.branch_name  ?? String(branch_id  ?? ''),
-        currSym:     schoolDetails?.currency?.trim() || '₹',
+        currSym:     currencySymbol(),
       };
       const stu = { enrollment_id: enrollment_id, registration_id: registration_id,
                     student_name: student_name, fee_items: dueItems };
       const lang = getLanguage(courseMedium);
       const html = buildDemandSlipHtml(stu, meta, lang);
-      if (!html) { Alert.alert('No Due Fees', 'No items to include.'); return; }
+      if (!html) { Alert.alert(_t("No Due Fees"), _t("No items to include.")); return; }
       const { uri } = await _Print.printToFileAsync({ html, width: 595, height: 842, base64: false });
       const canShare = await _Sharing.isAvailableAsync();
       if (canShare) {
         await _Sharing.shareAsync(uri, { mimeType: 'application/pdf',
           dialogTitle: `Demand_${String(student_name ?? '').replace(/\s+/g,'_')}.pdf`, UTI: 'com.adobe.pdf' });
-      } else { Alert.alert('PDF Ready', `Saved to:\n${uri}`); }
-    } catch (e) { Alert.alert('Error', e.message ?? 'Failed to generate demand letter'); }
+      } else { Alert.alert(_t("PDF Ready"), _t("Saved to:\n{uri}", { uri })); }
+    } catch (e) { Alert.alert(_t("Error"), _tx(e.message) ?? _t("Failed to generate demand letter")); }
     finally { setDemandLoading(false); }
   }, [dueItems, schoolDetails, enrollment_id, registration_id, student_name,
       class_id, session_id, branch_id, route?.params?.className, courseMedium]);
   // ── Send WhatsApp Demand Notice ──────────────────────────────────────────────
   const sendWhatsAppDemandNotice = useCallback(() => {
     if (!dueItems.length) {
-      Alert.alert('No Due Fees', 'No outstanding dues to notify about.');
+      Alert.alert(_t("No Due Fees"), _t("No outstanding dues to notify about."));
       return;
     }
     const phone = String(mobileNumber ?? '').replace(/\D/g, '');
     if (!phone) {
-      Alert.alert('No Phone Number', 'Parent/guardian mobile number is not available for this student.');
+      Alert.alert(_t("No Phone Number"), _t("Parent/guardian mobile number is not available for this student."));
       return;
     }
     const schoolName = schoolDetails?.ssms_client_header_text ?? 'School';
@@ -434,7 +471,7 @@ export default function StudentFeeScreen({ route, navigation }) {
     const lang = getLanguage(courseMedium);
     const t = DEMAND_STRINGS[lang] ?? DEMAND_STRINGS.en;
     const lines = dueItems.map(i =>
-      `• ${i.fee_item_name} (${i.month_no ?? '—'}): ${currSym} ${parseFloat(i.balance_due ?? i.fee_amount ?? 0).toFixed(2)}`
+      `• ${i.fee_item_name} (${i.month_no ?? '—'}): ${fmtMoney(i.balance_due ?? i.fee_amount ?? 0)}`
     ).join('\n');
     const total = dueItems.reduce((s, i) => s + parseFloat(i.balance_due ?? i.fee_amount ?? 0), 0);
     const message =
@@ -443,13 +480,13 @@ export default function StudentFeeScreen({ route, navigation }) {
       `${t.waGreeting}\n` +
       `${t.waBody(student_name, enrollment_id)}\n\n` +
       `${lines}\n\n` +
-      `${t.waTotal(currSym, total.toFixed(2))}\n\n` +
+      `${t.waTotal(currSym, fmtMoney(total, { symbol: false }))}\n\n` +
       `${t.waUrgency}\n` +
       `${t.waContact}` +
       (schoolPhone ? `\n${t.waPhone(schoolPhone)}` : '');
     const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     Linking.openURL(waUrl).catch(() =>
-      Alert.alert('WhatsApp Not Found', 'Please ensure WhatsApp is installed on this device.')
+      Alert.alert(_t("WhatsApp Not Found"), _t("Please ensure WhatsApp is installed on this device."))
     );
   }, [dueItems, mobileNumber, schoolDetails, student_name, enrollment_id, currSym, courseMedium]);
 
@@ -512,8 +549,7 @@ export default function StudentFeeScreen({ route, navigation }) {
 
   // ── Load ───────────────────────────────────────────────────────────────────
   const load = useCallback(async (silent = false) => {
-    if (!user) return;
-    if (!enrollment_id) return;
+    if (!user || !enrollment_id) { setLoading(false); setRefreshing(false); return; }
     try {
       if (!silent) setLoading(true);
       let res;
@@ -522,26 +558,26 @@ export default function StudentFeeScreen({ route, navigation }) {
           class_id, session_id, branch_id, ssms_client_code, category: 'Academic',
         }, user);
       } catch (e) {
-        if (e.message.includes('Session expired') || e.message.includes('SESSION_EXPIRED')) {
+        if (String(e?.message ?? '').includes('Session expired') || String(e?.message ?? '').includes('SESSION_EXPIRED')) {
           logout();
           navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
           return;
         }
         throw e;
       }
-      const dueData = res.due ?? [];
+      const dueData = Array.isArray(res?.due) ? res.due : [];
       setDueItems(dueData);
-      setPaidRecords(res.paid ?? []);
+      setPaidRecords(Array.isArray(res?.paid) ? res.paid : []);
 
-      const schoolData = res.schoolDetails ?? {};
+      const schoolData = res?.schoolDetails ?? {};
       setSchoolDetails(schoolData);
 
       // Use mobile_number from API (authoritative); fall back to route param
-      if (res.mobile_number) setMobileNumber(String(res.mobile_number));
+      if (res?.mobile_number) setMobileNumber(String(res.mobile_number));
       // course_medium drives demand letter / WhatsApp language
       // eslint-disable-next-line no-console
-      console.warn('[FeeScreen] course_medium from API:', res.course_medium, '→ lang:', getLanguage(res.course_medium ?? ''));
-      if (res.course_medium) setCourseMedium(String(res.course_medium));
+      console.warn('[FeeScreen] course_medium from API:', res?.course_medium, '→ lang:', getLanguage(res?.course_medium ?? ''));
+      if (res?.course_medium) setCourseMedium(String(res.course_medium));
       // Pre-populate late fee overrides from API values
 
       const initOverrides = {};
@@ -550,7 +586,7 @@ export default function StudentFeeScreen({ route, navigation }) {
       });
       setLateFeeOverrides(initOverrides);
     } catch (e) {
-      Alert.alert('Error', e.message ?? 'Failed to load fee data.');
+      Alert.alert(_t("Error"), _tx(e.message) ?? _t("Failed to load fee data."));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -559,6 +595,73 @@ export default function StudentFeeScreen({ route, navigation }) {
 
   useEffect(() => { load(); }, [load]);
   const onRefresh = () => { setRefreshing(true); load(true); };
+
+  // ── Payment methods: Indian schools → Cash + UPI apps; others → Cash + Stripe ──
+  const isIndia      = isIndianSchool(user);
+  const stripeReady  = onlinePay.available && onlinePay.provider === 'stripe';
+  const methods      = useMemo(
+    () => (isIndia ? PAYMENT_METHODS : (stripeReady ? [METHOD_CASH, METHOD_STRIPE] : [METHOD_CASH])),
+    [isIndia, stripeReady],
+  );
+  const isStripe     = paymentMethod === 'Stripe';
+
+  // ── Stripe card payment for the selected items (money goes to the school's Stripe) ──
+  const [stripeBusy,    setStripeBusy]    = useState(null);   // 'now' | 'link' | 'check'
+  const [stripePending, setStripePending] = useState(null);   // { id, amount, currency }
+
+  const startStripe = useCallback(async (mode) => {
+    if (selectedItems.length === 0) { Alert.alert(_t("Select Items"), _t("Please select at least one fee item.")); return; }
+    setStripeBusy(mode);
+    try {
+      const r = await createFeePayment(user, enrollment_id,
+        selectedItems.map(i => ({ fee_id: i.fee_id, fee_item_id: i.fee_item_id })));
+      setStripePending({ id: r.id, amount: r.amount, currency: r.currency });
+      if (mode === 'now') {
+        // Straight to Stripe Checkout – the parent pays on this device.
+        await Linking.openURL(`${r.payUrl}/go`);
+      } else {
+        await Share.share({
+          message: _t("Fee payment for {v}: {v2} {currency}.\nPay securely by card: {payUrl}", { v: student_name ?? _t("your child"), v2: Number(r.amount).toFixed(2), currency: r.currency, payUrl: r.payUrl }),
+        });
+      }
+    } catch (e) {
+      Alert.alert(_t("Card payment"), _tx(e?.message) || _t("Could not start the card payment."));
+    } finally { setStripeBusy(null); }
+  }, [user, enrollment_id, selectedItems, student_name]);
+
+  const checkStripe = useCallback(async (quiet = false) => {
+    if (!stripePending?.id) return;
+    if (!quiet) setStripeBusy('check');
+    try {
+      const st = await getPaymentStatus(user, stripePending.id);
+      if (st?.status === 'paid') {
+        setStripePending(null);
+        dispatch({ type: 'CLEAR' });
+        setPaymentMethod('Cash');
+        load(true);
+        Alert.alert(_t("Payment received"), _t("Card payment of {v} {v2} received.{v3}", { v: Number(st.amount ?? 0).toFixed(2), v2: st.currency ?? '', v3: st.receipt ? `
+${_t("Receipt {receipt}.", { receipt: st.receipt })}` : '' }));
+      } else if (!quiet) {
+        Alert.alert(_t("Card payment"), st?.status === 'expired'
+          ? _t("This payment link has expired. Start a new card payment.")
+          : _t("Not paid yet. Once the card payment is completed it is recorded automatically."));
+      }
+    } catch (e) {
+      if (!quiet) Alert.alert(_t("Card payment"), _tx(e?.message) || _t("Could not check the payment."));
+    } finally { if (!quiet) setStripeBusy(null); }
+  }, [user, stripePending, load]);
+
+  // Coming back from the Stripe page → check whether it was paid.
+  useEffect(() => {
+    if (!stripePending?.id) return undefined;
+    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') checkStripe(true); });
+    return () => sub.remove();
+  }, [stripePending, checkStripe]);
+
+  // Methods changed (e.g. availability loaded) and the current one is gone → Cash.
+  useEffect(() => {
+    if (!methods.some(m => m.id === paymentMethod)) setPaymentMethod('Cash');
+  }, [methods]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Summary across all due items ───────────────────────────────────────────
   const totalDue  = useMemo(() => dueItems.reduce((s, i) =>
@@ -573,18 +676,18 @@ export default function StudentFeeScreen({ route, navigation }) {
   // ── Submit payment ─────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (selected.length === 0) {
-      Alert.alert('Select Items', 'Please select at least one fee item to pay.'); return;
+      Alert.alert(_t("Select Items"), _t("Please select at least one fee item to pay.")); return;
     }
     if (!isCash && !receiptInput.trim()) {
       shake();
-      Alert.alert('Reference Required', `Please enter the ${paymentMethod} transaction / reference number.`); return;
+      Alert.alert(_t("Reference Required"), _t("Please enter the {paymentMethod} transaction / reference number.", { paymentMethod })); return;
     }
     if (paidAmt <= 0) {
       shake();
-      Alert.alert('Amount Required', 'Please enter a valid payment amount.'); return;
+      Alert.alert(_t("Amount Required"), _t("Please enter a valid payment amount.")); return;
     }
     if (overpaid) {
-      Alert.alert('Overpayment', `Paid amount cannot exceed the selected total of ${fmtCurr(cartTotal, currSym)}.`); return;
+      Alert.alert(_t("Overpayment"), _t("Paid amount cannot exceed the selected total of {cartTotal}.", { cartTotal: fmtCurr(cartTotal, currSym) })); return;
     }
 
     try {
@@ -638,9 +741,9 @@ export default function StudentFeeScreen({ route, navigation }) {
       setPaymentDate(today());
       setPaymentMethod('Cash');
       load(true);
-      Alert.alert('Payment Recorded', `Receipt #${receiptInput.trim()} saved successfully.`);
+      Alert.alert(_t("Payment Recorded"), _t("Receipt #{v} saved successfully.", { v: receiptInput.trim() }));
     } catch (e) {
-      Alert.alert('Error', e.message ?? 'Payment failed.');
+      Alert.alert(_t("Error"), _tx(e.message) ?? _t("Payment failed."));
     } finally {
       setSubmitting(false);
     }
@@ -657,7 +760,7 @@ export default function StudentFeeScreen({ route, navigation }) {
   const handleSendEmail = useCallback(async () => {
     const addr = emailAddr.trim();
     if (!addr || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) {
-      Alert.alert('Invalid Email', 'Please enter a valid email address.'); return;
+      Alert.alert(_t("Invalid Email"), _t("Please enter a valid email address.")); return;
     }
     try {
       setSendingEmail(true);
@@ -695,9 +798,9 @@ export default function StudentFeeScreen({ route, navigation }) {
         fee_items: feeItems,
       }, user);
       setEmailModal(false);
-      Alert.alert('Sent ✓', `Receipt emailed to ${addr} successfully.`);
+      Alert.alert(_t("Sent ✓"), _t("Receipt emailed to {addr} successfully.", { addr }));
     } catch (e) {
-      Alert.alert('Failed', e.message ?? 'Could not send email. Please try again.');
+      Alert.alert(_t("Failed"), _tx(e.message) ?? _t("Could not send email. Please try again."));
     } finally {
       setSendingEmail(false);
     }
@@ -707,10 +810,10 @@ export default function StudentFeeScreen({ route, navigation }) {
   if (loading) {
     return (
       <View style={s.root}>
-        <NavBar title={student_name ?? 'Student Fees'} sub={`Enrollment #${enrollment_id}`} onBack={() => navigation?.goBack()} />
+        <NavBar title={_tx(student_name) ?? _t("Student Fees")} sub={_t("Enrollment #{enrollment_id}", { enrollment_id })} onBack={() => navigation?.goBack()} />
         <View style={s.loaderWrap}>
           <ActivityIndicator size="large" color="#0f4c81" />
-          <Text style={s.loaderText}>Loading fee data…</Text>
+          <Text style={s.loaderText}>{_t("Loading fee data…")}</Text>
         </View>
       </View>
     );
@@ -743,6 +846,23 @@ export default function StudentFeeScreen({ route, navigation }) {
         hasPhone={!!String(mobileNumber ?? '').replace(/\D/g, '')}
       />
        <View style={si.separator}></View>
+        {/* Online payment link for parents (only when the school has online payments on) */}
+        {canCollect && onlinePay.available && totalDue > 0 && (
+          <View style={{ flexDirection: 'row', gap: 8, marginHorizontal: 12, marginBottom: 10 }}>
+            <TouchableOpacity onPress={onEmailPayLink} disabled={!!linkBusy}
+              style={{ flex: 1, backgroundColor: '#0f4c81', borderRadius: 10, paddingVertical: 11, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
+              {linkBusy === 'email' ? <ActivityIndicator color="#fff" /> : <>
+                <MaterialIcons name="email" size={16} color="#fff" />
+                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>{_t("Email pay link")}</Text></>}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onSharePayLink} disabled={!!linkBusy}
+              style={{ flex: 1, backgroundColor: '#e0f2fe', borderRadius: 10, paddingVertical: 11, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
+              {linkBusy === 'share' ? <ActivityIndicator color="#0f4c81" /> : <>
+                <MaterialIcons name="share" size={16} color="#0f4c81" />
+                <Text style={{ color: '#0f4c81', fontWeight: '800', fontSize: 13 }}>{_t("Share pay link")}</Text></>}
+            </TouchableOpacity>
+          </View>
+        )}
         {/* Summary banner removed — financials now live in StudentInfoCard above */}
 
         {/* ═══════════════════════════════════════════════════════════════════
@@ -751,9 +871,9 @@ export default function StudentFeeScreen({ route, navigation }) {
         <View style={s.sectionHeader}>
           <View style={s.sectionHeaderLeft}>
             <View style={[s.sectionDot, { backgroundColor: '#b91c1c' }]} />
-            <Text style={s.sectionTitle}>Due Payments</Text>
+            <Text style={s.sectionTitle}>{_t("Due Payments")}</Text>
             {dueItems.length > 0 && (
-              <View style={s.sectionBadge}><Text style={s.sectionBadgeText}>{dueItems.length}</Text></View>
+              <View style={s.sectionBadge}><Text style={s.sectionBadgeText}>{_tx(dueItems.length)}</Text></View>
             )}
           </View>
           {dueItems.length > 0 && (
@@ -765,7 +885,7 @@ export default function StudentFeeScreen({ route, navigation }) {
               }
             >
               <Text style={s.selectAllText}>
-                {selected.length === dueItems.length ? 'Deselect all' : 'Select all'}
+                {selected.length === dueItems.length ? _t("Deselect all") : _t("Select all")}
               </Text>
             </TouchableOpacity>
           )}
@@ -774,7 +894,7 @@ export default function StudentFeeScreen({ route, navigation }) {
         {dueItems.length === 0 ? (
           <View style={s.emptyDue}>
             <MaterialIcons name="celebration" size={36} color="#15803d" />
-            <Text style={s.emptyDueText}>No outstanding fees — all clear!</Text>
+            <Text style={s.emptyDueText}>{_t("No outstanding fees — all clear!")}</Text>
           </View>
         ) : (
           dueItems.map((item) => {
@@ -796,22 +916,22 @@ export default function StudentFeeScreen({ route, navigation }) {
                   <View style={s.dueCardContent}>
                     <View style={s.dueCardTopRow}>
                       <Text style={s.dueItemName} numberOfLines={1}>
-                        {item.fee_item_name} ({item.month_no})
+                        {_tx(item.fee_item_name)} ({_tx(item.month_no)})
                         {/* {item.fee_name ? `  ·  ${item.fee_name}` : ''} */}
                       </Text>
                       {overdue && (
                         <View style={s.overdueBadge}>
                           <MaterialIcons name="warning" size={10} color="#b45309" />
-                          <Text style={s.overdueBadgeText}>Overdue</Text>
+                          <Text style={s.overdueBadgeText}>{_t("Overdue")}</Text>
                         </View>
                       )}
                     </View>
 
                     <View style={s.dueCardMetaRow}>
-                      <MetaTag icon="event" label={`Due ${fmtDate(item.due_date)}`} />
-                      <MetaTag icon="class" label={`Class: ${item.class_name ?? '—'}`} />
+                      <MetaTag icon="event" label={_t("Due {due_date}", { due_date: fmtDate(item.due_date) })} />
+                      <MetaTag icon="class" label={_t("Class: {v}", { v: item.class_name ?? '—' })} />
                       {item.late_fee > 0 && (
-                        <MetaTag icon="timer" label={`Late ${currSym}${fmt(item.late_fee)}`} warn />
+                        <MetaTag icon="timer" label={_t("Late {late_fee}", { late_fee: fmtCurr(item.late_fee) })} warn />
                       )}
                     </View>
 
@@ -819,9 +939,9 @@ export default function StudentFeeScreen({ route, navigation }) {
                     {checked && overdue && (
                       <View style={s.lateFeeRow}>
                         <MaterialIcons name="timer" size={14} color="#b45309" />
-                        <Text style={s.lateFeeLabel}>Late Fee:</Text>
+                        <Text style={s.lateFeeLabel}>{_t("Late Fee:")}</Text>
                         <View style={s.lateFeeInputWrap}>
-                          <Text style={s.lateFeeRupee}>{currSym}</Text>
+                          <Text style={s.lateFeeRupee}>{_tx(currSym)}</Text>
                           <TextInput
                             style={s.lateFeeInput}
                             placeholder="0.00"
@@ -847,9 +967,7 @@ export default function StudentFeeScreen({ route, navigation }) {
                           {/* Line 1: icon + label */}
                           <View style={s.discountLine1}>
                             <MaterialIcons name="local-offer" size={12} color="#16a34a" />
-                            <Text style={s.discountTxt}>
-                              {fmt(item.discount_percent)}% discount applied
-                            </Text>
+                            <Text style={s.discountTxt}>{_t("{discount_percent}% discount applied", { discount_percent: fmt(item.discount_percent) })}</Text>
                           </View>
                           {/* Line 2: original ~~strike~~ − amount = net */}
                           <View style={s.discountLine2}>
@@ -871,7 +989,7 @@ export default function StudentFeeScreen({ route, navigation }) {
                       return (
                         <View style={s.infoRow}>
                           <MaterialIcons name="payments" size={12} color="#0369a1" />
-                          <Text style={[s.infoRowTxt, { color: '#0369a1' }]}>Remaining Fee</Text>
+                          <Text style={[s.infoRowTxt, { color: '#0369a1' }]}>{_t("Remaining Fee")}</Text>
                           <View style={{ flex: 1 }} />
                           <Text style={[s.infoRowAmt, { color: '#0369a1' }]}>+{fmtCurr(remBase, currSym)}</Text>
                         </View>
@@ -883,7 +1001,7 @@ export default function StudentFeeScreen({ route, navigation }) {
                       <View style={s.infoRow}>
                         <MaterialIcons name="account-balance" size={12} color="#0f4c81" />
                         <Text style={[s.infoRowTxt, { color: '#0f4c81' }]}>
-                          GST / Tax {fmt(item.tax_percent)}%
+                          {taxLabel()} {fmt(item.tax_percent)}%
                         </Text>
                         <View style={{ flex: 1 }} />
                         <Text style={[s.infoRowAmt, { color: '#0f4c81' }]}>+{fmtCurr(item.tax_amount, currSym)}</Text>
@@ -894,12 +1012,10 @@ export default function StudentFeeScreen({ route, navigation }) {
                       <View style={{ flex: 1 }} />
                       <View style={{ alignItems: 'flex-end' }}>
                         {checked && overdue && getLateFee(item) > 0 && (
-                          <Text style={s.lateFeeBreakdown}>
-                            Net {fmtCurr(item.balance_due ?? item.fee_amount, currSym)} + Late {fmtCurr(getLateFee(item), currSym)}
-                          </Text>
+                          <Text style={s.lateFeeBreakdown}>{_t("Net {v} + Late {v2}", { v: fmtCurr(item.balance_due ?? item.fee_amount, currSym), v2: fmtCurr(getLateFee(item), currSym) })}</Text>
                         )}
                         <Text style={s.dueAmountLabel}>
-                          {checked && overdue && getLateFee(item) > 0 ? 'Total (incl. Late)' : 'Balance Due'}
+                          {checked && overdue && getLateFee(item) > 0 ? _t("Total (incl. Late)") : _t("Balance Due")}
                         </Text>
                         <Text style={[s.dueAmount, checked && s.dueAmountSelected]}>
                           {checked && overdue && getLateFee(item) > 0
@@ -922,9 +1038,7 @@ export default function StudentFeeScreen({ route, navigation }) {
           <View style={s.paymentPanel}>
             {/* Selected items summary */}
             <View style={s.cartSummaryRow}>
-              <Text style={s.cartSummaryLabel}>
-                {selected.length} item{selected.length !== 1 ? 's' : ''} selected
-              </Text>
+              <Text style={s.cartSummaryLabel}>{_t("{length} item{pl} selected", { length: selected.length, pl: selected.length !== 1 ? 's' : '' })}</Text>
               <Text style={s.cartTotal}>{fmtCurr(cartTotal, currSym)}</Text>
             </View>
 
@@ -938,15 +1052,13 @@ export default function StudentFeeScreen({ route, navigation }) {
                       <View key={i.fee_id}>
                         <View style={s.cartBreakdownRow}>
                           <Text style={s.cartBreakdownLabel} numberOfLines={1}>
-                            {i.fee_item_name} ({i.month_no})
+                            {_tx(i.fee_item_name)} ({_tx(i.month_no)})
                           </Text>
                           <Text style={s.cartBreakdownAmt}>{fmtCurr(i.balance_due ?? i.fee_amount, currSym)}</Text>
                         </View>
                         {lf > 0 && (
                           <View style={s.cartBreakdownRow}>
-                            <Text style={[s.cartBreakdownLabel, { color: '#b45309', paddingLeft: 10 }]}>
-                              ↳ Late Fee
-                            </Text>
+                            <Text style={[s.cartBreakdownLabel, { color: '#b45309', paddingLeft: 10 }]}>{_t("↳ Late Fee")}</Text>
                             <Text style={[s.cartBreakdownAmt, { color: '#b45309' }]}>{fmtCurr(lf, currSym)}</Text>
                           </View>
                         )}
@@ -956,29 +1068,29 @@ export default function StudentFeeScreen({ route, navigation }) {
                   <View style={s.cartBreakdownDivider} />
                   {cartTaxTotal > 0 && (
                     <View style={s.cartBreakdownRow}>
-                      <Text style={[s.cartBreakdownLabel, { color: '#0f4c81' }]}>Tax (GST)</Text>
+                      <Text style={[s.cartBreakdownLabel, { color: '#0f4c81' }]}>{taxLabel()}</Text>
                       <Text style={[s.cartBreakdownAmt,   { color: '#0f4c81' }]}>{fmtCurr(cartTaxTotal, currSym)}</Text>
                     </View>
                   )}
                   {cartLateFeeTotal > 0 && (
                     <View style={s.cartBreakdownRow}>
-                      <Text style={[s.cartBreakdownLabel, { color: '#b45309' }]}>Total Late Fee</Text>
+                      <Text style={[s.cartBreakdownLabel, { color: '#b45309' }]}>{_t("Total Late Fee")}</Text>
                       <Text style={[s.cartBreakdownAmt,   { color: '#b45309' }]}>{fmtCurr(cartLateFeeTotal, currSym)}</Text>
                     </View>
                   )}
                   <View style={s.cartBreakdownRow}>
-                    <Text style={[s.cartBreakdownLabel, { fontWeight: '800', color: '#0c1a2e' }]}>Total</Text>
+                    <Text style={[s.cartBreakdownLabel, { fontWeight: '800', color: '#0c1a2e' }]}>{_t("Total")}</Text>
                     <Text style={[s.cartBreakdownAmt,   { fontWeight: '900', color: '#0f4c81' }]}>{fmtCurr(cartTotal, currSym)}</Text>
                   </View>
                 </View>
 
                 {/* ── Payment Method selector — 2 per row ─────────────────── */}
-                <Text style={s.inputLabel}>Payment Method</Text>
+                <Text style={s.inputLabel}>{_t("Payment Method")}</Text>
                 <View style={s.methodGrid}>
-                  {PAYMENT_METHODS.map((m, idx) => {
+                  {methods.map((m, idx) => {
                     const active = paymentMethod === m.id;
                     // 2 columns: every item takes (50% - gap/2)
-                    const isLastOdd = idx === PAYMENT_METHODS.length - 1 && PAYMENT_METHODS.length % 2 !== 0;
+                    const isLastOdd = idx === methods.length - 1 && methods.length % 2 !== 0;
                     return (
                       <TouchableOpacity
                         key={m.id}
@@ -1000,7 +1112,7 @@ export default function StudentFeeScreen({ route, navigation }) {
 
                         {/* Label */}
                         <Text style={[s.methodLabel, active && { color: m.color, fontWeight: '800' }]}>
-                          {m.label}
+                          {_tx(m.label)}
                         </Text>
 
                         {/* Active checkmark badge */}
@@ -1018,22 +1130,64 @@ export default function StudentFeeScreen({ route, navigation }) {
                 {['PhonePe', 'Google Pay', 'Paytm'].includes(paymentMethod) && cartTotal > 0 && (
                   <TouchableOpacity style={s.qrLaunchBtn} onPress={() => setQrModal(true)}>
                     <MaterialIcons name="qr-code-2" size={22} color="#5f259f" />
-                    <Text style={s.qrLaunchText}>Show QR Code for {paymentMethod}</Text>
+                    <Text style={s.qrLaunchText}>{_t("Show QR Code for {paymentMethod}", { paymentMethod })}</Text>
                     <MaterialIcons name="chevron-right" size={18} color="#5f259f" />
                   </TouchableOpacity>
                 )}
 
+                {!isIndia && !stripeReady && canCollect && (
+                  <Text style={s.receiptHint}>{_t("To accept card payments, connect Stripe in Setup › Online Payments.")}</Text>
+                )}
+
+                {isStripe ? (
+                  /* ── Stripe: card payment straight into the school's Stripe account ── */
+                  <View style={{ marginTop: 6 }}>
+                    <Text style={s.receiptHint}>{_t("The parent pays {cartTotal} by card (Apple Pay / Google Pay where available). The money goes to the school's Stripe account and the payment is recorded automatically with its receipt.", { cartTotal: fmtCurr(cartTotal, currSym) })}</Text>
+                    {canCollect ? (
+                      <>
+                        <TouchableOpacity
+                          style={[s.submitBtn, { backgroundColor: '#635bff' }, stripeBusy && { opacity: 0.65 }]}
+                          onPress={() => startStripe('now')} disabled={!!stripeBusy}>
+                          {stripeBusy === 'now' ? <ActivityIndicator size="small" color="#fff" /> : <>
+                            <MaterialIcons name="credit-card" size={20} color="#fff" style={{ marginRight: 10 }} />
+                            <Text style={s.submitBtnText}>{_t("Pay by card now · {cartTotal}", { cartTotal: fmtCurr(cartTotal, currSym) })}</Text></>}
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[s.submitBtn, { backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#635bff', marginTop: 10 }, stripeBusy && { opacity: 0.65 }]}
+                          onPress={() => startStripe('link')} disabled={!!stripeBusy}>
+                          {stripeBusy === 'link' ? <ActivityIndicator size="small" color="#635bff" /> : <>
+                            <MaterialIcons name="share" size={18} color="#635bff" style={{ marginRight: 10 }} />
+                            <Text style={[s.submitBtnText, { color: '#635bff' }]}>{_t("Send card payment link to parent")}</Text></>}
+                        </TouchableOpacity>
+                        {!!stripePending && (
+                          <TouchableOpacity
+                            style={[s.submitBtn, { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', marginTop: 10 }]}
+                            onPress={() => checkStripe(false)} disabled={!!stripeBusy}>
+                            {stripeBusy === 'check' ? <ActivityIndicator size="small" color="#0f4c81" /> : <>
+                              <MaterialIcons name="refresh" size={18} color="#0f4c81" style={{ marginRight: 10 }} />
+                              <Text style={[s.submitBtnText, { color: '#0f4c81' }]}>{_t("Check payment ({v} {currency})", { v: Number(stripePending.amount).toFixed(2), currency: stripePending.currency })}</Text></>}
+                          </TouchableOpacity>
+                        )}
+                      </>
+                    ) : (
+                      <View style={s.notAllowedBanner}>
+                        <MaterialIcons name="lock" size={16} color="#b45309" />
+                        <Text style={s.notAllowedText}>{_t("You are not allowed to collect fees.")}</Text>
+                      </View>
+                    )}
+                  </View>
+                ) : (<>
                 {/* ── Inputs ────────────────────────────────────────────────── */}
                 <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
                   {/* Receipt Number — auto for Cash, user-entry for all others */}
                   <View style={s.receiptLabelRow}>
                     <Text style={s.inputLabel}>
-                      {isCash ? 'Receipt Number (auto-generated)' : `${paymentMethod} Reference / Transaction No. *`}
+                      {isCash ? _t("Receipt Number (auto-generated)") : _t("{paymentMethod} Reference / Transaction No. *", { paymentMethod })}
                     </Text>
                     {isCash && (
                       <TouchableOpacity onPress={() => setReceiptInput(genCashReceipt())} style={s.regenBtn}>
                         <MaterialIcons name="refresh" size={14} color="#0f4c81" />
-                        <Text style={s.regenBtnText}>Regenerate</Text>
+                        <Text style={s.regenBtnText}>{_t("Regenerate")}</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -1046,7 +1200,7 @@ export default function StudentFeeScreen({ route, navigation }) {
                     />
                     <TextInput
                       style={[s.inputText, isCash && { color: '#15803d', fontStyle: 'italic' }]}
-                      placeholder={isCash ? 'Auto-generated' : `Enter ${paymentMethod} ref / UTR no.`}
+                      placeholder={isCash ? _t("Auto-generated") : _t("Enter {paymentMethod} ref / UTR no.", { paymentMethod })}
                       placeholderTextColor="#94a3b8"
                       value={receiptInput}
                       onChangeText={setReceiptInput}
@@ -1059,19 +1213,17 @@ export default function StudentFeeScreen({ route, navigation }) {
                     )}
                   </View>
                   {!isCash && (
-                    <Text style={s.receiptHint}>
-                      Enter the UTR / transaction ID shown on your {paymentMethod} app after payment.
-                    </Text>
+                    <Text style={s.receiptHint}>{_t("Enter the UTR / transaction ID shown on your {paymentMethod} app after payment.", { paymentMethod })}</Text>
                   )}
 
                   <View style={s.twoCol}>
                     <View style={{ flex: 1 }}>
-                      <Text style={s.inputLabel}>Paid Amount *</Text>
+                      <Text style={s.inputLabel}>{_t("Paid Amount *")}</Text>
                       <View style={[s.inputWrap, overpaid && s.inputWrapError]}>
-                        <MaterialIcons name="currency-rupee" size={16} color="#94a3b8" style={s.inputIcon} />
+                        <MaterialIcons name={currSym === '₹' ? 'currency-rupee' : 'payments'} size={16} color="#94a3b8" style={s.inputIcon} />
                         <TextInput
                           style={s.inputText}
-                          placeholder={`Max ${fmtCurr(cartTotal, currSym)}`}
+                          placeholder={_t("Max {cartTotal}", { cartTotal: fmtCurr(cartTotal, currSym) })}
                           placeholderTextColor="#94a3b8"
                           value={paidInput}
                           onChangeText={setPaidInput}
@@ -1081,7 +1233,7 @@ export default function StudentFeeScreen({ route, navigation }) {
                     </View>
                     <View style={{ width: 12 }} />
                     <View style={{ flex: 1 }}>
-                      <Text style={s.inputLabel}>Balance</Text>
+                      <Text style={s.inputLabel}>{_t("Balance")}</Text>
                       <View style={[s.inputWrap, s.inputWrapReadonly]}>
                         <MaterialIcons name="pending-actions" size={16} color="#b91c1c" style={s.inputIcon} />
                         <Text style={[s.inputText, { color: balanceAmt > 0 ? '#b91c1c' : '#15803d', fontWeight: '800', paddingTop: 13 }]}>
@@ -1092,17 +1244,15 @@ export default function StudentFeeScreen({ route, navigation }) {
                   </View>
 
                   {overpaid && (
-                    <Text style={s.overpaidWarning}>
-                      ⚠️  Amount exceeds the selected total of {fmtCurr(cartTotal, currSym)}
-                    </Text>
+                    <Text style={s.overpaidWarning}>{_t("⚠️  Amount exceeds the selected total of {cartTotal}", { cartTotal: fmtCurr(cartTotal, currSym) })}</Text>
                   )}
 
-                  <Text style={s.inputLabel}>Payment Date</Text>
+                  <Text style={s.inputLabel}>{_t("Payment Date")}</Text>
                   <View style={s.inputWrap}>
                     <MaterialIcons name="event" size={16} color="#94a3b8" style={s.inputIcon} />
                     <TextInput
                       style={s.inputText}
-                      placeholder="YYYY-MM-DD"
+                      placeholder={_t("YYYY-MM-DD")}
                       placeholderTextColor="#94a3b8"
                       value={paymentDate}
                       onChangeText={setPaymentDate}
@@ -1114,9 +1264,7 @@ export default function StudentFeeScreen({ route, navigation }) {
                 {balanceAmt > 0 && paidAmt > 0 && (
                   <View style={s.balanceNote}>
                     <MaterialIcons name="info-outline" size={15} color="#0f4c81" />
-                    <Text style={s.balanceNoteText}>
-                      A partial payment row will be created for the remaining {fmtCurr(balanceAmt, currSym)}.
-                    </Text>
+                    <Text style={s.balanceNoteText}>{_t("A partial payment row will be created for the remaining {balanceAmt}.", { balanceAmt: fmtCurr(balanceAmt, currSym) })}</Text>
                   </View>
                 )}
 
@@ -1131,20 +1279,18 @@ export default function StudentFeeScreen({ route, navigation }) {
                     ? <ActivityIndicator size="small" color="#fff" />
                     : <>
                         <MaterialIcons name="check-circle" size={20} color="#fff" style={{ marginRight: 10 }} />
-                        <Text style={s.submitBtnText}>
-                          {paymentMethod === 'Cash' ? '💵' :
+                        <Text style={s.submitBtnText}>{_t("{v}  Record {paymentMethod} · {v2}", { v: paymentMethod === 'Cash' ? '💵' :
                            paymentMethod === 'Card' ? '💳' :
-                           ['PhonePe','Google Pay','Paytm'].includes(paymentMethod) ? '📱' : '🏦'}
-                          {'  '}Record {paymentMethod} · {fmtCurr(paidAmt || cartTotal, currSym)}
-                        </Text>
+                           ['PhonePe','Google Pay','Paytm'].includes(paymentMethod) ? '📱' : '🏦', paymentMethod, v2: fmtCurr(paidAmt || cartTotal, currSym) })}</Text>
                       </>}
                 </TouchableOpacity>
                 ) : (
                 <View style={s.notAllowedBanner}>
                   <MaterialIcons name="lock" size={16} color="#b45309" />
-                  <Text style={s.notAllowedText}>You are not allowed to collect fees.</Text>
+                  <Text style={s.notAllowedText}>{_t("You are not allowed to collect fees.")}</Text>
                 </View>
                 )}
+                </>)}
               </>
             )}
           </View>
@@ -1156,10 +1302,10 @@ export default function StudentFeeScreen({ route, navigation }) {
         <View style={[s.sectionHeader, { marginTop: 24 }]}>
           <View style={s.sectionHeaderLeft}>
             <View style={[s.sectionDot, { backgroundColor: '#15803d' }]} />
-            <Text style={s.sectionTitle}>Payment History</Text>
+            <Text style={s.sectionTitle}>{_t("Payment History")}</Text>
             {paidRecords.length > 0 && (
               <View style={[s.sectionBadge, { backgroundColor: '#15803d' }]}>
-                <Text style={s.sectionBadgeText}>{paidRecords.length}</Text>
+                <Text style={s.sectionBadgeText}>{_tx(paidRecords.length)}</Text>
               </View>
             )}
           </View>
@@ -1168,7 +1314,7 @@ export default function StudentFeeScreen({ route, navigation }) {
         {paidRecords.length === 0 ? (
           <View style={s.emptyDue}>
             <MaterialIcons name="receipt-long" size={36} color="#94a3b8" />
-            <Text style={s.emptyDueText}>No payments recorded yet.</Text>
+            <Text style={s.emptyDueText}>{_t("No payments recorded yet.")}</Text>
           </View>
         ) : (
           paidRecords.map((rec, idx) => (
@@ -1214,8 +1360,8 @@ export default function StudentFeeScreen({ route, navigation }) {
                 <MaterialIcons name="mark-email-unread" size={22} color="#0f4c81" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={s.emailTitle}>Email Receipt</Text>
-                <Text style={s.emailSub}>Receipt #{emailRecord?.receipt_number || '—'}</Text>
+                <Text style={s.emailTitle}>{_t("Email Receipt")}</Text>
+                <Text style={s.emailSub}>{_t("Receipt #{v}", { v: emailRecord?.receipt_number || '—' })}</Text>
               </View>
               <TouchableOpacity style={s.emailCloseBtn} onPress={() => setEmailModal(false)}>
                 <MaterialIcons name="close" size={20} color="#64748b" />
@@ -1225,25 +1371,25 @@ export default function StudentFeeScreen({ route, navigation }) {
             {/* Payment summary strip */}
             <View style={s.emailSummaryStrip}>
               <View style={s.emailSummaryCell}>
-                <Text style={s.emailSummaryLabel}>Paid</Text>
+                <Text style={s.emailSummaryLabel}>{_t("Paid")}</Text>
                 <Text style={[s.emailSummaryValue, { color: '#15803d' }]}>{fmtCurr((emailRecord?.total_paid + emailRecord?.total_late_fee) ?? emailRecord?.fee_paid_amount + emailRecord?.fee_late_fee, currSym)}</Text>
               </View>
               <View style={s.emailSummaryDivider} />
               <View style={s.emailSummaryCell}>
-                <Text style={s.emailSummaryLabel}>Balance</Text>
+                <Text style={s.emailSummaryLabel}>{_t("Balance")}</Text>
                 <Text style={[s.emailSummaryValue, {
                   color: parseFloat(emailRecord?.total_balance ?? emailRecord?.balance_amount ?? 0) > 0 ? '#b91c1c' : '#15803d'
                 }]}>{fmtCurr(emailRecord?.total_balance ?? emailRecord?.balance_amount, currSym)}</Text>
               </View>
               <View style={s.emailSummaryDivider} />
               <View style={s.emailSummaryCell}>
-                <Text style={s.emailSummaryLabel}>Items</Text>
-                <Text style={s.emailSummaryValue} numberOfLines={1}>{emailRecord?.items?.length ?? 1}</Text>
+                <Text style={s.emailSummaryLabel}>{_t("Items")}</Text>
+                <Text style={s.emailSummaryValue} numberOfLines={1}>{_tx(emailRecord?.items?.length) ?? 1}</Text>
               </View>
             </View>
 
             {/* Email input */}
-            <Text style={s.emailFieldLabel}>Send to Email Address</Text>
+            <Text style={s.emailFieldLabel}>{_t("Send to Email Address")}</Text>
             <View style={s.emailInputRow}>
               <MaterialIcons name="mail-outline" size={18} color="#94a3b8" style={{ marginLeft: 12, marginRight: 8 }} />
               <TextInput
@@ -1262,14 +1408,12 @@ export default function StudentFeeScreen({ route, navigation }) {
                 </TouchableOpacity>
               )}
             </View>
-            <Text style={s.emailHint}>
-              A full HTML receipt with payment breakdown will be delivered to this address.
-            </Text>
+            <Text style={s.emailHint}>{_t("A full HTML receipt with payment breakdown will be delivered to this address.")}</Text>
 
             {/* Buttons */}
             <View style={s.emailFooterRow}>
               <TouchableOpacity style={s.emailCancelBtn} onPress={() => setEmailModal(false)}>
-                <Text style={s.emailCancelText}>Cancel</Text>
+                <Text style={s.emailCancelText}>{_t("Cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[s.emailSendBtn, sendingEmail && { opacity: 0.65 }]}
@@ -1280,7 +1424,7 @@ export default function StudentFeeScreen({ route, navigation }) {
                   ? <ActivityIndicator size="small" color="#fff" />
                   : <>
                       <MaterialIcons name="send" size={18} color="#fff" style={{ marginRight: 8 }} />
-                      <Text style={s.emailSendText}>Send Receipt</Text>
+                      <Text style={s.emailSendText}>{_t("Send Receipt")}</Text>
                     </>}
               </TouchableOpacity>
             </View>
@@ -1312,7 +1456,7 @@ export default function StudentFeeScreen({ route, navigation }) {
 // ─── Student Info Card ───────────────────────────────────────────────────────
 function StudentInfoCard({
   studentsName, enrollmentId, className, sessionId, branchId, clientCode,
-  totalDue, totalPaid, currSym = '₹', onDemandLetter, demandLoading,
+  totalDue, totalPaid, currSym = currencySymbol(), onDemandLetter, demandLoading,
   onWhatsApp, hasPhone,
 }) {
   // Derive initials from name for avatar
@@ -1334,18 +1478,18 @@ function StudentInfoCard({
         {/* Avatar + name block */}
         <View style={si.avatarRow}>
           <View style={si.avatar}>
-            <Text style={si.avatarText}>{initials}</Text>
+            <Text style={si.avatarText}>{_tx(initials)}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={si.studentName} numberOfLines={1}>{studentsName ?? '—'}</Text>
+            <Text style={si.studentName} numberOfLines={1}>{_tx(studentsName) ?? '—'}</Text>
             <View style={si.enrollRow}>
               <MaterialIcons name="badge" size={13} color="#64748b" />
-              <Text style={si.enrollText}>{enrollmentId ?? '—'}</Text>
+              <Text style={si.enrollText}>{_tx(enrollmentId) ?? '—'}</Text>
                 <View style={si.chipsRow}>
-          {className  ? <InfoChip icon="class"            label="Class:"   value={className}   /> : null}
-          {sessionId? <InfoChip icon="date-range"       label="Session" value={sessionId} /> : null}
-          {branchId ? <InfoChip icon="account-balance"  label="Branch"  value={branchId}  /> : null}
-          {clientCode?<InfoChip icon="business"         label="Code"    value={clientCode}/> : null}
+          {className  ? <InfoChip icon="class"            label={_t("Class:")}   value={className}   /> : null}
+          {sessionId? <InfoChip icon="date-range"       label={_t("Session")} value={sessionId} /> : null}
+          {branchId ? <InfoChip icon="account-balance"  label={_t("Branch")}  value={branchId}  /> : null}
+          {clientCode?<InfoChip icon="business"         label={_t("Code")}    value={clientCode}/> : null}
         </View>
             </View>
           </View>
@@ -1358,7 +1502,7 @@ function StudentInfoCard({
               color={fullyPaid ? '#15803d' : '#b91c1c'}
             />
             <Text style={[si.statusBadgeText, { color: fullyPaid ? '#15803d' : '#b91c1c' }]}>
-              {fullyPaid ? 'Paid' : 'Due'}
+              {fullyPaid ? _t("Paid") : _t("Due")}
             </Text>
           </View>
         </View>
@@ -1381,7 +1525,7 @@ function StudentInfoCard({
           >
             <MaterialIcons name='description' size={12} color='#b91c1c' />
             <Text style={si.demandLinkTxt}>
-              {demandLoading ? 'Generating…' : 'Demand Letter'}
+              {demandLoading ? _t("Generating…") : _t("Demand Letter")}
             </Text>
           </TouchableOpacity>
           {onWhatsApp && (
@@ -1392,7 +1536,7 @@ function StudentInfoCard({
             >
               <MaterialIcons name='chat' size={12} color={hasPhone ? '#16a34a' : '#94a3b8'} />
               <Text style={[si.demandLinkTxt, { color: hasPhone ? '#16a34a' : '#94a3b8' }]}>
-                {hasPhone ? 'Send via WhatsApp' : 'WhatsApp (no number)'}
+                {hasPhone ? _t("Send via WhatsApp") : _t("WhatsApp (no number)")}
               </Text>
             </TouchableOpacity>
           )}
@@ -1401,23 +1545,23 @@ function StudentInfoCard({
         {/* Mini financials */}
         <View style={si.financialRow}>
           <View style={si.finCell}>
-            <Text style={si.finLabel}>Due</Text>
+            <Text style={si.finLabel}>{_t("Due")}</Text>
             <Text style={[si.finValue, { color: totalDue > 0 ? '#b91c1c' : '#15803d' }]}>
-              {currSym} {parseFloat(totalDue || 0).toFixed(2)}
+              {_tx(currSym)} {parseFloat(totalDue || 0).toFixed(2)}
             </Text>
           </View>
           <View style={si.finDivider} />
           <View style={si.finCell}>
-            <Text style={si.finLabel}> Paid</Text>
+            <Text style={si.finLabel}>{" "}{_t("Paid")}</Text>
             <Text style={[si.finValue, { color: '#15803d' }]}>
-              {currSym} {parseFloat(totalPaid || 0).toFixed(2)}
+              {_tx(currSym)} {parseFloat(totalPaid || 0).toFixed(2)}
             </Text>
           </View>
           <View style={si.finDivider} />
           <View style={si.finCell}>
-            <Text style={si.finLabel}>Total</Text>
+            <Text style={si.finLabel}>{_t("Total")}</Text>
             <Text style={[si.finValue, { color: '#0f4c81' }]}>
-              {currSym} {(parseFloat(totalDue || 0) + parseFloat(totalPaid || 0)).toFixed(2)}
+              {_tx(currSym)} {(parseFloat(totalDue || 0) + parseFloat(totalPaid || 0)).toFixed(2)}
             </Text>
           </View>
         </View>
@@ -1430,8 +1574,8 @@ function InfoChip({ icon, label, value }) {
   return (
     <View style={si.chip}>
       <MaterialIcons name={icon} size={11} color="#0f4c81" />
-      <Text style={si.chipLabel}>{label} </Text>
-      <Text style={si.chipValue}>{value}</Text>
+      <Text style={si.chipLabel}>{_tx(label)} </Text>
+      <Text style={si.chipValue}>{_tx(value)}</Text>
     </View>
   );
 }
@@ -1443,8 +1587,8 @@ function NavBar({ title, sub, onBack }) {
         <MaterialIcons name="arrow-back-ios" size={20} color="#0f4c81" />
       </TouchableOpacity>
       <View style={{ flex: 1 }}>
-        <Text style={s.navTitle} numberOfLines={1}>{title}</Text>
-        <Text style={s.navSub}>{sub}</Text>
+        <Text style={s.navTitle} numberOfLines={1}>{_tx(title)}</Text>
+        <Text style={s.navSub}>{_tx(sub)}</Text>
       </View>
     </View>
   );
@@ -1454,8 +1598,8 @@ function SumCell({ icon, label, value, light }) {
   return (
     <View style={s.sumCell}>
       <MaterialIcons name={icon} size={18} color={light ? 'rgba(255,255,255,0.85)' : '#0f4c81'} />
-      <Text style={[s.sumValue, light && { color: '#fff' }]}>{value}</Text>
-      <Text style={[s.sumLabel,  light && { color: 'rgba(255,255,255,0.7)' }]}>{label}</Text>
+      <Text style={[s.sumValue, light && { color: '#fff' }]}>{_tx(value)}</Text>
+      <Text style={[s.sumLabel,  light && { color: 'rgba(255,255,255,0.7)' }]}>{_tx(label)}</Text>
     </View>
   );
 }
@@ -1464,7 +1608,7 @@ function MetaTag({ icon, label, warn }) {
   return (
     <View style={[s.metaTag, warn && s.metaTagWarn]}>
       <MaterialIcons name={icon} size={11} color={warn ? '#b45309' : '#64748b'} />
-      <Text style={[s.metaTagText, warn && { color: '#b45309' }]}>{label}</Text>
+      <Text style={[s.metaTagText, warn && { color: '#b45309' }]}>{_tx(label)}</Text>
     </View>
   );
 }
@@ -1481,7 +1625,7 @@ const METHOD_COLOR_MAP = {
   'Bank Transfer': '#b45309', Cheque: '#475569',
 };
 
-function ReceiptRow({ record: r, onPress, onEmail, currSym = "₹" }) {
+function ReceiptRow({ record: r, onPress, onEmail, currSym = currencySymbol() }) {
   const rc         = rs(r.admin_review);
   const items      = r.items ?? [];
   const hasBalance = parseFloat(r.total_balance ?? 0) > 0;
@@ -1500,7 +1644,7 @@ function ReceiptRow({ record: r, onPress, onEmail, currSym = "₹" }) {
         <View style={s.receiptRowTop}>
           <TouchableOpacity style={s.receiptLink} onPress={onPress} activeOpacity={0.75}>
             <MaterialIcons name="receipt" size={14} color="#0f4c81" />
-            <Text style={s.receiptLinkText}>#{r.receipt_number || '—'}</Text>
+            <Text style={s.receiptLinkText}>#{_tx(r.receipt_number) || '—'}</Text>
             <MaterialIcons name="open-in-new" size={12} color="#0f4c81" />
           </TouchableOpacity>
           <View style={s.receiptRowActions}>
@@ -1511,25 +1655,25 @@ function ReceiptRow({ record: r, onPress, onEmail, currSym = "₹" }) {
             )}
             <View style={[s.reviewPill, { backgroundColor: rc.bg, borderColor: rc.border }]}>
               <View style={[s.reviewDot, { backgroundColor: rc.text }]} />
-              <Text style={[s.reviewPillText, { color: rc.text }]}>{r.admin_review ?? 'Pending'}</Text>
+              <Text style={[s.reviewPillText, { color: rc.text }]}>{_tx(r.admin_review) ?? _t("Pending")}</Text>
             </View>
           </View>
         </View>
 
         {/* ── Receipt-level totals strip ── */}
         <View style={s.receiptAmtRow}>
-          <ReceiptAmt label="Total Fee"  value={fmtCurr(r.total_fee, currSym)} />
+          <ReceiptAmt label={_t("Total Fee")}  value={fmtCurr(r.total_fee, currSym)} />
           {parseFloat(r.total_discount ?? 0) > 0 && (
-            <ReceiptAmt label="Discount" value={`−${fmtCurr(r.total_discount, currSym)}`} green />
+            <ReceiptAmt label={_t("Discount")} value={`−${fmtCurr(r.total_discount, currSym)}`} green />
           )}
           {parseFloat(r.total_tax ?? 0) > 0 && (
-            <ReceiptAmt label="Tax" value={fmtCurr(r.total_tax, currSym)} blue />
+            <ReceiptAmt label={_t("Tax")} value={fmtCurr(r.total_tax, currSym)} blue />
           )}
-          <ReceiptAmt label="Collected"  value={fmtCurr(r.total_collected ?? r.total_paid, currSym)} green />
+          <ReceiptAmt label={_t("Collected")}  value={fmtCurr(r.total_collected ?? r.total_paid, currSym)} green />
           {hasLateFee && (
-            <ReceiptAmt label="Late Fee" value={fmtCurr(r.total_late_fee, currSym)} warn />
+            <ReceiptAmt label={_t("Late Fee")} value={fmtCurr(r.total_late_fee, currSym)} warn />
           )}
-          <ReceiptAmt label="Balance"    value={fmtCurr(r.total_balance, currSym)}
+          <ReceiptAmt label={_t("Balance")}    value={fmtCurr(r.total_balance, currSym)}
             red={hasBalance} green={!hasBalance} />
         </View>
 
@@ -1546,47 +1690,35 @@ function ReceiptRow({ record: r, onPress, onEmail, currSym = "₹" }) {
                   style={[s.receiptItemRow, idx === items.length - 1 && { borderBottomWidth: 0 }]}>
                   <View style={{ flex: 1 }}>
                     <Text style={s.receiptItemName} numberOfLines={1}>
-                      {item.fee_item_name}
-                      {item.month_no ? `  ·  ${item.month_no}` : ''}
+                      {_tx(item.fee_item_name)}
+                      {item.month_no ? `  ·  ${_tx(item.month_no)}` : ''}
                     </Text>
-                    <Text style={s.receiptItemFee}>Fee {fmtCurr(item.fee_amount, currSym)}</Text>
+                    <Text style={s.receiptItemFee}>{_t("Fee {fee_amount}", { fee_amount: fmtCurr(item.fee_amount, currSym) })}</Text>
                     {parseFloat(item.discount_amount ?? 0) > 0 && (
-                      <Text style={[s.receiptItemFee, { color: '#16a34a' }]}>
-                        Disc −{fmtCurr(item.discount_amount, currSym)}
-                        {parseFloat(item.discount_percent ?? 0) > 0
-                          ? ` (${fmt(item.discount_percent)}%)` : ''}
-                      </Text>
+                      <Text style={[s.receiptItemFee, { color: '#16a34a' }]}>{_t("Disc −{discount_amount}{v}", { discount_amount: fmtCurr(item.discount_amount, currSym), v: parseFloat(item.discount_percent ?? 0) > 0
+                          ? ` (${fmt(item.discount_percent)}%)` : '' })}</Text>
                     )}
                     {parseFloat(item.tax_amount ?? 0) > 0 && (
-                      <Text style={[s.receiptItemFee, { color: '#0f4c81' }]}>
-                        Tax +{fmtCurr(item.tax_amount, currSym)}
-                        {parseFloat(item.tax_percent ?? 0) > 0
-                          ? ` (${fmt(item.tax_percent)}%)` : ''}
-                      </Text>
+                      <Text style={[s.receiptItemFee, { color: '#0f4c81' }]}>{_t("Tax +{tax_amount}{v}", { tax_amount: fmtCurr(item.tax_amount, currSym), v: parseFloat(item.tax_percent ?? 0) > 0
+                          ? ` (${fmt(item.tax_percent)}%)` : '' })}</Text>
                     )}
                   </View>
                   <View style={s.receiptItemRight}>
                     {/* This receipt's payment */}
-                    <Text style={[s.receiptItemPaid, { color: '#15803d' }]}>
-                      Paid {fmtCurr(thisPaid, currSym)}
-                    </Text>
+                    <Text style={[s.receiptItemPaid, { color: '#15803d' }]}>{_t("Paid {thisPaid}", { thisPaid: fmtCurr(thisPaid, currSym) })}</Text>
                     {/* All-time paid — shown only when differs from this receipt */}
                     {allPaid > thisPaid && (
-                      <Text style={[s.receiptItemPaid, { color: '#475569', fontSize: 10 }]}>
-                        Total paid {fmtCurr(allPaid, currSym)}
-                      </Text>
+                      <Text style={[s.receiptItemPaid, { color: '#475569', fontSize: 10 }]}>{_t("Total paid {allPaid}", { allPaid: fmtCurr(allPaid, currSym) })}</Text>
                     )}
                     {late > 0 && (
-                      <Text style={[s.receiptItemPaid, { color: '#b45309' }]}>
-                        Late {fmtCurr(late, currSym)}
-                      </Text>
+                      <Text style={[s.receiptItemPaid, { color: '#b45309' }]}>{_t("Late {late}", { late: fmtCurr(late, currSym) })}</Text>
                     )}
                     {/* Balance pill: based on true_balance from backend (fee_structure − all payments) */}
                     <View style={[s.receiptItemBalancePill,
                       { backgroundColor: bal > 0 ? '#fef3c7' : '#dcfce7' }]}>
                       <Text style={[s.receiptItemBalanceText,
                         { color: bal > 0 ? '#b45309' : '#15803d' }]}>
-                        {bal > 0 ? `Bal ${fmtCurr(bal, currSym)}` : '✓ Cleared'}
+                        {bal > 0 ? _t("Bal {bal}", { bal: fmtCurr(bal, currSym) }) : _t("✓ Cleared")}
                       </Text>
                     </View>
                   </View>
@@ -1599,13 +1731,13 @@ function ReceiptRow({ record: r, onPress, onEmail, currSym = "₹" }) {
         {/* ── Footer: date + item count + payment method ── */}
         <View style={s.receiptMeta}>
           <MetaTag icon="event" label={fmtDate(r.payment_date)} />
-          <MetaTag icon="receipt" label={`${items.length} item${items.length !== 1 ? 's' : ''}`} />
+          <MetaTag icon="receipt" label={_t("{length} item{pl}", { length: items.length, pl: items.length !== 1 ? 's' : '' })} />
           <View style={[s.methodHistoryBadge, { backgroundColor: co + '14', borderColor: co + '40' }]}>
             <MaterialIcons name={ic} size={11} color={co} />
-            <Text style={[s.methodHistoryText, { color: co }]}>{r.payment_method || 'Cash'}</Text>
+            <Text style={[s.methodHistoryText, { color: co }]}>{_tx(r.payment_method) || _t("Cash")}</Text>
           </View>
           {hasBalance && (
-            <View style={s.partialBadge}><Text style={s.partialBadgeText}>Partial</Text></View>
+            <View style={s.partialBadge}><Text style={s.partialBadgeText}>{_t("Partial")}</Text></View>
           )}
         </View>
       </View>
@@ -1617,8 +1749,8 @@ function ReceiptAmt({ label, value, green, red, warn, blue }) {
   const color = green ? '#15803d' : red ? '#b91c1c' : warn ? '#b45309' : blue ? '#0f4c81' : '#475569';
   return (
     <View style={s.receiptAmtCell}>
-      <Text style={s.receiptAmtLabel}>{label}</Text>
-      <Text style={[s.receiptAmtValue, { color }]}>{value}</Text>
+      <Text style={s.receiptAmtLabel}>{_tx(label)}</Text>
+      <Text style={[s.receiptAmtValue, { color }]}>{_tx(value)}</Text>
     </View>
   );
 }
@@ -1633,7 +1765,7 @@ function ReceiptAmt({ label, value, green, red, warn, blue }) {
  *
  * Install: expo install react-native-webview
  */
-function UpiQrModal({ visible, amount, upiId, merchantName, paymentMethod, studentName, receiptNumber, onClose, onConfirm, currSym = "₹" }) {
+function UpiQrModal({ visible, amount, upiId, merchantName, paymentMethod, studentName, receiptNumber, onClose, onConfirm, currSym = currencySymbol() }) {
   const amtStr  = parseFloat(amount || 0).toFixed(2);
   const note    = encodeURIComponent(`Fee: ${studentName}${receiptNumber ? ' / ' + receiptNumber : ''}`);
   const upiUri  = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(merchantName)}&am=${amtStr}&cu=INR&tn=${note}`;
@@ -1667,8 +1799,8 @@ function UpiQrModal({ visible, amount, upiId, merchantName, paymentMethod, stude
               <MaterialIcons name="qr-code-2" size={26} color={accent} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={sq.headerTitle}>Pay via {paymentMethod}</Text>
-              <Text style={sq.headerSub}>Scan with any UPI app</Text>
+              <Text style={sq.headerTitle}>{_t("Pay via {paymentMethod}", { paymentMethod })}</Text>
+              <Text style={sq.headerSub}>{_t("Scan with any UPI app")}</Text>
             </View>
             <TouchableOpacity style={sq.closeBtn} onPress={onClose}>
               <MaterialIcons name="close" size={22} color="#64748b" />
@@ -1677,8 +1809,8 @@ function UpiQrModal({ visible, amount, upiId, merchantName, paymentMethod, stude
 
           {/* Amount pill */}
           <View style={[sq.amountPill, { borderColor: accent }]}>
-            <Text style={sq.amountPillLabel}>Amount to Pay</Text>
-            <Text style={[sq.amountPillValue, { color: accent }]}>{currSym} {amtStr}</Text>
+            <Text style={sq.amountPillLabel}>{_t("Amount to Pay")}</Text>
+            <Text style={[sq.amountPillValue, { color: accent }]}>{_tx(currSym)} {_tx(amtStr)}</Text>
           </View>
 
           {/* QR code */}
@@ -1686,14 +1818,14 @@ function UpiQrModal({ visible, amount, upiId, merchantName, paymentMethod, stude
             {!imgLoaded && !imgError && (
               <View style={sq.qrLoader}>
                 <ActivityIndicator size="large" color={accent} />
-                <Text style={sq.qrLoaderText}>Generating QR…</Text>
+                <Text style={sq.qrLoaderText}>{_t("Generating QR…")}</Text>
               </View>
             )}
             {imgError ? (
               <View style={sq.qrError}>
                 <MaterialIcons name="wifi-off" size={40} color="#94a3b8" />
-                <Text style={sq.qrErrorText}>Could not load QR code.</Text>
-                <Text style={sq.qrErrorSub}>Check your internet connection.</Text>
+                <Text style={sq.qrErrorText}>{_t("Could not load QR code.")}</Text>
+                <Text style={sq.qrErrorSub}>{_t("Check your internet connection.")}</Text>
               </View>
             ) : (
               <Image
@@ -1709,23 +1841,23 @@ function UpiQrModal({ visible, amount, upiId, merchantName, paymentMethod, stude
           {/* UPI ID display */}
           <View style={sq.upiRow}>
             <MaterialIcons name="account-balance-wallet" size={15} color="#64748b" />
-            <Text style={sq.upiLabel}>UPI ID: </Text>
-            <Text style={sq.upiId}>{upiId}</Text>
+            <Text style={sq.upiLabel}>{_t("UPI ID:")}{" "}</Text>
+            <Text style={sq.upiId}>{_tx(upiId)}</Text>
           </View>
 
           {/* Instructions */}
           <View style={sq.steps}>
             {[
-              `Open ${paymentMethod} on your phone`,
+              _t("Open {paymentMethod} on your phone", { paymentMethod }),
               'Tap "Scan QR" or "Pay"',
-              `Verify amount ${currSym}${amtStr} and confirm`,
+              _t("Verify amount {currSym}{amtStr} and confirm", { currSym, amtStr }),
               'Share screenshot / transaction ID for receipt',
             ].map((step, i) => (
               <View key={i} style={sq.step}>
                 <View style={[sq.stepNum, { backgroundColor: accent }]}>
                   <Text style={sq.stepNumText}>{i + 1}</Text>
                 </View>
-                <Text style={sq.stepText}>{step}</Text>
+                <Text style={sq.stepText}>{_tx(step)}</Text>
               </View>
             ))}
           </View>
@@ -1733,11 +1865,11 @@ function UpiQrModal({ visible, amount, upiId, merchantName, paymentMethod, stude
           {/* Footer actions */}
           <View style={sq.footer}>
             <TouchableOpacity style={sq.cancelBtn} onPress={onClose}>
-              <Text style={sq.cancelBtnText}>Cancel</Text>
+              <Text style={sq.cancelBtnText}>{_t("Cancel")}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[sq.confirmBtn, { backgroundColor: accent }]} onPress={onConfirm}>
               <MaterialIcons name="check-circle" size={18} color="#fff" style={{ marginRight: 8 }} />
-              <Text style={sq.confirmBtnText}>Payment Done — Record It</Text>
+              <Text style={sq.confirmBtnText}>{_t("Payment Done — Record It")}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1747,7 +1879,7 @@ function UpiQrModal({ visible, amount, upiId, merchantName, paymentMethod, stude
 }
 
 // ─── Receipt Detail Modal ─────────────────────────────────────────────────────
-function ReceiptDetailModal({ visible, record: r, onClose, className, sessionName, branchName, currSym = "₹" }) {
+function ReceiptDetailModal({ visible, record: r, onClose, className, sessionName, branchName, currSym = currencySymbol() }) {
   if (!r) return null;
   const rc         = rs(r.admin_review);
   const items      = r.items ?? [];
@@ -1758,9 +1890,9 @@ function ReceiptDetailModal({ visible, record: r, onClose, className, sessionNam
 
   const Field = ({ label, value, highlight }) => (
     <View style={s.detailField}>
-      <Text style={s.detailFieldLabel}>{label}</Text>
+      <Text style={s.detailFieldLabel}>{_tx(label)}</Text>
       <Text style={[s.detailFieldValue, highlight && { color: '#0f4c81', fontWeight: '800' }]}>
-        {value ?? '—'}
+        {_tx(value) ?? '—'}
       </Text>
     </View>
   );
@@ -1777,11 +1909,8 @@ function ReceiptDetailModal({ visible, record: r, onClose, className, sessionNam
               <MaterialIcons name="receipt-long" size={22} color="#0f4c81" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.modalTitle}>Receipt #{r.receipt_number}</Text>
-              <Text style={s.modalSubtitle}>
-                {items.length} fee item{items.length !== 1 ? 's' : ''}
-                {'  ·  '}{fmtDate(r.payment_date)}
-              </Text>
+              <Text style={s.modalTitle}>{_t("Receipt #{receipt_number}", { receipt_number: r.receipt_number })}</Text>
+              <Text style={s.modalSubtitle}>{_t("{length} fee item{pl}  ·  {payment_date}", { length: items.length, pl: items.length !== 1 ? 's' : '', payment_date: fmtDate(r.payment_date) })}</Text>
             </View>
           </View>
           <TouchableOpacity style={s.modalCloseBtn} onPress={onClose}>
@@ -1796,41 +1925,41 @@ function ReceiptDetailModal({ visible, record: r, onClose, className, sessionNam
           {/* ── Status + payment method ── */}
           <View style={[s.receiptStatusBanner, { backgroundColor: rc.bg, borderColor: rc.border }]}>
             <View style={[s.reviewDot, { backgroundColor: rc.text, width: 10, height: 10 }]} />
-            <Text style={[s.receiptStatusText, { color: rc.text }]}>{r.admin_review ?? 'Pending'}</Text>
+            <Text style={[s.receiptStatusText, { color: rc.text }]}>{_tx(r.admin_review) ?? _t("Pending")}</Text>
             <View style={{ flex: 1 }} />
             <View style={[s.detailMethodBadge,
               { backgroundColor: methodColor + '18', borderColor: methodColor + '40' }]}>
               <MaterialIcons name={methodIcon} size={13} color={methodColor} />
               <Text style={[s.detailMethodText, { color: methodColor }]}>
-                {r.payment_method || 'Cash'}
+                {_tx(r.payment_method) || _t("Cash")}
               </Text>
             </View>
             {hasBalance && (
               <View style={[s.partialBadge, { marginLeft: 8 }]}>
-                <Text style={s.partialBadgeText}>Partial</Text>
+                <Text style={s.partialBadgeText}>{_t("Partial")}</Text>
               </View>
             )}
           </View>
 
           {/* ── Receipt-level totals grid ── */}
           <View style={s.receiptAmtGrid}>
-            <AmountBox label="Total Fee"  value={fmtCurr(r.total_fee, currSym)}                          color="#0f4c81" />
+            <AmountBox label={_t("Total Fee")}  value={fmtCurr(r.total_fee, currSym)}                          color="#0f4c81" />
             {parseFloat(r.total_discount ?? 0) > 0 && (
-              <AmountBox label="Discount" value={`−${fmtCurr(r.total_discount, currSym)}`}               color="#15803d" />
+              <AmountBox label={_t("Discount")} value={`−${fmtCurr(r.total_discount, currSym)}`}               color="#15803d" />
             )}
             {parseFloat(r.total_tax ?? 0) > 0 && (
-              <AmountBox label="Tax (GST)" value={fmtCurr(r.total_tax, currSym)}                         color="#0f4c81" />
+              <AmountBox label={taxLabel()} value={fmtCurr(r.total_tax, currSym)}                         color="#0f4c81" />
             )}
             {hasLateFee && (
-              <AmountBox label="Late Fee"  value={fmtCurr(r.total_late_fee, currSym)}                    color="#a16207" />
+              <AmountBox label={_t("Late Fee")}  value={fmtCurr(r.total_late_fee, currSym)}                    color="#a16207" />
             )}
-            <AmountBox label="Collected"  value={fmtCurr(r.total_collected ?? r.total_paid, currSym)}    color="#15803d" />
-            <AmountBox label="Balance"    value={fmtCurr(r.total_balance, currSym)}
+            <AmountBox label={_t("Collected")}  value={fmtCurr(r.total_collected ?? r.total_paid, currSym)}    color="#15803d" />
+            <AmountBox label={_t("Balance")}    value={fmtCurr(r.total_balance, currSym)}
               color={hasBalance ? '#b91c1c' : '#15803d'} />
           </View>
 
           {/* ── Per-item breakdown ── */}
-          <DetailSection label={`FEE ITEMS (${items.length})`}>
+          <DetailSection label={_t("FEE ITEMS ({length})", { length: items.length })}>
             {items.map((item, idx) => {
               const bal = parseFloat(item.balance_amount ?? 0);
               return (
@@ -1840,42 +1969,30 @@ function ReceiptDetailModal({ visible, record: r, onClose, className, sessionNam
                   {/* Left: name + fee breakdown */}
                   <View style={{ flex: 1, paddingRight: 12 }}>
                     <Text style={s.detailItemName}>
-                      {item.fee_item_name}
-                      {item.month_no ? `  ·  ${item.month_no}` : ''}
+                      {_tx(item.fee_item_name)}
+                      {item.month_no ? `  ·  ${_tx(item.month_no)}` : ''}
                     </Text>
-                    <Text style={s.detailItemMeta}>
-                      Fee {fmtCurr(item.fee_amount, currSym)}
-                    </Text>
+                    <Text style={s.detailItemMeta}>{_t("Fee {fee_amount}", { fee_amount: fmtCurr(item.fee_amount, currSym) })}</Text>
                     {parseFloat(item.discount_amount ?? 0) > 0 && (
-                      <Text style={[s.detailItemMeta, { color: '#16a34a' }]}>
-                        Discount −{fmtCurr(item.discount_amount, currSym)}
-                        {parseFloat(item.discount_percent ?? 0) > 0
-                          ? ` (${fmt(item.discount_percent)}%)` : ''}
-                      </Text>
+                      <Text style={[s.detailItemMeta, { color: '#16a34a' }]}>{_t("Discount −{discount_amount}{v}", { discount_amount: fmtCurr(item.discount_amount, currSym), v: parseFloat(item.discount_percent ?? 0) > 0
+                          ? ` (${fmt(item.discount_percent)}%)` : '' })}</Text>
                     )}
                     {parseFloat(item.tax_amount ?? 0) > 0 && (
-                      <Text style={[s.detailItemMeta, { color: '#0f4c81' }]}>
-                        Tax +{fmtCurr(item.tax_amount, currSym)}
-                        {parseFloat(item.tax_percent ?? 0) > 0
-                          ? ` (${fmt(item.tax_percent)}%)` : ''}
-                      </Text>
+                      <Text style={[s.detailItemMeta, { color: '#0f4c81' }]}>{_t("Tax +{tax_amount}{v}", { tax_amount: fmtCurr(item.tax_amount, currSym), v: parseFloat(item.tax_percent ?? 0) > 0
+                          ? ` (${fmt(item.tax_percent)}%)` : '' })}</Text>
                     )}
                     {parseFloat(item.late_fee ?? 0) > 0 && (
-                      <Text style={[s.detailItemMeta, { color: '#b45309' }]}>
-                        Late Fee +{fmtCurr(item.late_fee, currSym)}
-                      </Text>
+                      <Text style={[s.detailItemMeta, { color: '#b45309' }]}>{_t("Late Fee +{late_fee}", { late_fee: fmtCurr(item.late_fee, currSym) })}</Text>
                     )}
                   </View>
                   {/* Right: paid + balance pill */}
                   <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                    <Text style={[s.detailFieldValue, { color: '#15803d' }]}>
-                      Paid {fmtCurr(item.paid_amount, currSym)}
-                    </Text>
+                    <Text style={[s.detailFieldValue, { color: '#15803d' }]}>{_t("Paid {paid_amount}", { paid_amount: fmtCurr(item.paid_amount, currSym) })}</Text>
                     <View style={[s.receiptItemBalancePill,
                       { backgroundColor: bal > 0 ? '#fef3c7' : '#dcfce7' }]}>
                       <Text style={[s.receiptItemBalanceText,
                         { color: bal > 0 ? '#b45309' : '#15803d' }]}>
-                        {bal > 0 ? `Bal ${fmtCurr(bal, currSym)}` : '✓ Cleared'}
+                        {bal > 0 ? _t("Bal {bal}", { bal: fmtCurr(bal, currSym) }) : _t("✓ Cleared")}
                       </Text>
                     </View>
                   </View>
@@ -1885,31 +2002,31 @@ function ReceiptDetailModal({ visible, record: r, onClose, className, sessionNam
           </DetailSection>
 
           {/* ── Payment info ── */}
-          <DetailSection label="PAYMENT INFO">
-            <Field label="Receipt Number" value={r.receipt_number} highlight />
-            <Field label="Payment Date"   value={fmtDate(r.payment_date)} />
-            <Field label="Fee Paid Date"  value={fmtDate(r.fee_paid_date)} />
-            <Field label="Recorded By"    value={r.admin_user} />
+          <DetailSection label={_t("PAYMENT INFO")}>
+            <Field label={_t("Receipt Number")} value={r.receipt_number} highlight />
+            <Field label={_t("Payment Date")}   value={fmtDate(r.payment_date)} />
+            <Field label={_t("Fee Paid Date")}  value={fmtDate(r.fee_paid_date)} />
+            <Field label={_t("Recorded By")}    value={r.admin_user} />
           </DetailSection>
 
           {/* ── Reference ── */}
-          <DetailSection label="REFERENCE">
-            <Field label="Enrollment"   value={r.enrollment_id} />
-            <Field label="Class"        value={className   || String(r.class_id   ?? '—')} />
-            <Field label="Branch"       value={branchName  || String(r.branch_id  ?? '—')} />
-            <Field label="Session"      value={sessionName || String(r.session_id ?? '—')} />
-            <Field label="Collected By" value={r.ssms_user_name || r.admin_user || '—'} />
+          <DetailSection label={_t("REFERENCE")}>
+            <Field label={_t("Enrollment")}   value={r.enrollment_id} />
+            <Field label={_t("Class")}        value={className   || String(r.class_id   ?? '—')} />
+            <Field label={_t("Branch")}       value={branchName  || String(r.branch_id  ?? '—')} />
+            <Field label={_t("Session")}      value={sessionName || String(r.session_id ?? '—')} />
+            <Field label={_t("Collected By")} value={r.ssms_user_name || r.admin_user || '—'} />
           </DetailSection>
 
           {/* ── Admin review ── */}
-          <DetailSection label="ADMIN REVIEW">
-            <Field label="Status"      value={r.admin_review} />
-            <Field label="Reviewed By" value={r.admin_user} />
-            <Field label="Review Date" value={fmtDate(r.admin_review_date)} />
+          <DetailSection label={_t("ADMIN REVIEW")}>
+            <Field label={_t("Status")}      value={r.admin_review} />
+            <Field label={_t("Reviewed By")} value={r.admin_user} />
+            <Field label={_t("Review Date")} value={fmtDate(r.admin_review_date)} />
           </DetailSection>
 
           <TouchableOpacity style={s.closeReceiptBtn} onPress={onClose}>
-            <Text style={s.closeReceiptBtnText}>Close</Text>
+            <Text style={s.closeReceiptBtnText}>{_t("Close")}</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
@@ -1920,8 +2037,8 @@ function ReceiptDetailModal({ visible, record: r, onClose, className, sessionNam
 function AmountBox({ label, value, color }) {
   return (
     <View style={s.amountBox}>
-      <Text style={s.amountBoxLabel}>{label}</Text>
-      <Text style={[s.amountBoxValue, { color }]}>{value}</Text>
+      <Text style={s.amountBoxLabel}>{_tx(label)}</Text>
+      <Text style={[s.amountBoxValue, { color }]}>{_tx(value)}</Text>
     </View>
   );
 }
@@ -1929,7 +2046,7 @@ function AmountBox({ label, value, color }) {
 function DetailSection({ label, children }) {
   return (
     <View style={s.detailSection}>
-      <Text style={s.detailSectionLabel}>{label}</Text>
+      <Text style={s.detailSectionLabel}>{_tx(label)}</Text>
       <View style={s.detailSectionBody}>{children}</View>
     </View>
   );

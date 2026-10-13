@@ -822,12 +822,13 @@ public function students()
              ->orderByDesc('registration_id')
              ->limit(1);
 		//dump($client_code);
+		$current_reg_number = null; // stays null for a school with no students yet
 		foreach($lastRegNumber as $row)
            {
             $current_reg_number = $row->registration_id;
           }
 		 // var_dump($current_reg_number);
-          if($current_reg_number != null || !empty($current_reg_number))
+          if (!empty($current_reg_number))
          { 
              $pieces = explode("-", $current_reg_number);
               $lastSessionYear = $pieces[1] ?? null;
@@ -1614,8 +1615,8 @@ public function students()
         $sessionId = $data['session_id'] ?? $this->getACurrentSession($clientCode);
         $now       = date('Y-m-d H:i:s');
 
-        $attendanceDate = $data['date'] ?? date('Y-m-d');
-        $today          = date('Y-m-d');
+        $attendanceDate = $data['date'] ?? $this->schoolToday();
+        $today          = $this->schoolToday();
 
         // Past-date guard — only admins / owners can edit past attendance
         if ($attendanceDate < $today && !in_array($userRole, ['admin', 'owner'])) {
@@ -1713,7 +1714,7 @@ public function students()
         }
 
         // ── Build date range ─────────────────────────────────────────────────
-        $today = date('Y-m-d');
+        $today = $this->schoolToday();
         $dates = [];
         for ($i = $numDays - 1; $i >= 0; $i--) {
             $dates[] = date('Y-m-d', strtotime("-{$i} days"));
@@ -1853,7 +1854,7 @@ public function students()
         $classId    = $this->request->getQuery('classId');
         $sectionId  = $this->request->getQuery('sectionId');
         $branchId   = $this->request->getQuery('branchId');
-        $year       = (int)($this->request->getQuery('year')  ?? date('Y'));
+        $year       = (int)($this->request->getQuery('year')  ?? $this->schoolToday('Y'));
         $month      = (int)($this->request->getQuery('month') ?? date('n'));
 
         if (!$classId || !$sectionId || !$year || !$month) {
@@ -1863,7 +1864,7 @@ public function students()
             return;
         }
 
-        $today       = date('Y-m-d');
+        $today       = $this->schoolToday();
         $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
         $startDate   = sprintf('%04d-%02d-01', $year, $month);
         $endDate     = sprintf('%04d-%02d-%02d', $year, $month, $daysInMonth);
@@ -2520,7 +2521,7 @@ public function students()
                 ]));
         }
 
-        $today     = new \DateTime('today');
+        $today     = new \DateTime($this->schoolToday());
         $startDate = (clone $today)->modify('-29 days'); // last 30 days inclusive
         $endDate   = $today;
 
@@ -2608,7 +2609,10 @@ public function students()
         $jwtUser      = $this->request->getAttribute('jwt_user')
                      ?: $this->request->getHeaderLine('ssmsUserName');
         $jwtRole      = strtolower(trim((string)$this->request->getAttribute('jwt_role')));
-        $enrollmentId = $this->request->getHeaderLine('ssmsEnrollmentId');
+        // a student's own enrollment comes from the signed token (the header is only a fallback for old tokens)
+        $enrollmentId = (string)($this->request->getAttribute('jwt_enrollment_id')
+                     ?: ($jwtRole === 'student' ? $this->request->getAttribute('jwt_user') : '')
+                     ?: $this->request->getHeaderLine('ssmsEnrollmentId'));
 
 
         if (!$clientCode || !$jwtUser) {
@@ -2671,6 +2675,10 @@ public function students()
                 ->withStringBody(json_encode(['status' => true, 'data' => []]));
         }
 
+        // Guardians the school gave app sign-in (Student record › Guardians) see those children too
+        $guardianIds = \App\Service\StudentRecord::guardianEnrollments((string)$clientCode, $last10) ?: ['-'];
+        $guardianIn  = implode(',', array_fill(0, count($guardianIds), '?'));
+
         // Step 2 — find ALL enrollments sharing that mobile
         $rows = $db->execute("
             SELECT
@@ -2692,11 +2700,11 @@ public function students()
                                           AND sec.ssms_client_code = sse.ssms_client_code
             LEFT JOIN ssms_sessions  sess ON sess.session_id        = sse.session_id
                                           AND sess.ssms_client_code = sse.ssms_client_code
-            WHERE  r.mobile_number     LIKE ?
+            WHERE  (r.mobile_number     LIKE ? OR sse.enrollment_id IN (" . $guardianIn . "))
               AND  sse.ssms_client_code = ?
               AND  sse.status           = 'active'
             ORDER BY c.class_name, sec.section_name
-        ", ['%' . $last10, $clientCode])->fetchAll('assoc');
+        ", array_merge(['%' . $last10], $guardianIds, [$clientCode]))->fetchAll('assoc');
 
 
         return $this->response->withType('application/json')

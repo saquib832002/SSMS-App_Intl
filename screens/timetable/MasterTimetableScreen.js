@@ -12,6 +12,7 @@ import { Feather } from "@expo/vector-icons";
 import { AuthContext } from "../../context/AuthContext";
 import { fetchMasterTimetable } from "../../services/TimeTableServiceApi";
 import { fetchSessions, fetchBranches } from "../../services/SetupServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 const CLASS_W  = 108;
 const PERIOD_W = 108;
@@ -30,14 +31,14 @@ function Dropdown({ label, value, options, onChange, disabled, loading: isLoadin
         activeOpacity={0.75}
       >
         <Text style={[mv.ddTxt, !selected?.value && mv.ddPh]} numberOfLines={1}>
-          {isLoading ? "Loading…" : (selected?.label ?? label)}
+          {isLoading ? _t("Loading…") : (_tx(selected?.label) ?? _tx(label))}
         </Text>
         <Feather name="chevron-down" size={12} color="#94a3b8" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={mv.ddOverlay} activeOpacity={1} onPress={() => setOpen(false)}>
           <View style={mv.ddSheet}>
-            <Text style={mv.ddTitle}>{label}</Text>
+            <Text style={mv.ddTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={(o, i) => `${i}_${String(o.value)}`}
@@ -48,7 +49,7 @@ function Dropdown({ label, value, options, onChange, disabled, loading: isLoadin
                     style={[mv.ddOpt, isSel && mv.ddOptAct]}
                     onPress={() => { onChange(o.value); setOpen(false); }}
                   >
-                    <Text style={[mv.ddOptTxt, isSel && mv.ddOptTxtAct]}>{o.label}</Text>
+                    <Text style={[mv.ddOptTxt, isSel && mv.ddOptTxtAct]}>{_tx(o.label)}</Text>
                     {isSel && <Feather name="check" size={13} color="#1e40af" />}
                   </TouchableOpacity>
                 );
@@ -84,17 +85,22 @@ export default function MasterTimetableScreen({ navigation }) {
     (async () => {
       try {
         setLoadingInit(true);
-        const [sess, br] = await Promise.all([
+        // allSettled: these services answer 403 with {status:false} (or throw) — keep what loads
+        const results = await Promise.allSettled([
           fetchSessions(user),
           fetchBranches(user),
         ]);
-        const sessArr = Array.isArray(sess) ? sess : sess?.data ?? [];
-        const brArr   = Array.isArray(br)   ? br   : br?.data  ?? [];
+        const [sess, br] = results.map(r => (r.status === "fulfilled" ? r.value : null));
+        const toArr = (v) => (Array.isArray(v) ? v : Array.isArray(v?.data) ? v.data : []);
+        const sessArr = toArr(sess);
+        const brArr   = toArr(br);
+        const failMsg = results.map(r => (r.status === "rejected" ? r.reason?.message : r.value?.status === false ? r.value?.message : null)).find(Boolean);
+        if (failMsg) Alert.alert(_t("Error"), _tx(failMsg));
         setSessions(sessArr);
         setBranches(brArr);
         if (sessArr.length > 0) setSessionId(String(sessArr[0].session_id));
       } catch (e) {
-        Alert.alert("Error", e.message || "Failed to load filters");
+        Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load filters"));
       } finally {
         setLoadingInit(false);
       }
@@ -107,11 +113,11 @@ export default function MasterTimetableScreen({ navigation }) {
       setLoading(true);
       setGridHeight(0);
       const res = await fetchMasterTimetable(user, { sessionId, branchId });
-      setPeriods(res.periods ?? []);
-      setColumns(res.columns ?? []);
-      setGrid(res.grid     ?? {});
+      setPeriods(Array.isArray(res?.periods) ? res.periods : []);
+      setColumns(Array.isArray(res?.columns) ? res.columns : []);
+      setGrid(res?.grid && typeof res.grid === "object" ? res.grid : {});
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to load master timetable");
+      Alert.alert(_t("Error"), _tx(e.message) || _t("Failed to load master timetable"));
     } finally {
       setLoading(false);
     }
@@ -120,11 +126,11 @@ export default function MasterTimetableScreen({ navigation }) {
   useEffect(() => { if (sessionId || !loadingInit) loadGrid(); }, [sessionId, branchId]);
 
   const sessionOpts = [
-    { label: "All Sessions", value: "" },
+    { label: _t("All Sessions"), value: "" },
     ...sessions.map(s => ({ label: s.session_name ?? s.session_year, value: String(s.session_id) })),
   ];
   const branchOpts = [
-    { label: "All Branches", value: "" },
+    { label: _t("All Branches"), value: "" },
     ...branches.map(b => ({ label: b.branch_name, value: String(b.branch_id) })),
   ];
 
@@ -136,13 +142,13 @@ export default function MasterTimetableScreen({ navigation }) {
       {/* ── Filter bar ── */}
       <View style={mv.filterBar}>
         <View style={mv.filterItem}>
-          <Text style={mv.filterLabel}>Session</Text>
-          <Dropdown label="All Sessions" value={sessionId} options={sessionOpts}
+          <Text style={mv.filterLabel}>{_t("Session")}</Text>
+          <Dropdown label={_t("All Sessions")} value={sessionId} options={sessionOpts}
             onChange={setSessionId} loading={loadingInit} />
         </View>
         <View style={mv.filterItem}>
-          <Text style={mv.filterLabel}>Branch</Text>
-          <Dropdown label="All Branches" value={branchId} options={branchOpts}
+          <Text style={mv.filterLabel}>{_t("Branch")}</Text>
+          <Dropdown label={_t("All Branches")} value={branchId} options={branchOpts}
             onChange={setBranchId} loading={loadingInit} />
         </View>
       </View>
@@ -151,9 +157,7 @@ export default function MasterTimetableScreen({ navigation }) {
       {columns.length > 0 && (
         <View style={mv.summaryBar}>
           <Feather name="grid" size={12} color="#1e40af" />
-          <Text style={mv.summaryTxt}>
-            {columns.length} class{columns.length !== 1 ? "es" : ""} · {teachingPeriods} teaching period{teachingPeriods !== 1 ? "s" : ""}
-          </Text>
+          <Text style={mv.summaryTxt}>{_t("{length} class{pl} · {teachingPeriods} teaching period{pl2}", { length: columns.length, pl: columns.length !== 1 ? "es" : "", teachingPeriods, pl2: teachingPeriods !== 1 ? "s" : "" })}</Text>
           {loading && <ActivityIndicator size="small" color="#1e40af" style={{ marginLeft: 8 }} />}
         </View>
       )}
@@ -162,13 +166,13 @@ export default function MasterTimetableScreen({ navigation }) {
       {loading && columns.length === 0 ? (
         <View style={mv.center}>
           <ActivityIndicator size="large" color="#1e40af" />
-          <Text style={mv.loadingTxt}>Loading master timetable…</Text>
+          <Text style={mv.loadingTxt}>{_t("Loading master timetable…")}</Text>
         </View>
       ) : columns.length === 0 ? (
         <View style={mv.center}>
           <Feather name="grid" size={40} color="#cbd5e1" />
-          <Text style={mv.emptyTxt}>No timetable data for this session</Text>
-          <Text style={mv.emptyHint}>Set up the timetable first from the Timetable screen</Text>
+          <Text style={mv.emptyTxt}>{_t("No timetable data for this session")}</Text>
+          <Text style={mv.emptyHint}>{_t("Set up the timetable first from the Timetable screen")}</Text>
         </View>
       ) : (
         <ScrollView
@@ -189,16 +193,16 @@ export default function MasterTimetableScreen({ navigation }) {
               {/* ── Column headers: blank + period labels ── */}
               <View style={mv.headerRow}>
                 <View style={[mv.classCol, mv.headerCell]}>
-                  <Text style={mv.headerClassTxt}>Class / Section</Text>
+                  <Text style={mv.headerClassTxt}>{_t("Class / Section")}</Text>
                 </View>
                 {periods.map(p => (
                   <View key={String(p.period_id)} style={[mv.periodCol, mv.headerCell, p.is_break == 1 && mv.headerBreak]}>
                     {p.is_break == 1 ? (
-                      <Text style={mv.breakHeaderTxt}>{p.period_name || "Break"}</Text>
+                      <Text style={mv.breakHeaderTxt}>{_tx(p.period_name) || _t("Break")}</Text>
                     ) : (
                       <>
-                        <Text style={mv.periodNum}>P{p.period_number}</Text>
-                        {!!p.period_name && <Text style={mv.periodName} numberOfLines={1}>{p.period_name}</Text>}
+                        <Text style={mv.periodNum}>{_t("P{period_number}", { period_number: p.period_number })}</Text>
+                        {!!p.period_name && <Text style={mv.periodName} numberOfLines={1}>{_tx(p.period_name)}</Text>}
                         <Text style={mv.periodTime}>
                           {p.start_time?.substring(0, 5)}–{p.end_time?.substring(0, 5)}
                         </Text>
@@ -213,7 +217,7 @@ export default function MasterTimetableScreen({ navigation }) {
                 <View key={col.key} style={[mv.dataRow, idx % 2 === 1 && mv.dataRowAlt]}>
                   {/* Class-section label */}
                   <View style={[mv.classCol, mv.classLabelCell]}>
-                    <Text style={mv.classLabelTxt} numberOfLines={2}>{col.label}</Text>
+                    <Text style={mv.classLabelTxt} numberOfLines={2}>{_tx(col.label)}</Text>
                   </View>
 
                   {/* Period cells */}
@@ -227,17 +231,17 @@ export default function MasterTimetableScreen({ navigation }) {
                         ) : slot?.subject_name ? (
                           <View style={mv.slotContent}>
                             <Text style={mv.slotSubject} numberOfLines={2}>
-                              {slot.subject_name}
-                              {slot.subject_code ? `\n${slot.subject_code}` : ""}
+                              {_tx(slot.subject_name)}
+                              {slot.subject_code ? `\n${_tx(slot.subject_code)}` : ""}
                             </Text>
                             {!!slot.staff_name && (
                               <Text style={mv.slotTeacher} numberOfLines={1}>
-                                {slot.staff_name}
+                                {_tx(slot.staff_name)}
                               </Text>
                             )}
                             {!!slot.room && (
                               <Text style={mv.slotRoom} numberOfLines={1}>
-                                <Feather name="map-pin" size={8} /> {slot.room}
+                                <Feather name="map-pin" size={8} /> {_tx(slot.room)}
                               </Text>
                             )}
                           </View>

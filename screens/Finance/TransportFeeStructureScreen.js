@@ -27,6 +27,7 @@ import {
   fetchTransportFeeStructure,
   saveTransportFeeStructure,
 } from "../../services/FeeServiceApi";
+import { _t, _tx } from "../../services/i18n";
 
 const TEAL = "#0f766e";
 
@@ -41,14 +42,14 @@ function Dropdown({ label, value, options, onChange, disabled }) {
         onPress={() => !disabled && setOpen(true)}
         activeOpacity={0.75}>
         <Text style={[dd.txt, !sel?.value && dd.ph]} numberOfLines={1}>
-          {sel?.label ?? label}
+          {_tx(sel?.label) ?? _tx(label)}
         </Text>
         <Feather name="chevron-down" size={15} color="#475569" />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={dd.overlay} onPress={() => setOpen(false)} activeOpacity={1}>
           <View style={dd.sheet}>
-            <Text style={dd.sheetTitle}>{label}</Text>
+            <Text style={dd.sheetTitle}>{_tx(label)}</Text>
             <FlatList
               data={options}
               keyExtractor={o => String(o.value)}
@@ -58,7 +59,7 @@ function Dropdown({ label, value, options, onChange, disabled }) {
                   style={[dd.opt, String(o.value) === String(value) && dd.optActive]}
                   onPress={() => { onChange(o.value); setOpen(false); }}>
                   <Text style={[dd.optTxt, String(o.value) === String(value) && dd.optTxtActive]}>
-                    {o.label}
+                    {_tx(o.label)}
                   </Text>
                   {String(o.value) === String(value) && <Feather name="check" size={13} color={TEAL} />}
                 </TouchableOpacity>
@@ -93,7 +94,7 @@ const FeeAmountRow = memo(function FeeAmountRow({ item, onCommit, disabled }) {
   useEffect(() => { setVal(item.amount || ""); }, [item.amount]);
   return (
     <View style={s.amountRow}>
-      <Text style={s.amountLabel}>{item.feeName}</Text>
+      <Text style={s.amountLabel}>{_tx(item.feeName)}</Text>
       <TextInput
         style={s.amountInput}
         placeholder="0"
@@ -114,7 +115,7 @@ const MonthCell = memo(function MonthCell({ feeId, month, details, onCommit, dis
   useEffect(() => { setVal(details?.amount || ""); }, [details?.amount]);
   return (
     <View style={s.monthCell}>
-      <Text style={s.monthLabel}>{month}</Text>
+      <Text style={s.monthLabel}>{_tx(month)}</Text>
       <TextInput
         style={s.monthInput}
         placeholder="0"
@@ -147,18 +148,18 @@ const MonthlyFeeCard = memo(function MonthlyFeeCard({ fee, onCommit, disabled })
 
   return (
     <View style={s.monthlyCard}>
-      <Text style={s.monthlyTitle}>{fee.feeName}</Text>
+      <Text style={s.monthlyTitle}>{_tx(fee.feeName)}</Text>
       <View style={s.applyAllRow}>
         <TouchableOpacity style={s.checkWrap} onPress={() => handleApplyAll(!applyAll)} activeOpacity={0.7} disabled={disabled}>
           <View style={[s.checkbox, applyAll && s.checkboxOn]}>
             {applyAll && <Feather name="check" size={12} color="#fff" />}
           </View>
-          <Text style={s.checkLabel}>Apply same amount to all months</Text>
+          <Text style={s.checkLabel}>{_t("Apply same amount to all months")}</Text>
         </TouchableOpacity>
         {applyAll && (
           <TextInput
             style={s.applyAllInput}
-            placeholder="Amount"
+            placeholder={_t("Amount")}
             placeholderTextColor="#94a3b8"
             keyboardType="numeric"
             value={allVal}
@@ -173,7 +174,7 @@ const MonthlyFeeCard = memo(function MonthlyFeeCard({ fee, onCommit, disabled })
             key={`${fee.id}-${m}`}
             feeId={fee.id}
             month={m}
-            details={fee.months[m]}
+            details={_tx(fee.months[m])}
             onCommit={onCommit}
             disabled={disabled || applyAll}
           />
@@ -246,12 +247,16 @@ export default function TransportFeeStructureScreen() {
     (async () => {
       try {
         setLoadingDropdowns(true);
-        const [br, cl, se, fi] = await Promise.all([
+        // allSettled: one forbidden call (403) must not blank the whole screen
+        const results = await Promise.allSettled([
           fetchBranches(user),
           fetchClasses(user),
           fetchSessions(user),
           fetchFeeItems(user, "Transport"),   // ← Transport category only
         ]);
+        const [br, cl, se, fi] = results.map(r => (r.status === "fulfilled" ? r.value : []));
+        const firstFail = results.find(r => r.status === "rejected");
+        if (firstFail) Alert.alert(_t("Error"), _tx(firstFail.reason?.message) ?? _t("Failed to load setup"));
         const items = Array.isArray(fi) ? fi : [];
         setBranches(Array.isArray(br) ? br : []);
         setClasses(Array.isArray(cl)  ? cl : []);
@@ -259,7 +264,7 @@ export default function TransportFeeStructureScreen() {
         setFeeItems(items);
         initEmpty(items);
       } catch (e) {
-        Alert.alert("Error", e.message ?? "Failed to load setup");
+        Alert.alert(_t("Error"), _tx(e.message) ?? _t("Failed to load setup"));
       } finally {
         setLoadingDropdowns(false);
       }
@@ -274,7 +279,7 @@ export default function TransportFeeStructureScreen() {
   // ── Load ───────────────────────────────────────────────────────────────────
   const loadStructure = useCallback(async () => {
     if (!filters.sessionId || !filters.branchId || !filters.classId) {
-      Alert.alert("Validation", "Please select session, branch and class"); return;
+      Alert.alert(_t("Validation"), _t("Please select session, branch and class")); return;
     }
     try {
       setLoadingStructure(true);
@@ -284,7 +289,7 @@ export default function TransportFeeStructureScreen() {
       setMonthlyMandatory(mm);  setMonthlyOptional(mo);
       setStructureLoaded(true);
     } catch (e) {
-      Alert.alert("Error", e.message ?? "Failed to load fee structure");
+      Alert.alert(_t("Error"), _tx(e.message) ?? _t("Failed to load fee structure"));
     } finally {
       setLoadingStructure(false);
     }
@@ -325,15 +330,15 @@ export default function TransportFeeStructureScreen() {
 
   // ── Save ───────────────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!filters.sessionId) { Alert.alert("Validation", "Please select session");  return; }
-    if (!filters.branchId)  { Alert.alert("Validation", "Please select branch");   return; }
-    if (!filters.classId)   { Alert.alert("Validation", "Please select class");    return; }
+    if (!filters.sessionId) { Alert.alert(_t("Validation"), _t("Please select session"));  return; }
+    if (!filters.branchId)  { Alert.alert(_t("Validation"), _t("Please select branch"));   return; }
+    if (!filters.classId)   { Alert.alert(_t("Validation"), _t("Please select class"));    return; }
     try {
       setSaving(true);
       await saveTransportFeeStructure(user, buildPayload());
-      Alert.alert("✓ Saved", "Transport fee structure saved successfully.");
+      Alert.alert(_t("✓ Saved"), _t("Transport fee structure saved successfully."));
     } catch (e) {
-      Alert.alert("Error", e.message ?? "Failed to save fee structure");
+      Alert.alert(_t("Error"), _tx(e.message) ?? _t("Failed to save fee structure"));
     } finally {
       setSaving(false);
     }
@@ -344,7 +349,7 @@ export default function TransportFeeStructureScreen() {
     return (
       <View style={s.loaderWrap}>
         <ActivityIndicator size="large" color={TEAL} />
-        <Text style={s.loaderTxt}>Loading transport fee setup…</Text>
+        <Text style={s.loaderTxt}>{_t("Loading transport fee setup…")}</Text>
       </View>
     );
   }
@@ -355,51 +360,47 @@ export default function TransportFeeStructureScreen() {
     <View style={s.container}>
       <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
 
-        <Text style={s.screenTitle}>Transport Fee Structure</Text>
-        <Text style={s.screenSubtitle}>
-          Set monthly or one-time transport fees by class, session and branch.
-        </Text>
+        <Text style={s.screenTitle}>{_t("Transport Fee Structure")}</Text>
+        <Text style={s.screenSubtitle}>{_t("Set monthly or one-time transport fees by class, session and branch.")}</Text>
 
         {noTransportFees && (
           <View style={s.warnCard}>
             <Feather name="alert-circle" size={16} color="#92400e" />
-            <Text style={s.warnTxt}>
-              No Transport fee items found. Go to{" "}
-              <Text style={{ fontWeight: "800" }}>Setup → Fee Items</Text> and create
-              fee items with category set to <Text style={{ fontWeight: "800" }}>Transport</Text>.
+            <Text style={s.warnTxt}>{_t("No Transport fee items found. Go to")}{" "}
+              <Text style={{ fontWeight: "800" }}>{_t("Setup → Fee Items")}</Text>{" "}{_t("and create fee items with category set to")}{" "}<Text style={{ fontWeight: "800" }}>{_t("Transport")}</Text>.
             </Text>
           </View>
         )}
 
         {/* Filters */}
         <View style={s.card}>
-          <Text style={s.sectionTitle}>SELECT CONTEXT</Text>
+          <Text style={s.sectionTitle}>{_t("SELECT CONTEXT")}</Text>
 
           <Dropdown
-            label="Select Session"
+            label={_t("Select Session")}
             value={filters.sessionId}
             options={[
-              { label: "Select Session", value: "" },
+              { label: _t("Select Session"), value: "" },
               ...sessions.map(o => ({ label: o.session_name ?? o.session_year, value: String(o.session_id) })),
             ]}
             onChange={v => handleFilterChange("sessionId", v)}
             disabled={loadingStructure}
           />
           <Dropdown
-            label="Select Branch"
+            label={_t("Select Branch")}
             value={filters.branchId}
             options={[
-              { label: "Select Branch", value: "" },
+              { label: _t("Select Branch"), value: "" },
               ...branches.map(o => ({ label: o.branch_name, value: String(o.branch_id) })),
             ]}
             onChange={v => handleFilterChange("branchId", v)}
             disabled={loadingStructure}
           />
           <Dropdown
-            label="Select Class"
+            label={_t("Select Class")}
             value={filters.classId}
             options={[
-              { label: "Select Class", value: "" },
+              { label: _t("Select Class"), value: "" },
               ...classes.map(o => ({ label: o.class_name, value: String(o.class_id) })),
             ]}
             onChange={v => handleFilterChange("classId", v)}
@@ -413,7 +414,7 @@ export default function TransportFeeStructureScreen() {
             {loadingStructure
               ? <ActivityIndicator color="#fff" size="small" />
               : <><Feather name="truck" size={15} color="#fff" />
-                 <Text style={s.loadBtnTxt}>Load Transport Fees</Text></>}
+                 <Text style={s.loadBtnTxt}>{_t("Load Transport Fees")}</Text></>}
           </TouchableOpacity>
         </View>
 
@@ -422,7 +423,7 @@ export default function TransportFeeStructureScreen() {
             {/* One Time Mandatory */}
             {oneTimeMandatory.length > 0 && (
               <View style={s.card}>
-                <Text style={s.sectionTitle}>ONE-TIME MANDATORY</Text>
+                <Text style={s.sectionTitle}>{_t("ONE-TIME MANDATORY")}</Text>
                 {oneTimeMandatory.map(item => (
                   <FeeAmountRow key={item.id} item={item} onCommit={commitOTM} disabled={loadingStructure} />
                 ))}
@@ -432,7 +433,7 @@ export default function TransportFeeStructureScreen() {
             {/* One Time Optional */}
             {oneTimeOptional.length > 0 && (
               <View style={s.card}>
-                <Text style={s.sectionTitle}>ONE-TIME OPTIONAL</Text>
+                <Text style={s.sectionTitle}>{_t("ONE-TIME OPTIONAL")}</Text>
                 {oneTimeOptional.map(item => (
                   <FeeAmountRow key={item.id} item={item} onCommit={commitOTO} disabled={loadingStructure} />
                 ))}
@@ -442,7 +443,7 @@ export default function TransportFeeStructureScreen() {
             {/* Monthly Mandatory */}
             {monthlyMandatory.length > 0 && (
               <View style={s.card}>
-                <Text style={s.sectionTitle}>MONTHLY MANDATORY</Text>
+                <Text style={s.sectionTitle}>{_t("MONTHLY MANDATORY")}</Text>
                 {monthlyMandatory.map(fee => (
                   <MonthlyFeeCard key={fee.id} fee={fee} onCommit={commitMM} disabled={loadingStructure} />
                 ))}
@@ -452,7 +453,7 @@ export default function TransportFeeStructureScreen() {
             {/* Monthly Optional */}
             {monthlyOptional.length > 0 && (
               <View style={s.card}>
-                <Text style={s.sectionTitle}>MONTHLY OPTIONAL</Text>
+                <Text style={s.sectionTitle}>{_t("MONTHLY OPTIONAL")}</Text>
                 {monthlyOptional.map(fee => (
                   <MonthlyFeeCard key={fee.id} fee={fee} onCommit={commitMO} disabled={loadingStructure} />
                 ))}
@@ -464,9 +465,7 @@ export default function TransportFeeStructureScreen() {
              monthlyMandatory.length === 0 && monthlyOptional.length === 0 && (
               <View style={[s.card, { alignItems: "center", padding: 32 }]}>
                 <Feather name="inbox" size={36} color="#cbd5e1" />
-                <Text style={{ color: "#94a3b8", marginTop: 8, fontSize: 14 }}>
-                  No transport fee items to display
-                </Text>
+                <Text style={{ color: "#94a3b8", marginTop: 8, fontSize: 14 }}>{_t("No transport fee items to display")}</Text>
               </View>
             )}
 
@@ -478,7 +477,7 @@ export default function TransportFeeStructureScreen() {
               {saving
                 ? <ActivityIndicator color="#fff" size="small" />
                 : <><Feather name="check-circle" size={17} color="#fff" />
-                   <Text style={s.saveBtnTxt}>Save Transport Fee Structure</Text></>}
+                   <Text style={s.saveBtnTxt}>{_t("Save Transport Fee Structure")}</Text></>}
             </TouchableOpacity>
           </>
         )}
