@@ -4,7 +4,18 @@ const IS_PROD = process.env.APP_ENV === "production";
 // Server the app talks to. Default: live server for production builds,
 // your PC for development builds. Override for one run, e.g. (PowerShell):
 //   $env:API_URL="https://managemyacademy.com/"; npx expo start --dev-client
-const API_URL = process.env.API_URL || (IS_PROD ? "https://managemyacademy.com/" : "http://192.168.4.115/");
+// A production build never takes an http:// (PC / LAN) address from API_URL – a left-over
+// $env:API_URL from development used to make release APKs talk to the PC ("unable to connect").
+const PROD_URL = "https://managemyacademy.com/";
+const DEV_URL  = "http://192.168.4.115/";
+const OVERRIDE = (process.env.API_URL || "").trim();
+const API_URL  = IS_PROD
+  ? (/^https:\/\//i.test(OVERRIDE) ? OVERRIDE : PROD_URL)
+  : (OVERRIDE || DEV_URL);
+if (IS_PROD && OVERRIDE && API_URL !== OVERRIDE) {
+  console.warn(`[app.config] Ignoring API_URL=${OVERRIDE} for the production build (not https).`);
+}
+console.warn(`[app.config] APP_ENV=${IS_PROD ? "production" : "development"} → server ${API_URL}`);
 
 export default {
   name:        IS_PROD ? "ManageMyAcademy" : "SSMS (Dev)",
