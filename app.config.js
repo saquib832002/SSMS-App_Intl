@@ -4,7 +4,7 @@ const IS_PROD = process.env.APP_ENV === "production";
 // Server the app talks to. Default: live server for production builds,
 // your PC for development builds. Override for one run, e.g. (PowerShell):
 //   $env:API_URL="https://managemyacademy.com/"; npx expo start --dev-client
-const API_URL = process.env.API_URL || (IS_PROD ? "https://managemyacademy.com/" : "http://192.168.4.30/");
+const API_URL = process.env.API_URL || (IS_PROD ? "https://managemyacademy.com/" : "http://192.168.4.115/");
 
 export default {
   name:        IS_PROD ? "ManageMyAcademy" : "SSMS (Dev)",
@@ -102,5 +102,9 @@ export default {
     // Stamped when the app is built – shown on Login + More menu so you can
     // check the installed app is the latest build.
     BUILD_TIME: new Date().toISOString(),
+    // The git commit the build was made from (EAS sets EAS_BUILD_GIT_COMMIT_HASH on its build servers).
+    // Shown next to the version on the Login screen and in the menu – compare it with the latest commit on GitHub.
+    GIT_COMMIT: (process.env.EAS_BUILD_GIT_COMMIT_HASH || "").slice(0, 9),
+    BUILD_PROFILE: process.env.EAS_BUILD_PROFILE || "local",
 }
 };

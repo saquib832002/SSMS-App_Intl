@@ -22,5 +22,8 @@ const _built = extra.BUILD_TIME ? new Date(extra.BUILD_TIME) : null;
 export const APP_VERSION_LABEL =
   `Version ${Application.nativeApplicationVersion ?? "?"} (${Application.nativeBuildVersion ?? "?"})`
   + (_built ? ` · built ${_built.toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}` : "")
+  // Which code it was built from: the git commit (EAS builds) and the build profile – compare with GitHub
+  + (extra.GIT_COMMIT ? ` · commit ${extra.GIT_COMMIT}` : "")
+  + (extra.BUILD_PROFILE && extra.BUILD_PROFILE !== "production" ? ` · ${extra.BUILD_PROFILE}` : "")
   // Development app: also show which server it talks to
   + (IS_PROD ? "" : ` · server ${String(BASE_URL).replace(/^https?:\/\//, "").replace(/\/+$/, "")}`);
