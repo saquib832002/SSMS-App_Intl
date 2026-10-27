@@ -24,7 +24,10 @@ use Cake\Log\Log;
 class BusTracking
 {
     public const DEFAULTS = ['near_minutes' => 5, 'near_meters' => 1000, 'stop_radius' => 100, 'alert_start' => 1, 'alert_near' => 1,
-                             'alert_arrived' => 1, 'alert_board' => 1, 'keep_days' => 30, 'idle_minutes' => 90];
+                             'alert_arrived' => 1, 'alert_board' => 1, 'keep_days' => 30, 'idle_minutes' => 90, 'auto_trips' => 1];
+    /** Bus phone / GPS tracker: trips start and end by themselves in these windows (school's local time). */
+    public const WINDOWS = ['morning_from' => '06:00', 'morning_to' => '10:30', 'afternoon_from' => '12:00', 'afternoon_to' => '19:00'];
+    public const MODES = ['driver' => "Driver's phone (app login)", 'phone' => 'Bus phone (paired with a QR code, no login)', 'gps' => 'GPS tracker device'];
     /** Parents can switch these off for themselves (stored in ssms_notify_prefs, channel push). */
     public const ALERTS = ['bus_trip' => 'Trip started', 'bus_near' => 'Bus is near', 'bus_stop' => 'Bus at my stop', 'bus_board' => 'Got on / got off the bus'];
     public const DIRECTIONS = ['pickup' => 'Morning pick-up (to school)', 'drop' => 'Afternoon drop (from school)'];
@@ -119,11 +122,15 @@ class BusTracking
         try {
             $r = self::one('SELECT * FROM ssms_transport_settings WHERE ssms_client_code = ?', [$c]);
             foreach (array_keys(self::DEFAULTS) as $k) {
-                if ($r && $r[$k] !== null) {
+                if ($r && isset($r[$k])) {
                     $s[$k] = (int)$r[$k];
                 }
             }
         } catch (\Throwable $e) {
+            $r = null;
+        }
+        foreach (self::WINDOWS as $k => $def) {
+            $s[$k] = $r && !empty($r[$k]) && preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', (string)$r[$k]) ? (string)$r[$k] : $def;
         }
 
         return self::$cache['set|' . $c] = $s;
@@ -143,12 +150,27 @@ class BusTracking
                 $s[$k] = (int)$v;
             }
         }
-        foreach (['alert_start', 'alert_near', 'alert_arrived', 'alert_board'] as $k) {
+        foreach (['alert_start', 'alert_near', 'alert_arrived', 'alert_board', 'auto_trips'] as $k) {
             if (array_key_exists($k, $d)) {
                 $s[$k] = self::flag($d[$k]) ? 1 : 0;
             }
         }
-        $cols = array_keys(self::DEFAULTS);
+        foreach (array_keys(self::WINDOWS) as $k) {
+            if (array_key_exists($k, $d)) {
+                $v = trim((string)$d[$k]);
+                if (preg_match('/^(\d):(\d\d)$/', $v)) {
+                    $v = '0' . $v;
+                }
+                if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $v)) {
+                    throw new \DomainException('Enter the times as HH:MM.');
+                }
+                $s[$k] = $v;
+            }
+        }
+        if ($s['morning_from'] >= $s['morning_to'] || $s['afternoon_from'] >= $s['afternoon_to'] || $s['morning_to'] > $s['afternoon_from']) {
+            throw new \DomainException('The morning window must end before the afternoon window starts, and each must start before it ends.');
+        }
+        $cols = array_merge(array_keys(self::DEFAULTS), array_keys(self::WINDOWS));
         self::db()->execute('INSERT INTO ssms_transport_settings (ssms_client_code, ' . implode(', ', $cols) . ', modified, modified_by) VALUES (?' . str_repeat(', ?', count($cols)) . ', ?, ?)
             ON DUPLICATE KEY UPDATE ' . implode(', ', array_map(fn($k) => "$k = VALUES($k)", $cols)) . ', modified = VALUES(modified), modified_by = VALUES(modified_by)',
             array_merge([$a['client']], array_map(fn($k) => $s[$k], $cols), [self::now(), $a['user']]));
@@ -276,14 +298,23 @@ class BusTracking
             throw new \DomainException(Locale::t($c, 'The {direction} trip of this route is still running. End it first.',
                 ['direction' => Locale::t($c, self::DIRECTIONS[$run['direction']] ?? $run['direction'])]));
         }
+        return self::createTrip($c, $as, $direction, $a['user'], 'driver');
+    }
+
+    /** A new trip of a route (assignment row $as) in one direction; families are told it started. */
+    private static function createTrip(string $c, array $as, string $direction, string $by, string $source): array
+    {
+        $routeId = (int)$as['route_id'];
+        $today = self::today($c);
+        $now = self::now();
         $stops = self::routeStops($c, $routeId);
         if (!$stops) {
             throw new \DomainException('This route has no stops yet. Add them in Transport › Routes.');
         }
         try {
-            self::db()->execute('INSERT INTO ssms_transport_trips (ssms_client_code, route_id, vehicle_id, driver_id, session_id, direction, trip_date, status, run_key, started_at, started_by, created, modified)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', [$c, $routeId, $as['vehicle_id'] ? (int)$as['vehicle_id'] : null, $as['driver_id'] ? (int)$as['driver_id'] : null,
-                (int)$as['session_id'], $direction, $today, 'running', $c . '|' . $routeId, $now, $a['user'], $now, $now]);
+            self::db()->execute('INSERT INTO ssms_transport_trips (ssms_client_code, route_id, vehicle_id, driver_id, session_id, direction, trip_date, status, run_key, started_at, started_by, source, created, modified)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)', [$c, $routeId, $as['vehicle_id'] ? (int)$as['vehicle_id'] : null, $as['driver_id'] ? (int)$as['driver_id'] : null,
+                (int)$as['session_id'], $direction, $today, 'running', $c . '|' . $routeId, $now, $by, $source, $now, $now]);
         } catch (\Throwable $e) {
             if (str_contains($e->getMessage(), 'Duplicate')) {   // two phones started it at the same moment
                 $run = self::one("SELECT * FROM ssms_transport_trips WHERE ssms_client_code = ? AND route_id = ? AND status = 'running' LIMIT 1", [$c, $routeId]);
@@ -327,11 +358,22 @@ class BusTracking
         if ($trip['status'] !== 'running') {
             return ['ended' => true, 'accepted' => 0];
         }
+        $good = self::cleanPoints($points, strtotime((string)$trip['started_at']) - 300, $phoneNowMs);
+
+        return ['ended' => false, 'accepted' => self::pingTrip($c, $trip, $good), 'trip' => self::tripFull($c, self::tripRow($c, $tripId), false)];
+    }
+
+    /**
+     * Usable positions, oldest first: [{lat, lng, ts, acc, speed (m/s), heading}]. Not before $minTs, not in the future,
+     * not rough (> 500 m), not 0,0. $phoneNowMs: the sender's clock, to correct times that are clearly off.
+     */
+    private static function cleanPoints(array $points, int $minTs, ?float $phoneNowMs): array
+    {
         $nowTs = AccountSecurity::time();
         // the phone's clock may be off by minutes: move its times by the difference (only when it is clearly off)
         $skew = $phoneNowMs !== null && $phoneNowMs > 0 ? $nowTs - (int)floor($phoneNowMs / 1000) : 0;
         $skew = abs($skew) > 30 && abs($skew) < 86400 ? $skew : 0;
-        $startTs = strtotime((string)$trip['started_at']);
+        $startTs = $minTs + 300;
         $good = [];
         foreach (array_slice($points, 0, self::MAX_POINTS) as $p) {
             if (!is_array($p) || !is_numeric($p['lat'] ?? null) || !is_numeric($p['lng'] ?? null)) {
@@ -353,6 +395,14 @@ class BusTracking
                        'heading' => is_numeric($p['heading'] ?? null) && (float)$p['heading'] >= 0 ? ((int)round((float)$p['heading'])) % 360 : null];
         }
         usort($good, fn($x, $y) => $x['ts'] <=> $y['ts']);
+
+        return $good;
+    }
+
+    /** Store a trip's new positions and work out stops / arrival times / alerts. Returns how many were stored. */
+    private static function pingTrip(string $c, array $trip, array $good): int
+    {
+        $tripId = (int)$trip['id'];
         $lastTs = $trip['last_at'] ? strtotime((string)$trip['last_at']) : 0;
         $now = self::now();
         $fresh = [];
@@ -376,7 +426,7 @@ class BusTracking
             self::db()->execute('UPDATE ssms_transport_trips SET points = points + ?, modified = ? WHERE id = ?', [count($good), $now, $tripId]);
         }
 
-        return ['ended' => false, 'accepted' => count($good), 'trip' => self::tripFull($c, self::tripRow($c, $tripId), false)];
+        return count($good);
     }
 
     /** Mark a student on this trip: boarded | dropped | absent | clear. */
@@ -810,8 +860,16 @@ class BusTracking
                             AND r.route_id NOT IN (SELECT route_id FROM ssms_transport_trips WHERE ssms_client_code = ? AND status = 'running')
                           ORDER BY r.route_name", [$c, $sess, $c]);
 
+        // buses with a bus phone / GPS tracker that are not on a trip: where they were last seen (last 30 minutes)
+        $parked = [];
+        foreach (self::q("SELECT v.* FROM ssms_transport_vehicles v WHERE v.ssms_client_code = ? AND v.tracking_mode IN ('phone','gps') AND v.last_seen >= ?
+                            AND v.vehicle_id NOT IN (SELECT vehicle_id FROM ssms_transport_trips WHERE ssms_client_code = ? AND status = 'running' AND vehicle_id IS NOT NULL)",
+                     [$c, date('Y-m-d H:i:s', AccountSecurity::time() - 1800), $c]) as $v) {
+            $parked[] = self::vehicleView($c, $v) + ['lat' => (float)$v['last_lat'], 'lng' => (float)$v['last_lng']];
+        }
+
         return ['trips' => $out, 'not_running' => array_map(fn($r) => ['route_id' => (int)$r['route_id'], 'route_name' => (string)$r['route_name'],
-            'vehicle_number' => $r['vehicle_number'], 'driver_name' => $r['driver_name']], $idle), 'can' => ['edit' => (bool)$a['edit']], 'today' => self::today($c)];
+            'vehicle_number' => $r['vehicle_number'], 'driver_name' => $r['driver_name']], $idle), 'parked' => $parked, 'can' => ['edit' => (bool)$a['edit']], 'today' => self::today($c)];
     }
 
     /** One trip for the office: stops, students and the path driven. */
@@ -1002,6 +1060,11 @@ class BusTracking
     {
         try {
             $s = self::settings($c);
+            if ($s['auto_trips']) {   // bus phone / tracker trips also end when no position comes any more (ignition off at school)
+                foreach (self::q("SELECT * FROM ssms_transport_trips WHERE ssms_client_code = ? AND status = 'running' AND COALESCE(source,'driver') <> 'driver'", [$c]) as $t) {
+                    self::autoEnd($c, $t);
+                }
+            }
             $cut = date('Y-m-d H:i:s', AccountSecurity::time() - $s['idle_minutes'] * 60);
             foreach (self::q("SELECT id FROM ssms_transport_trips WHERE ssms_client_code = ? AND status = 'running' AND COALESCE(last_at, started_at) < ?", [$c, $cut]) as $t) {
                 self::closeTrip($c, (int)$t['id'], 'idle', null);
@@ -1036,6 +1099,505 @@ class BusTracking
             $in = implode(',', array_fill(0, count($eids), '?'));
             self::db()->execute("DELETE FROM ssms_transport_boardings WHERE ssms_client_code = ? AND enrollment_id IN ($in)", array_merge([$c], array_map('strval', $eids)));
         } catch (\Throwable $e) {
+        }
+    }
+
+    // ── Buses: how each one is tracked ──────────────────────────────────────
+
+    /** Office: every bus with its tracking mode, paired phone / tracker, routes and last position. */
+    public static function vehicles(array $a): array
+    {
+        self::need($a, 'view');
+        $c = $a['client'];
+        $routes = [];
+        foreach (self::q("SELECT a.vehicle_id, r.route_name FROM ssms_transport_assignments a JOIN ssms_transport_routes r ON r.route_id = a.route_id
+                           WHERE a.ssms_client_code = ? AND a.session_id = ? ORDER BY r.route_name", [$c, self::currentSession($c)]) as $r) {
+            $routes[(int)$r['vehicle_id']][] = (string)$r['route_name'];
+        }
+        $out = [];
+        foreach (self::q('SELECT * FROM ssms_transport_vehicles WHERE ssms_client_code = ? ORDER BY vehicle_number', [$c]) as $v) {
+            $out[] = self::vehicleView($c, $v) + ['routes' => $routes[(int)$v['vehicle_id']] ?? []];
+        }
+
+        return ['vehicles' => $out, 'modes' => self::MODES, 'can' => ['edit' => (bool)$a['edit']], 'gps' => $a['edit'] ? self::gpsSetup($c) : null];
+    }
+
+    private static function vehicleView(string $c, array $v): array
+    {
+        $seen = $v['last_seen'] ? AccountSecurity::time() - strtotime((string)$v['last_seen']) : null;
+
+        return ['vehicle_id' => (int)$v['vehicle_id'], 'number' => (string)$v['vehicle_number'], 'name' => $v['vehicle_name'],
+                'mode' => isset(self::MODES[(string)($v['tracking_mode'] ?? '')]) ? (string)$v['tracking_mode'] : 'driver', 'tracker_id' => $v['tracker_id'] ?? null,
+                'paired' => !empty($v['device_token_hash']), 'device_name' => $v['device_name'] ?? null,
+                'paired_at' => !empty($v['device_paired_at']) ? Locale::date($c, (new \DateTimeImmutable('@' . strtotime((string)$v['device_paired_at'])))->setTimezone(Locale::tz($c))->format('Y-m-d'), 'medium') : null,
+                'last_seen' => $seen, 'last_seen_at' => $v['last_seen'] ? self::localHm($c, (string)$v['last_seen']) : null];
+    }
+
+    private static function vehicleRow(string $c, int $id): ?array
+    {
+        return self::one('SELECT * FROM ssms_transport_vehicles WHERE vehicle_id = ? AND ssms_client_code = ?', [$id, $c]);
+    }
+
+    /** Choose how a bus is tracked; for a GPS tracker also its id (IMEI / unique id as the tracker platform shows it). */
+    public static function setVehicleMode(array $a, int $vehicleId, string $mode, string $trackerId = ''): array
+    {
+        self::need($a, 'edit');
+        $c = $a['client'];
+        $v = self::vehicleRow($c, $vehicleId);
+        if (!$v) {
+            throw new \DomainException('Bus not found.');
+        }
+        if (!isset(self::MODES[$mode])) {
+            throw new \DomainException('Choose how this bus is tracked.');
+        }
+        $trackerId = trim($trackerId);
+        if ($mode === 'gps') {
+            if (!preg_match('/^[A-Za-z0-9._:-]{3,40}$/', $trackerId)) {
+                throw new \DomainException('Enter the tracker ID (its IMEI or the unique ID shown in the tracking platform).');
+            }
+            if (self::one('SELECT 1 x FROM ssms_transport_vehicles WHERE ssms_client_code = ? AND tracker_id = ? AND vehicle_id <> ?', [$c, $trackerId, $vehicleId])) {
+                throw new \DomainException('Another bus already uses this tracker ID.');
+            }
+        }
+        $keepPhone = $mode === 'phone';
+        if ($mode !== (string)$v['tracking_mode']) {
+            self::closeDeviceTrips($c, $vehicleId, $a['user']);
+        }
+        self::db()->execute('UPDATE ssms_transport_vehicles SET tracking_mode = ?, tracker_id = ?, device_token_hash = IF(?, device_token_hash, NULL), device_name = IF(?, device_name, NULL),
+                device_paired_at = IF(?, device_paired_at, NULL), pair_code_hash = NULL, pair_code_until = NULL, modified = ? WHERE vehicle_id = ? AND ssms_client_code = ?',
+            [$mode, $mode === 'gps' ? $trackerId : null, $keepPhone ? 1 : 0, $keepPhone ? 1 : 0, $keepPhone ? 1 : 0, self::now(), $vehicleId, $c]);
+
+        return ['vehicle' => self::vehicleView($c, self::vehicleRow($c, $vehicleId))];
+    }
+
+    /**
+     * A one-time code (30 minutes) to pair a phone with this bus. The phone scans the QR code (or the code is typed
+     * with the school code) on its "Bus phone" screen; no login is needed on that phone afterwards.
+     */
+    public static function pairCode(array $a, int $vehicleId): array
+    {
+        self::need($a, 'edit');
+        $c = $a['client'];
+        $v = self::vehicleRow($c, $vehicleId);
+        if (!$v) {
+            throw new \DomainException('Bus not found.');
+        }
+        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        $code = '';
+        for ($i = 0; $i < 8; $i++) {
+            $code .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+        }
+        $until = date('Y-m-d H:i:s', AccountSecurity::time() + 1800);
+        self::db()->execute("UPDATE ssms_transport_vehicles SET tracking_mode = 'phone', tracker_id = NULL, pair_code_hash = ?, pair_code_until = ?, modified = ? WHERE vehicle_id = ? AND ssms_client_code = ?",
+            [hash('sha256', $c . '|' . $code), $until, self::now(), $vehicleId, $c]);
+
+        return ['code' => $code, 'school' => $c, 'qr' => 'MMA-BUS|' . $c . '|' . $code, 'valid_until' => self::localHm($c, $until),
+                'vehicle' => self::vehicleView($c, self::vehicleRow($c, $vehicleId))];
+    }
+
+    public static function unpair(array $a, int $vehicleId): array
+    {
+        self::need($a, 'edit');
+        $c = $a['client'];
+        if (!self::vehicleRow($c, $vehicleId)) {
+            throw new \DomainException('Bus not found.');
+        }
+        self::closeDeviceTrips($c, $vehicleId, $a['user']);
+        self::db()->execute('UPDATE ssms_transport_vehicles SET device_token_hash = NULL, device_name = NULL, device_paired_at = NULL, pair_code_hash = NULL, pair_code_until = NULL, modified = ?
+                              WHERE vehicle_id = ? AND ssms_client_code = ?', [self::now(), $vehicleId, $c]);
+
+        return ['vehicle' => self::vehicleView($c, self::vehicleRow($c, $vehicleId))];
+    }
+
+    /** A bus phone / tracker trip still running on this bus ends when the office changes how the bus is tracked. */
+    private static function closeDeviceTrips(string $c, int $vehicleId, ?string $by): void
+    {
+        foreach (self::q("SELECT * FROM ssms_transport_trips WHERE ssms_client_code = ? AND vehicle_id = ? AND status = 'running' AND COALESCE(source,'driver') <> 'driver'", [$c, $vehicleId]) as $t) {
+            self::finishTrip($c, $t, (string)($by ?? 'office'));
+        }
+    }
+
+    /** The school's secret forwarding address for GPS trackers (created on first use). */
+    public static function gpsSetup(string $c, bool $renew = false): array
+    {
+        self::db()->execute('INSERT IGNORE INTO ssms_transport_settings (ssms_client_code) VALUES (?)', [$c]);
+        $key = (string)(self::one('SELECT gps_key FROM ssms_transport_settings WHERE ssms_client_code = ?', [$c])['gps_key'] ?? '');
+        if ($key === '' || $renew) {
+            $key = bin2hex(random_bytes(12));
+            self::db()->execute('UPDATE ssms_transport_settings SET gps_key = ? WHERE ssms_client_code = ?', [$key, $c]);
+        }
+
+        return ['path' => '/hooks/bus/gps/' . rawurlencode($c) . '/' . $key];
+    }
+
+    public static function newGpsKey(array $a): array
+    {
+        self::need($a, 'edit');
+
+        return self::gpsSetup($a['client'], true);
+    }
+
+    // ── The bus phone (no login: its own key) ───────────────────────────────
+
+    /** Pair this phone with a bus: school code + one-time code (from the QR). Returns the phone's key – shown once. */
+    public static function devicePair(string $c, string $code, string $deviceName): array
+    {
+        $c = strtoupper(trim($c));
+        $code = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $code));
+        if ($c === '' || strlen($code) !== 8) {
+            throw new \DomainException('Scan the QR code from the office, or enter the school code and the 8-character pairing code.');
+        }
+        self::schoolAllowed($c);
+        $hash = hash('sha256', $c . '|' . $code);
+        $v = self::one('SELECT * FROM ssms_transport_vehicles WHERE ssms_client_code = ? AND pair_code_hash = ? AND pair_code_until >= ? LIMIT 1', [$c, $hash, self::now()]);
+        if (!$v) {
+            // only wrong codes are counted and slowed down (a right code always works, so nobody can block a school's pairing)
+            $s = self::one('SELECT pair_fails, pair_fail_at FROM ssms_transport_settings WHERE ssms_client_code = ?', [$c]);
+            if ($s && $s['pair_fail_at'] && strtotime((string)$s['pair_fail_at']) > AccountSecurity::time() - 900 && (int)$s['pair_fails'] >= 10) {
+                throw new \DomainException('Too many wrong codes. Wait 15 minutes and ask the office for a new code.');
+            }
+            self::db()->execute('INSERT IGNORE INTO ssms_transport_settings (ssms_client_code) VALUES (?)', [$c]);
+            self::db()->execute('UPDATE ssms_transport_settings SET pair_fails = IF(pair_fail_at IS NOT NULL AND pair_fail_at > ?, pair_fails + 1, 1), pair_fail_at = ? WHERE ssms_client_code = ?',
+                [date('Y-m-d H:i:s', AccountSecurity::time() - 900), self::now(), $c]);
+            throw new \DomainException('This pairing code is wrong or has expired. Ask the office for a new one.');
+        }
+        $token = $c . '.' . bin2hex(random_bytes(24));
+        $used = self::db()->execute("UPDATE ssms_transport_vehicles SET tracking_mode = 'phone', device_token_hash = ?, device_name = ?, device_paired_at = ?, pair_code_hash = NULL, pair_code_until = NULL, modified = ?
+                              WHERE vehicle_id = ? AND ssms_client_code = ? AND pair_code_hash = ? AND pair_code_until >= ?",
+            [hash('sha256', $token), mb_substr(trim($deviceName) !== '' ? trim($deviceName) : 'Phone', 0, 80), self::now(), self::now(), (int)$v['vehicle_id'], $c, $hash, self::now()])->rowCount();
+        if ($used !== 1) {   // another phone used the same code a moment earlier
+            throw new \DomainException('This pairing code is wrong or has expired. Ask the office for a new one.');
+        }
+
+        return ['token' => $token] + self::deviceHome($c, self::vehicleRow($c, (int)$v['vehicle_id']));
+    }
+
+    /** The bus of this phone key, or an error the phone shows (and then asks to pair again). */
+    public static function deviceVehicle(string $token): array
+    {
+        $token = trim($token);
+        $c = strstr($token, '.', true);
+        if ($c === false || $c === '' || strlen($token) < 30) {
+            throw new \DomainException('This phone is not paired with a bus.');
+        }
+        $v = self::one("SELECT * FROM ssms_transport_vehicles WHERE ssms_client_code = ? AND device_token_hash = ? AND tracking_mode = 'phone' LIMIT 1", [$c, hash('sha256', $token)]);
+        if (!$v) {
+            throw new \DomainException('This phone is no longer paired with a bus. Ask the office for a new pairing code.');
+        }
+        self::schoolAllowed($c);
+
+        return [$c, $v];
+    }
+
+    /** What the bus phone shows: the bus, its routes, the trip now (stops for the map) and the trip windows. */
+    public static function deviceHome(string $c, array $v): array
+    {
+        $trip = self::one("SELECT * FROM ssms_transport_trips WHERE ssms_client_code = ? AND vehicle_id = ? AND status = 'running' ORDER BY id DESC LIMIT 1", [$c, (int)$v['vehicle_id']]);
+        $routes = array_map(fn($r) => ['route_id' => (int)$r['route_id'], 'route_name' => (string)$r['route_name']], self::vehicleRoutes($c, (int)$v['vehicle_id']));
+        $s = self::settings($c);
+        $school = self::one('SELECT ssms_client_header_text n FROM ssms_clients WHERE ssms_client_code = ? LIMIT 1', [$c]);
+
+        return ['school' => ['code' => $c, 'name' => (string)($school['n'] ?? $c)], 'vehicle' => self::vehicleView($c, $v), 'routes' => $routes,
+                'trip' => $trip ? self::tripFull($c, $trip, false) : null, 'auto' => (bool)$s['auto_trips'],
+                'windows' => array_intersect_key($s, self::WINDOWS), 'now' => Locale::now($c, 'H:i'), 'window' => self::windowNow($c)];
+    }
+
+    /** Positions from the bus phone or a GPS tracker. Starts / ends trips by itself in the trip windows. */
+    public static function vehiclePing(string $c, array $v, array $points, ?float $phoneNowMs, string $source): array
+    {
+        $vid = (int)$v['vehicle_id'];
+        $good = self::cleanPoints($points, AccountSecurity::time() - 6 * 3600, $phoneNowMs);
+        $prev = $v['last_lat'] !== null && $v['last_seen'] ? ['lat' => (float)$v['last_lat'], 'lng' => (float)$v['last_lng'], 'ts' => strtotime((string)$v['last_seen']),
+                                                                      'speed' => isset($v['last_speed']) && $v['last_speed'] !== null ? (float)$v['last_speed'] : null] : null;
+        if ($good) {
+            $last = end($good);
+            if (!$prev || $last['ts'] >= $prev['ts']) {
+                self::db()->execute('UPDATE ssms_transport_vehicles SET last_lat = ?, last_lng = ?, last_seen = ?, last_speed = ? WHERE vehicle_id = ? AND ssms_client_code = ?',
+                    [$last['lat'], $last['lng'], date('Y-m-d H:i:s', $last['ts']), $last['speed'], $vid, $c]);
+            }
+        }
+        $trip = self::one("SELECT * FROM ssms_transport_trips WHERE ssms_client_code = ? AND vehicle_id = ? AND status = 'running' ORDER BY id DESC LIMIT 1", [$c, $vid]);
+        $s = self::settings($c);
+        $dir = self::windowNow($c);
+        if (!$trip && $good && $s['auto_trips'] && $dir) {
+            $trip = self::autoStart($c, $v, $dir, $good, $prev, $source);
+        }
+        if (!$trip) {
+            return ['trip' => null, 'accepted' => 0, 'window' => $dir];
+        }
+        $accepted = self::pingTrip($c, $trip, array_values(array_filter($good, fn($p) => $p['ts'] >= strtotime((string)$trip['started_at']) - 300)));
+        $trip = self::tripRow($c, (int)$trip['id']);
+        if ($s['auto_trips'] && $trip['source'] !== 'driver' && self::autoEnd($c, $trip)) {
+            $trip = self::tripRow($c, (int)$trip['id']);
+        }
+
+        return ['trip' => $trip['status'] === 'running' ? self::tripFull($c, $trip, false) : null, 'accepted' => $accepted, 'window' => $dir,
+                'ended' => $trip['status'] !== 'running'];
+    }
+
+    /** The bus phone starts / ends a trip by hand (an extra run, or the school day is different). */
+    public static function deviceTrip(string $c, array $v, string $action, string $direction, int $routeId = 0): array
+    {
+        $vid = (int)$v['vehicle_id'];
+        $run = self::one("SELECT * FROM ssms_transport_trips WHERE ssms_client_code = ? AND vehicle_id = ? AND status = 'running' ORDER BY id DESC LIMIT 1", [$c, $vid]);
+        if ($run && ($run['source'] ?? 'driver') === 'driver') {
+            throw new \DomainException('The driver is running this trip in the app. The driver or the office ends it.');
+        }
+        if ($action === 'end') {
+            if ($run) {
+                self::checkOffBus($c, $run);
+                self::finishTrip($c, $run, 'bus phone');
+            }
+
+            return self::deviceHome($c, self::vehicleRow($c, $vid));
+        }
+        if (!isset(self::DIRECTIONS[$direction])) {
+            throw new \DomainException('Choose morning pick-up or afternoon drop.');
+        }
+        if ($run && $run['direction'] === $direction && (!$routeId || (int)$run['route_id'] === $routeId)) {
+            return self::deviceHome($c, self::vehicleRow($c, $vid));
+        }
+        if ($run) {
+            self::checkOffBus($c, $run);
+            self::finishTrip($c, $run, 'bus phone');
+        }
+        $routes = self::vehicleRoutes($c, $vid);
+        if ($routeId) {
+            $routes = array_values(array_filter($routes, fn($r) => (int)$r['route_id'] === $routeId));
+        }
+        if (!$routes) {
+            throw new \DomainException('This bus has no route this school year. Set it in Transport › Assignments.');
+        }
+        if (count($routes) > 1 && !$routeId) {
+            throw new \DomainException('This bus has more than one route. Choose the route.');
+        }
+        $other = self::one("SELECT * FROM ssms_transport_trips WHERE ssms_client_code = ? AND route_id = ? AND status = 'running' LIMIT 1", [$c, (int)$routes[0]['route_id']]);
+        if ($other && ($other['source'] ?? 'driver') === 'driver') {
+            throw new \DomainException('The driver is running this trip in the app. The driver or the office ends it.');
+        }
+        if ($other) {
+            self::checkOffBus($c, $other);
+            self::finishTrip($c, $other, 'bus phone');
+        }
+        self::createTrip($c, $routes[0], $direction, 'bus phone', 'phone');
+
+        return self::deviceHome($c, self::vehicleRow($c, $vid));
+    }
+
+    /**
+     * Positions forwarded by a GPS tracker platform. Accepts Traccar's JSON forwarding ({position, device}) – one
+     * position or a list – and the simple OsmAnd-style query (?id=&lat=&lon=&timestamp=&speed=&bearing=&accuracy=).
+     * Speeds from trackers are in knots. Returns [status, message].
+     */
+    public static function gpsHook(string $c, string $key, array $query, $json): array
+    {
+        $c = strtoupper(trim($c));
+        $row = self::one('SELECT gps_key FROM ssms_transport_settings WHERE ssms_client_code = ?', [$c]);
+        if (!$row || (string)$row['gps_key'] === '' || !hash_equals((string)$row['gps_key'], $key)) {
+            return [403, 'forbidden'];
+        }
+        try {
+            self::schoolAllowed($c);
+        } catch (\Throwable $e) {
+            return [403, 'school not active'];
+        }
+        $items = [];
+        $add = function (string $id, $lat, $lng, $time, $speedKnots, $course, $acc) use (&$items) {
+            if ($id === '' || !is_numeric($lat) || !is_numeric($lng)) {
+                return;
+            }
+            $ts = is_numeric($time) ? ((float)$time > 1e11 ? (float)$time : (float)$time * 1000) : (($t = strtotime((string)$time)) ? $t * 1000 : null);
+            $items[$id][] = ['lat' => (float)$lat, 'lng' => (float)$lng, 't' => $ts, 'speed' => is_numeric($speedKnots) ? (float)$speedKnots * 0.514444 : null,
+                             'heading' => is_numeric($course) ? (float)$course : null, 'accuracy' => is_numeric($acc) && (float)$acc > 0 ? (float)$acc : null];
+        };
+        $list = is_array($json) ? (isset($json['position']) || isset($json['device']) || isset($json['location']) ? [$json] : (array_is_list($json) ? $json : [])) : [];
+        foreach ($list as $j) {
+            if (isset($j['location']) && is_array($j['location'])) {   // Traccar Client app (JSON): speed in m/s
+                $co = $j['location']['coords'] ?? [];
+                $sp = $co['speed'] ?? null;
+                $add((string)($j['device_id'] ?? ''), $co['latitude'] ?? null, $co['longitude'] ?? null, $j['location']['timestamp'] ?? null,
+                    is_numeric($sp) && (float)$sp >= 0 ? (float)$sp / 0.514444 : null, $co['heading'] ?? null, $co['accuracy'] ?? null);
+                continue;
+            }
+            $pos = $j['position'] ?? [];
+            $dev = $j['device'] ?? [];
+            $add((string)($dev['uniqueId'] ?? $pos['deviceId'] ?? ''), $pos['latitude'] ?? null, $pos['longitude'] ?? null, $pos['fixTime'] ?? $pos['deviceTime'] ?? null,
+                $pos['speed'] ?? null, $pos['course'] ?? null, $pos['accuracy'] ?? null);
+        }
+        if (!$list && isset($query['id'])) {
+            $add((string)$query['id'], $query['lat'] ?? null, $query['lon'] ?? ($query['lng'] ?? null), $query['timestamp'] ?? null, $query['speed'] ?? null,
+                $query['bearing'] ?? ($query['heading'] ?? null), $query['accuracy'] ?? null);
+        }
+        if (!$items) {
+            return [400, 'no position'];
+        }
+        $done = 0;
+        foreach ($items as $id => $pts) {
+            $v = self::one("SELECT * FROM ssms_transport_vehicles WHERE ssms_client_code = ? AND tracker_id = ? AND tracking_mode = 'gps' LIMIT 1", [$c, $id]);
+            if ($v) {
+                self::vehiclePing($c, $v, $pts, null, 'gps');
+                $done++;
+            }
+        }
+
+        return [200, $done ? 'ok' : 'unknown tracker'];
+    }
+
+    /** morning → pickup, afternoon → drop, otherwise null (school's local time). */
+    private static function windowNow(string $c): ?string
+    {
+        $s = self::settings($c);
+        $t = Locale::now($c, 'H:i');
+        if ($t >= $s['morning_from'] && $t < $s['morning_to']) {
+            return 'pickup';
+        }
+        if ($t >= $s['afternoon_from'] && $t < $s['afternoon_to']) {
+            return 'drop';
+        }
+
+        return null;
+    }
+
+    /** This bus's routes this school year (assignment rows with route_name). */
+    private static function vehicleRoutes(string $c, int $vid): array
+    {
+        return self::q("SELECT a.*, r.route_name FROM ssms_transport_assignments a JOIN ssms_transport_routes r ON r.route_id = a.route_id
+                         WHERE a.ssms_client_code = ? AND a.vehicle_id = ? AND a.session_id = ? AND COALESCE(r.status,'active') = 'active' ORDER BY r.route_name",
+            [$c, $vid, self::currentSession($c)]);
+    }
+
+    /** The bus is moving in a trip window and has not done this run today: start it (the route with the nearest stop). */
+    private static function autoStart(string $c, array $v, string $dir, array $good, ?array $prev, string $source): ?array
+    {
+        // only fairly exact positions count (a parked bus "jumps" with a poor GPS fix); speed must be seen twice in a row
+        $fine = array_values(array_filter($good, fn($p) => $p['acc'] === null || $p['acc'] <= 60));
+        if (!$fine) {
+            return null;
+        }
+        $last = end($fine);
+        $first = $prev && $last['ts'] - $prev['ts'] <= 600 ? $prev + ['acc' => null] : $fine[0];
+        $fast = array_values(array_filter($fine, fn($p) => $p['speed'] !== null && $p['speed'] >= 2.5));
+        $moving = count($fast) >= 2 || ($fast && $prev && $last['ts'] - $prev['ts'] <= 600 && ($prev['speed'] ?? 0) >= 2.5)
+            || self::dist($first['lat'], $first['lng'], $last['lat'], $last['lng']) >= 150 + (int)($first['acc'] ?? 0) + (int)($last['acc'] ?? 0);
+        if (!$moving) {
+            return null;
+        }
+        $best = null;
+        $bestD = INF;
+        foreach (self::vehicleRoutes($c, (int)$v['vehicle_id']) as $as) {
+            $rid = (int)$as['route_id'];
+            if (self::one("SELECT 1 x FROM ssms_transport_trips WHERE ssms_client_code = ? AND route_id = ? AND direction = ? AND trip_date = ? LIMIT 1", [$c, $rid, $dir, self::today($c)])) {
+                continue;   // already done today (ended by the driver, the office or by itself): not again by itself
+            }
+            $d = INF;
+            foreach (self::routeStops($c, $rid) as $st) {
+                if ($st['latitude'] !== null && $st['longitude'] !== null && ((float)$st['latitude'] != 0.0 || (float)$st['longitude'] != 0.0)) {
+                    $d = min($d, self::dist($last['lat'], $last['lng'], (float)$st['latitude'], (float)$st['longitude']));
+                }
+            }
+            if ($best === null || $d < $bestD) {
+                [$best, $bestD] = [$as, $d];
+            }
+        }
+        if (!$best) {
+            return null;
+        }
+        $other = self::one("SELECT * FROM ssms_transport_trips WHERE ssms_client_code = ? AND route_id = ? AND status = 'running' LIMIT 1", [$c, (int)$best['route_id']]);
+        if ($other && ($other['source'] ?? 'driver') === 'driver') {
+            return null;   // a driver is running this route in the app
+        }
+        if ($other) {
+            self::finishTrip($c, $other, $source === 'gps' ? 'GPS tracker' : 'bus phone');   // the morning run left open
+        }
+        try {
+            $r = self::createTrip($c, $best, $dir, $source === 'gps' ? 'GPS tracker' : 'bus phone', $source);
+        } catch (\Throwable $e) {
+            return null;   // no stops on the route yet
+        }
+
+        return self::tripRow($c, (int)$r['trip']['trip_id']);
+    }
+
+    /** Every stop done and 10 minutes since the last one, or the window is long over: end the trip by itself. */
+    private static function autoEnd(string $c, array $trip): bool
+    {
+        $rows = self::q('SELECT ts.status, ts.arrived_at, ts.left_at, s.latitude, s.longitude FROM ssms_transport_trip_stops ts LEFT JOIN ssms_transport_stops s ON s.stop_id = ts.stop_id
+                          WHERE ts.trip_id = ? ORDER BY ts.seq', [(int)$trip['id']]);
+        $mapped = array_values(array_filter($rows, fn($r) => $r['latitude'] !== null && $r['longitude'] !== null && ((float)$r['latitude'] != 0.0 || (float)$r['longitude'] != 0.0)));
+        $done = $mapped && !array_filter($mapped, fn($r) => $r['status'] === 'pending');
+        if ($done && $trip['direction'] === 'drop' && array_filter(self::tripStudents($c, $trip), fn($s) => $s['status'] === 'boarded')) {
+            $done = false;   // a child is still marked on the bus: wait (the office sees it on the live map)
+        }
+        $lastAt = 0;
+        foreach ($mapped as $r) {
+            $lastAt = max($lastAt, $r['left_at'] ? strtotime((string)$r['left_at']) : 0, $r['arrived_at'] ? strtotime((string)$r['arrived_at']) : 0);
+        }
+        $now = AccountSecurity::time();
+        $s = self::settings($c);
+        [$from, $to] = $trip['direction'] === 'pickup' ? [$s['morning_from'], $s['morning_to']] : [$s['afternoon_from'], $s['afternoon_to']];
+        $limit = date('H:i', strtotime('2000-01-01 ' . $to . ' +30 minutes'));   // half an hour after the window
+        $began = self::localHm($c, (string)$trip['started_at']);
+        $windowOver = $limit > $to && $began >= $from && $began < $to          // trips started by hand outside the times end at the last stop / when idle
+            && Locale::now($c, 'H:i') >= $limit && $now - strtotime((string)$trip['started_at']) > 1800;
+        if (($done && $lastAt && $now - $lastAt >= 600) || $windowOver) {
+            self::finishTrip($c, $trip, $trip['source'] === 'gps' ? 'GPS tracker' : 'bus phone');
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /** An afternoon trip is not ended from the bus phone while children are still marked on the bus. */
+    private static function checkOffBus(string $c, array $trip): void
+    {
+        if ($trip['direction'] !== 'drop') {
+            return;
+        }
+        $names = array_map(fn($s) => $s['name'], array_filter(self::tripStudents($c, $trip), fn($s) => $s['status'] === 'boarded'));
+        if ($names) {
+            throw new \DomainException(Locale::t($c, 'Still marked on the bus: {names}. Check the bus – the office can end the trip.', ['names' => implode(', ', $names)]));
+        }
+    }
+
+    /** End a trip that has no driver to check the bus: morning – children marked on the bus reached school. */
+    private static function finishTrip(string $c, array $trip, string $by): void
+    {
+        if ($trip['direction'] === 'pickup') {
+            $send = self::$sendNow;
+            self::$sendNow = false;
+            try {
+                foreach (self::riders($c, $trip) as $r) {
+                    if ($r['status'] === 'boarded') {
+                        self::markStudent(['client' => $c, 'user' => $by, 'edit' => true, 'driver_ids' => []], (int)$trip['id'], $r['enrollment_id'], 'dropped');
+                    }
+                }
+            } finally {
+                self::$sendNow = $send;
+            }
+            self::send($c);
+        }
+        self::closeTrip($c, (int)$trip['id'], 'auto', $by);
+    }
+
+    /** Device / tracker requests: the school is active and has Transport. */
+    private static function schoolAllowed(string $c): void
+    {
+        $r = self::one('SELECT ssms_client_status, ssms_client_expiry_date FROM ssms_clients WHERE ssms_client_code = ? LIMIT 1', [$c]);
+        if (!$r || strtolower(trim((string)($r['ssms_client_status'] ?? ''))) === 'inactive') {
+            throw new \DomainException('This school account is not active.');
+        }
+        try {
+            $ent = Entitlements::forClient($c);
+        } catch (\Throwable $e) {
+            return;
+        }
+        if (!Entitlements::allows($ent, 'transport')) {
+            throw new \DomainException('Live bus tracking is not part of this school\'s plan.');
+        }
+        $exp = substr((string)($r['ssms_client_expiry_date'] ?? ''), 0, 10);
+        if (!Entitlements::isSubscription($ent) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $exp) && $exp > '1900-01-01' && $exp < self::today($c)) {
+            throw new \DomainException('This school account has expired.');
         }
     }
 

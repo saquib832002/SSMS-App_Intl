@@ -87,6 +87,57 @@ export const saveBusSettings = (user, d) => call(user, "saveSettings", "POST", d
 export const getBusDrivers = (user) => call(user, "drivers");
 export const linkDriver = (user, driverId, username) => call(user, "linkDriver", "POST", { driver_id: driverId, username: username ?? "" });
 
+// ── Buses: driver's phone / bus phone / GPS tracker ─────────────────────
+export const getVehicles = (user) => call(user, "vehicles");
+export const setVehicleMode = (user, vehicleId, mode, trackerId = "") => call(user, "setVehicleMode", "POST", { vehicle_id: vehicleId, mode, tracker_id: trackerId });
+export const getPairCode = (user, vehicleId) => call(user, "pairCode", "POST", { vehicle_id: vehicleId });
+export const unpairBusPhone = (user, vehicleId) => call(user, "unpair", "POST", { vehicle_id: vehicleId });
+export const newGpsKey = (user) => call(user, "newGpsKey", "POST", {});
+/** The full forwarding address for GPS tracker platforms. */
+export const gpsUrl = (path) => `${BASE_URL}${path}`;
+
+// ── The bus phone (no login; its own key) ───────────────────────────────
+// Plain fetch: these calls must not touch the signed-in user's session (sign-out / session-expired handling).
+async function device(path, token, method = "GET", body = null, ms = 25000) {
+  const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), ms) : null;
+  let res;
+  try {
+    res = await fetch(`${BASE_URL}/hooks/bus/${path}`, {
+      method,
+      headers: { Accept: "application/json", "Content-Type": "application/json", "X-App-Version": APP_VERSION, ...(token ? { "X-Bus-Device": token } : {}) },
+      ...(method === "POST" ? { body: JSON.stringify(body ?? {}) } : {}),
+      ...(ctrl ? { signal: ctrl.signal } : {}),
+    });
+  } catch (e) {
+    const err = new Error(e?.name === "AbortError" ? _t("The server took too long to answer. Check your connection and try again.") : _t("No connection to the server."));
+    err.network = true;
+    throw err;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+  let data = null;
+  try { data = await res.json(); } catch { data = null; }
+  if (!data || data.status === false || !res.ok) {
+    const err = new Error(data?.message || _t("Something went wrong. Please try again."));
+    err.status = res.status;
+    err.unpaired = !!data?.unpaired;
+    err.network = res.status >= 500;
+    throw err;
+  }
+  return data.data;
+}
+/** Pair this phone with a bus (school code + the one-time code from the office's QR). Returns { token, … }. */
+export const pairBusPhone = (school, code, deviceName) => device("pair", null, "POST", { school, code, device_name: deviceName });
+export const busPhoneHome = (token) => device("home", token);
+export const busPhonePing = (token, points) => device("ping", token, "POST", { points, now: Date.now() }, 20000);
+export const busPhoneTrip = (token, action, direction, routeId) => device("trip", token, "POST", { action, direction, route_id: routeId });
+/** QR text from the office: "MMA-BUS|SCHOOL|CODE" → { school, code } or null. */
+export const parsePairQr = (text) => {
+  const m = /^MMA-BUS\|([A-Za-z0-9_-]+)\|([A-Za-z0-9]{8})$/.exec(String(text ?? "").trim());
+  return m ? { school: m[1].toUpperCase(), code: m[2].toUpperCase() } : null;
+};
+
 // ── Parents / students ──────────────────────────────────────────────────
 export const getMyBus = (user, eid) => call(user, `myBus?${qs({ enrollment_id: eid })}`, "GET", null, 20000);
 export const setMyBusAlert = (user, key, on) => call(user, "setMyAlert", "POST", { key, on: on ? 1 : 0 });

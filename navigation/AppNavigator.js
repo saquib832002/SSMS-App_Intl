@@ -34,6 +34,8 @@ const AppNavigator = () => {
         <Stack.Screen name="TrialRegistrationScreen"    component={TrialRegistrationScreen}          />
         <Stack.Screen name="StudentParentRegistration"  component={StudentParentRegistrationScreen}  />
         <Stack.Screen name="TwoStep"           getComponent={() => require("../screens/Security/TwoStepScreen").default} />
+        <Stack.Screen name="BusPhone"          getComponent={() => require("../screens/Transport/BusPhoneScreen").default}
+                      options={{ headerShown: true, title: _t("Bus phone") }} />
       </>
     ) : (
       // ── Authenticated stack — all app screens ──
@@ -77,6 +79,8 @@ const AppNavigator = () => {
                       options={{ headerShown: true, title: _t("My bus trip") }} />
         <Stack.Screen name="LiveBus"      getComponent={() => require("../screens/Transport/LiveBusScreen").default}
                       options={{ headerShown: true, title: _t("Where is the bus?") }} />
+        <Stack.Screen name="BusPhone"     getComponent={() => require("../screens/Transport/BusPhoneScreen").default}
+                      options={{ headerShown: true, title: _t("Bus phone") }} />
         <Stack.Screen name="BusFleet"     getComponent={() => require("../screens/Transport/BusFleetScreen").default}
                       options={{ headerShown: true, title: _t("Live buses") }} />
         <Stack.Screen name="VisitorDesk"  getComponent={() => require("../screens/Safety/VisitorDeskScreen").default}

@@ -269,6 +269,11 @@ return function (RouteBuilder $routes): void {
          $builder->connect('/BusTrackingApi/saveSettings', ['controller'=>'BusTrackingApi','action'=>'saveSettings', '_method'=>'POST']);
          $builder->connect('/BusTrackingApi/drivers', ['controller'=>'BusTrackingApi','action'=>'drivers', '_method'=>'GET']);
          $builder->connect('/BusTrackingApi/linkDriver', ['controller'=>'BusTrackingApi','action'=>'linkDriver', '_method'=>'POST']);
+         $builder->connect('/BusTrackingApi/vehicles', ['controller'=>'BusTrackingApi','action'=>'vehicles', '_method'=>'GET']);
+         $builder->connect('/BusTrackingApi/setVehicleMode', ['controller'=>'BusTrackingApi','action'=>'setVehicleMode', '_method'=>'POST']);
+         $builder->connect('/BusTrackingApi/pairCode', ['controller'=>'BusTrackingApi','action'=>'pairCode', '_method'=>'POST']);
+         $builder->connect('/BusTrackingApi/unpair', ['controller'=>'BusTrackingApi','action'=>'unpair', '_method'=>'POST']);
+         $builder->connect('/BusTrackingApi/newGpsKey', ['controller'=>'BusTrackingApi','action'=>'newGpsKey', '_method'=>'POST']);
          $builder->connect('/BusTrackingApi/myBus', ['controller'=>'BusTrackingApi','action'=>'myBus', '_method'=>'GET']);
          $builder->connect('/BusTrackingApi/setMyAlert', ['controller'=>'BusTrackingApi','action'=>'setMyAlert', '_method'=>'POST']);
          // ── SafetyApi (visitors & authorised pick-up) ──
@@ -443,6 +448,13 @@ return function (RouteBuilder $routes): void {
          // SMS / WhatsApp delivery reports and replies (no login; the key in the URL is the secret)
          $builder->connect('/hooks/notify/{provider}/{client}/{key}', ['controller'=>'NotifyHook','action'=>'receive'],
              ['pass'=>['provider','client','key'], 'provider'=>'[a-z0-9]+', 'client'=>'[A-Za-z0-9_-]+', 'key'=>'[a-f0-9]{24}']);
+         // Live bus tracking without a login: the bus phone (its key in the X-Bus-Device header) and GPS tracker platforms (school secret in the URL)
+         $builder->connect('/hooks/bus/pair', ['controller'=>'BusDevice','action'=>'pair', '_method'=>'POST']);
+         $builder->connect('/hooks/bus/home', ['controller'=>'BusDevice','action'=>'home', '_method'=>'GET']);
+         $builder->connect('/hooks/bus/ping', ['controller'=>'BusDevice','action'=>'ping', '_method'=>'POST']);
+         $builder->connect('/hooks/bus/trip', ['controller'=>'BusDevice','action'=>'trip', '_method'=>'POST']);
+         $builder->connect('/hooks/bus/gps/{client}/{key}', ['controller'=>'BusDevice','action'=>'gps', '_method'=>['GET','POST']],
+             ['pass'=>['client','key'], 'client'=>'[A-Za-z0-9_-]+', 'key'=>'[a-f0-9]{24}']);
          // Public payment pages + webhooks (no login; specific paths before /pay/{token})
          $builder->connect('/pay/stripe-webhook',          ['controller'=>'Pay','action'=>'stripeWebhook', '_method'=>'POST']);
          $builder->connect('/pay/stripe-return',           ['controller'=>'Pay','action'=>'stripeReturn',  '_method'=>'GET']);

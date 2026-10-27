@@ -8,13 +8,15 @@
  * - Positions are queued on the phone and sent in batches, so a tunnel or no signal loses nothing: they are sent
  *   when the network is back (the server keeps the late ones for the history and uses the newest one).
  * - When the server says the trip ended (driver, office, or no position for a long time), sharing stops.
+ * - Bus phone (paired once with the office's QR code, no login): shares all the time it is in a trip window; the server
+ *   starts and ends the trips by itself. Outside the windows only a position every 5 minutes (where the bus is parked).
  *
  * Import this file once when the app starts (index.js) so the background task is defined before Android wakes it.
  */
 import * as Location from "expo-location";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppState, Platform } from "react-native";
-import { sendPositions } from "./BusApi";
+import { sendPositions, busPhonePing } from "./BusApi";
 import { _t } from "./i18n";
 
 let TaskManager = null;
@@ -23,6 +25,9 @@ try { TaskManager = require("expo-task-manager"); } catch { TaskManager = null; 
 export const TASK = "mma-bus-location";
 const STATE_KEY = "mma.bus.trip.v1";   // { tripId, token, username, startedAt, mode }
 const QUEUE_KEY = "mma.bus.queue.v1";  // positions not sent yet
+const DEVICE_KEY = "mma.busphone.v1";  // bus phone: { token, school, vehicle, deviceName, mode }
+const IDLE_EVERY = 5 * 60 * 1000;      // bus phone outside the trip windows: one position every 5 minutes
+let lastIdle = 0;
 const MAX_QUEUE = 3000;
 const BATCH = 100;
 
@@ -53,6 +58,20 @@ const toPoint = (loc) => ({
 async function readState() {
   try { const s = await AsyncStorage.getItem(STATE_KEY); return s ? JSON.parse(s) : null; } catch { return null; }
 }
+async function readDevice() {
+  try { const s = await AsyncStorage.getItem(DEVICE_KEY); return s ? JSON.parse(s) : null; } catch { return null; }
+}
+export const getBusPhone = readDevice;
+
+/** What this phone shares now: a driver's trip, the bus phone, or nothing. tag marks its queued positions. */
+async function current() {
+  const st = await readState();
+  if (st?.tripId) return { kind: "trip", tag: st.tripId, st };
+  const d = await readDevice();
+  if (d?.token) return { kind: "device", tag: "dev", d };
+  return null;
+}
+
 async function readQueue() {
   try { const s = await AsyncStorage.getItem(QUEUE_KEY); const q = s ? JSON.parse(s) : []; return Array.isArray(q) ? q : []; } catch { return []; }
 }
@@ -64,9 +83,13 @@ function enqueue(points) {
   const good = points.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
   if (!good.length) return Promise.resolve();
   return serial(async () => {
-    const st = await readState();
-    if (!st?.tripId) return;   // no trip on this phone (a late report after the end)
-    good.forEach((p) => { p.trip = st.tripId; });
+    const cur = await current();
+    if (!cur) return;   // no trip on this phone (a late report after the end)
+    if (cur.kind === "device" && !status.window && !status.trip) {
+      if (Date.now() - lastIdle < IDLE_EVERY) return;   // parked / outside the trip windows
+      lastIdle = Date.now();
+    }
+    good.forEach((p) => { p.trip = cur.tag; });
     const q = await readQueue();
     for (const p of good) {
       const last = q[q.length - 1];
@@ -84,7 +107,7 @@ function enqueue(points) {
  * Returns what is left for the trip that was being sent.
  */
 async function dropSent(tripId, t) {
-  const cur = (await readState())?.tripId ?? null;
+  const cur = (await current())?.tag ?? null;
   const rest = (await readQueue()).filter((p) => p.trip === cur && (p.trip !== tripId || p.t > t));
   await writeQueue(rest);
   return rest.filter((p) => p.trip === tripId);
@@ -96,15 +119,23 @@ export async function flush() {
   flushing = true;
   let reply = null;
   try {
-    const st = await readState();
-    if (!st?.tripId || !st?.token) return null;
+    const cur = await current();
+    if (!cur) return null;
+    const dev = cur.kind === "device";
+    const st = dev ? { tripId: "dev", token: cur.d.token } : cur.st;
+    if (!st.token) return null;
     // only this trip's positions (a send that was still running when a new trip started cannot mix them)
     let q = (await serial(readQueue)).filter((p) => p.trip === st.tripId);
     while (q.length) {
       const batch = q.slice(0, BATCH).map(({ trip, ...p }) => p);
       try {
-        reply = await sendPositions({ token: st.token }, st.tripId, batch);
+        reply = dev ? await busPhonePing(st.token, batch) : await sendPositions({ token: st.token }, st.tripId, batch);
       } catch (e) {
+        if (dev && e?.unpaired) {   // the office unpaired this phone
+          await unpairBusPhone();
+          emit({ error: _t("This phone is no longer paired with a bus. Ask the office for a new pairing code."), unpaired: true });
+          return null;
+        }
         const signedOut = e?.status === 401 || e?.name === "LoggedOutError";
         emit({ error: signedOut ? _t("Signed out – sign in again to keep sharing the bus location.") : (e?.network ? _t("No connection – positions are kept and sent later.") : (e?.message ?? String(e))) });
         if (!e?.network && !signedOut && e?.status !== 429) {
@@ -118,6 +149,10 @@ export async function flush() {
       }
       const sentT = batch[batch.length - 1].t;
       q = await serial(() => dropSent(st.tripId, sentT));
+      if (dev) {
+        emit({ queued: q.length, lastSentAt: Date.now(), error: null, trip: reply?.trip ?? null, window: reply?.window ?? null });
+        continue;   // the bus phone keeps sharing; the server starts / ends the trips
+      }
       emit({ queued: q.length, lastSentAt: Date.now(), error: null, trip: reply?.trip ?? status.trip });
       if (reply?.ended) {
         await stopSharing({ skipFlush: true, ended: true });
@@ -148,6 +183,7 @@ export const backgroundSupported = () => !!(TaskManager?.defineTask && Location.
  * Returns { mode: "background" | "foreground" }.
  */
 export async function startSharing(user, tripId, { askBackground = true } = {}) {
+  if ((await readDevice())?.token) throw new Error(_t("This phone is the bus phone of a bus. It already shares the bus location by itself."));
   const fg = await Location.requestForegroundPermissionsAsync();
   if (fg.status !== "granted") throw new Error(_t("Allow location for this app so the bus can be shown to parents."));
   let mode = "foreground";
@@ -159,6 +195,7 @@ export async function startSharing(user, tripId, { askBackground = true } = {}) 
   }
   await AsyncStorage.setItem(STATE_KEY, JSON.stringify({ tripId, token: user?.token, username: user?.ssmsUserName ?? "", startedAt: Date.now(), mode }));
   await serial(() => writeQueue([]));
+  watchKind = "trip";
   emit({ active: true, tripId, mode, queued: 0, error: null, ended: false, trip: null });
   await startWatch(mode);
   return { mode };
@@ -171,6 +208,7 @@ function startWatch(mode) {
 }
 
 let gen = 0;
+let watchKind = "trip";
 async function doStartWatch(mode) {
   stopWatchOnly();
   const g = gen;
@@ -190,7 +228,9 @@ async function doStartWatch(mode) {
           accuracy: Location.Accuracy.High, timeInterval: 15000, distanceInterval: 20, deferredUpdatesInterval: 15000,
           pausesUpdatesAutomatically: false, activityType: Location.ActivityType?.AutomotiveNavigation,
           showsBackgroundLocationIndicator: true,
-          foregroundService: { notificationTitle: _t("Sharing the bus location"), notificationBody: _t("Parents can see where the bus is. End the trip in the app to stop."), notificationColor: "#5b21b6", killServiceOnDestroy: false },
+          foregroundService: watchKind === "device"
+            ? { notificationTitle: _t("Bus phone: sharing the bus location"), notificationBody: _t("Keep this phone charged in the bus. Trips start and end by themselves."), notificationColor: "#5b21b6", killServiceOnDestroy: false }
+            : { notificationTitle: _t("Sharing the bus location"), notificationBody: _t("Parents can see where the bus is. End the trip in the app to stop."), notificationColor: "#5b21b6", killServiceOnDestroy: false },
         });
       }
     } catch (e) {
@@ -213,6 +253,7 @@ function stopWatchOnly() {
 
 /** Signed out: stop the location (no account to send it with) but keep the trip on this phone for the next sign-in. */
 export async function pauseSharing() {
+  if ((await readDevice())?.token) return;   // the bus phone does not depend on anyone being signed in
   stopWatchOnly();
   try {
     if (TaskManager && (await Location.hasStartedLocationUpdatesAsync(TASK).catch(() => false))) await Location.stopLocationUpdatesAsync(TASK);
@@ -244,10 +285,73 @@ export async function resumeIfRunning(user) {
     await AsyncStorage.setItem(STATE_KEY, JSON.stringify(st));
   }
   const q = await readQueue();
+  watchKind = "trip";
   emit({ active: true, tripId: st.tripId, mode: st.mode, queued: q.length, ended: false, error: null });
   if (!watcher) await startWatch(st.mode);   // startWatch: one start at a time
   flush();
   return st.tripId;
+}
+
+// ── Bus phone ───────────────────────────────────────────────────────────
+
+/** After pairing: keep the key on this phone and start sharing (asks for "all the time" location). */
+export async function startBusPhone(pair) {
+  // the key is kept first: the pairing code is used up on the server, so a refused permission must not lose it
+  await stopSharing({ skipFlush: true });   // a driver's trip on this phone (not possible together)
+  const save = (mode) => AsyncStorage.setItem(DEVICE_KEY, JSON.stringify({ token: pair.token, school: pair.school, vehicle: pair.vehicle, deviceName: pair.vehicle?.device_name ?? "", mode }));
+  await save("foreground");
+  await serial(() => writeQueue([]));
+  lastIdle = 0;
+  watchKind = "device";
+  emit({ active: false, tripId: null, queued: 0, error: null, ended: false, trip: pair.trip ?? null, window: pair.window ?? null, unpaired: false });
+  const mode = await busPhoneWatch();
+  if (mode) await save(mode);
+  return { mode: mode ?? "none" };
+}
+
+/** Ask for location and start watching for the bus phone; null (and an error shown) when location is not allowed. */
+async function busPhoneWatch(stored) {
+  try {
+    const fg = await Location.requestForegroundPermissionsAsync();
+    if (fg.status !== "granted") throw new Error(_t("Allow location for this app so the bus can be shown to parents."));
+    let mode = "foreground";
+    if (backgroundSupported()) {
+      try {
+        const bg = stored === "background" ? await Location.getBackgroundPermissionsAsync() : await Location.requestBackgroundPermissionsAsync();
+        if (bg.status === "granted") mode = "background";
+      } catch { /* no background location in this build */ }
+    }
+    if (watcher && stored === mode) { emit({ active: true, mode, error: null }); return mode; }
+    emit({ active: true, mode, error: null });
+    await startWatch(mode);   // restarts a watcher that runs in another mode
+    return mode;
+  } catch (e) {
+    emit({ active: false, error: e?.message || _t("Allow location for this app so the bus can be shown to parents.") });
+    return null;
+  }
+}
+
+/** The app opened on a paired bus phone: make sure it is sharing. */
+export async function resumeBusPhone() {
+  const d = await readDevice();
+  if (!d?.token) return null;
+  watchKind = "device";
+  emit({ unpaired: false });
+  const mode = await busPhoneWatch(d.mode);
+  if (mode && mode !== d.mode) {
+    try { await AsyncStorage.setItem(DEVICE_KEY, JSON.stringify({ ...d, mode })); } catch { /* ignore */ }
+  }
+  flush();
+  return d;
+}
+
+export function setBusPhoneStatus(patch) { emit(patch); }
+
+/** Forget the pairing on this phone (the office can also unpair it). */
+export async function unpairBusPhone() {
+  try { await AsyncStorage.removeItem(DEVICE_KEY); } catch { /* ignore */ }
+  watchKind = "trip";
+  await stopSharing({ skipFlush: true });
 }
 
 export const isAndroid = Platform.OS === "android";

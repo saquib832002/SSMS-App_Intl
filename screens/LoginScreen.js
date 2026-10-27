@@ -28,6 +28,10 @@ import { BASE_URL, APP_VERSION_LABEL } from "../Environment/EnvironmentConfig";
 import { loginWithPassword, toUserData } from "../services/SecurityApi";
 import { _t, _tx } from "../services/i18n";
 import LanguageChip from "../components/LanguageChip";
+import { getBusPhone } from "../services/BusTracker";
+
+// A phone paired as a bus phone opens its own screen once per app start.
+let busPhoneChecked = false;
 const { width } = Dimensions.get("window");
 const isTablet = width >= 768;
 
@@ -47,6 +51,12 @@ export default function LoginScreen({ navigation }) {
     const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
     return () => { showSub.remove(); hideSub.remove(); };
   }, []);
+
+  useEffect(() => {
+    if (busPhoneChecked) return;
+    busPhoneChecked = true;
+    getBusPhone().then((d) => { if (d?.token) navigation.navigate("BusPhone"); }).catch(() => {});
+  }, [navigation]);
 
   const handleLogin = async () => {
     if (!username.trim()) {
@@ -228,6 +238,16 @@ try {
                   >
                     <Feather name="headphones" size={15} color="#ea580c" />
                     <Text style={{ fontSize: 14, fontWeight: '700', color: '#ea580c' }}>{_t("Contact Admin / Support")}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={[AppStyles.registerRow, { marginTop: 12 }]}>
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8 }}
+                    onPress={() => navigation.navigate("BusPhone")}
+                  >
+                    <Feather name="truck" size={15} color="#0f766e" />
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#0f766e' }}>{_t("School bus phone (no login)")}</Text>
                   </TouchableOpacity>
                 </View>
               </View>

@@ -21,7 +21,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 class AuditMiddleware implements MiddlewareInterface
 {
     /** Not worth logging (noise) or logged in detail elsewhere. */
-    private const SKIP_CONTROLLERS = ['ChatApi', 'AuditApi', 'SecurityApi', 'RolesApi', 'PrivacyApi', 'StudentRecordApi', 'MeetingApi', 'AnalyticsApi', 'ExamLogisticsApi', 'CoverApi', 'CalendarApi', 'CalendarFeed', 'SafetyApi', 'BusTrackingApi', 'LocaleApi', 'NotifyApi', 'NotifyHook', 'DebugKit'];
+    private const SKIP_CONTROLLERS = ['ChatApi', 'AuditApi', 'SecurityApi', 'RolesApi', 'PrivacyApi', 'StudentRecordApi', 'MeetingApi', 'AnalyticsApi', 'ExamLogisticsApi', 'CoverApi', 'CalendarApi', 'CalendarFeed', 'SafetyApi', 'BusTrackingApi', 'BusDevice', 'LocaleApi', 'NotifyApi', 'NotifyHook', 'DebugKit'];
     private const SKIP_ACTIONS = [
         'UserServiceApi' => ['login', 'loginVerify', 'loginEmailCode', 'mfaSetupStart', 'mfaSetupConfirm', 'changePassword',
                              'resetPassword', 'sendForgotPasswordCode', 'verifyForgotPasswordCode', 'resendVerificationCode',

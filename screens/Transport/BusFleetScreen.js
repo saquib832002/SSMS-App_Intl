@@ -2,11 +2,15 @@
  * Office: live buses.
  * Live – every bus on a trip today on one map, with the last update, next stop and who is on board; tap one for its
  *        stops, students and the way it drove (end a trip that was left running).
+ * Buses – how each bus is tracked: the driver's phone (app login), a bus phone paired once with a QR code (no login), or a
+ *         GPS tracker device that forwards its positions to the school's secret address.
  * Drivers – which app login shares the location for each driver.
- * Rules – when "bus is near" is sent, the stop circle, which alerts, how long positions are kept.
+ * Rules – when "bus is near" is sent, the stop circle, which alerts, how long positions are kept, and the times in which a
+ *         bus phone / GPS tracker starts and ends trips by itself.
  */
 import React, { useCallback, useContext, useMemo, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Linking, RefreshControl, AppState } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Linking, RefreshControl, AppState, Share } from "react-native";
+import QRCode from "react-native-qrcode-svg";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -14,14 +18,22 @@ import { AuthContext } from "../../context/AuthContext";
 import { C, Card, Btn, Empty, Picker, Field, Toggle } from "../../components/ReportCardUI";
 import KeyboardSheet, { SheetScroll } from "../../components/KeyboardSheet";
 import BusMap from "../../components/BusMap";
-import { getLiveBuses, getTrip, endTrip, getBusSettings, saveBusSettings, getBusDrivers, linkDriver, DIRECTION_LABEL, ageText } from "../../services/BusApi";
+import { getLiveBuses, getTrip, endTrip, getBusSettings, saveBusSettings, getBusDrivers, linkDriver, getVehicles, setVehicleMode, getPairCode, unpairBusPhone, newGpsKey, gpsUrl,
+  DIRECTION_LABEL, ageText } from "../../services/BusApi";
 import { _t, _tx } from "../../services/i18n";
 
 const TABS = [
   { key: "live", get label() { return _t("Live"); } },
+  { key: "buses", get label() { return _t("Buses"); } },
   { key: "drivers", get label() { return _t("Drivers"); } },
   { key: "rules", get label() { return _t("Rules"); } },
 ];
+const MODE_OPTS = () => [
+  { value: "driver", label: _t("Driver's phone (app login)") },
+  { value: "phone", label: _t("Bus phone (paired with a QR code, no login)") },
+  { value: "gps", label: _t("GPS tracker device") },
+];
+const TIME_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
 const STATUS_TXT = { boarded: () => _t("on the bus"), dropped: () => _t("got off"), absent: () => _t("not on the bus") };
 
 export default function BusFleetScreen() {
@@ -35,6 +47,9 @@ export default function BusFleetScreen() {
   const [drivers, setDrivers] = useState(null);
   const [rules, setRules] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [fleet, setFleet] = useState(null);       // { vehicles, gps, can }
+  const [trackerIds, setTrackerIds] = useState({});
+  const [pair, setPair] = useState(null);         // the QR code being shown
 
   const loadLive = useCallback(async () => {
     try { setLive(await getLiveBuses(user)); setErr(null); } catch (e) { if (!e?.network) setErr(_tx(e.message)); }
@@ -49,10 +64,54 @@ export default function BusFleetScreen() {
     return () => clearInterval(t);
   }, [loadLive]));
 
+  const loadFleet = async () => {
+    const f = await getVehicles(user);
+    setFleet(f);
+    setTrackerIds(Object.fromEntries(f.vehicles.map((v) => [v.vehicle_id, v.tracker_id ?? ""])));
+  };
+  const putVehicle = (v) => setFleet((f) => f && ({ ...f, vehicles: f.vehicles.map((x) => (x.vehicle_id === v.vehicle_id ? { ...x, ...v } : x)) }));
+
+  const changeMode = (v, mode) => {
+    if (mode === v.mode) return;
+    const go = async () => {
+      if (mode === "gps") { putVehicle({ vehicle_id: v.vehicle_id, mode: "gps", pending: true }); return; }   // saved with the tracker ID
+      try { putVehicle((await setVehicleMode(user, v.vehicle_id, mode)).vehicle); } catch (e) { Alert.alert(_t("Buses"), _tx(e.message)); }
+    };
+    if (v.mode === "phone" && v.paired) {
+      Alert.alert(_t("Unpair the bus phone?"), _t("The paired phone stops sharing this bus's location."), [
+        { text: _t("Cancel"), style: "cancel" }, { text: _t("Change"), style: "destructive", onPress: go },
+      ]);
+    } else go();
+  };
+  const saveTracker = async (v) => {
+    setBusy(true);
+    try { putVehicle({ ...(await setVehicleMode(user, v.vehicle_id, "gps", trackerIds[v.vehicle_id] ?? "")).vehicle, pending: false }); Alert.alert(_t("Buses"), _t("Saved.")); }
+    catch (e) { Alert.alert(_t("Buses"), _tx(e.message)); } finally { setBusy(false); }
+  };
+  const showPair = async (v) => {
+    setBusy(true);
+    try { const r = await getPairCode(user, v.vehicle_id); putVehicle(r.vehicle); setPair(r); }
+    catch (e) { Alert.alert(_t("Buses"), _tx(e.message)); } finally { setBusy(false); }
+  };
+  const unpairPhone = (v) => Alert.alert(_t("Unpair the bus phone?"), _t("The paired phone stops sharing this bus's location."), [
+    { text: _t("Cancel"), style: "cancel" },
+    { text: _t("Unpair"), style: "destructive", onPress: async () => {
+      try { putVehicle((await unpairBusPhone(user, v.vehicle_id)).vehicle); } catch (e) { Alert.alert(_t("Buses"), _tx(e.message)); }
+    } },
+  ]);
+  const renewKey = () => Alert.alert(_t("Make a new address?"), _t("The old address stops working. Every GPS tracker must then be set up with the new one."), [
+    { text: _t("Cancel"), style: "cancel" },
+    { text: _t("New address"), style: "destructive", onPress: async () => {
+      try { const g = await newGpsKey(user); setFleet((f) => f && ({ ...f, gps: g })); } catch (e) { Alert.alert(_t("Buses"), _tx(e.message)); }
+    } },
+  ]);
+  const shareGps = (url) => Share.share({ message: url }).catch(() => {});
+
   const openTab = async (k) => {
     setTab(k);
     try {
       if (k === "drivers" && !drivers) setDrivers(await getBusDrivers(user));
+      if (k === "buses") await loadFleet();
       if (k === "rules" && !rules) { const r = await getBusSettings(user); setRules({ ...r, form: Object.fromEntries(Object.entries(r.settings).map(([a, b]) => [a, String(b)])) }); }
     } catch (e) { Alert.alert(_t("Live buses"), _tx(e.message)); }
   };
@@ -68,6 +127,9 @@ export default function BusFleetScreen() {
     setBusy(true);
     try {
       const f = rules.form;
+      for (const k of ["morning_from", "morning_to", "afternoon_from", "afternoon_to"]) {
+        if (!TIME_RE.test(String(f[k] ?? "").trim())) { Alert.alert(_t("Rules"), _t("Enter the times as HH:MM, for example 07:30.")); setBusy(false); return; }
+      }
       const st = await saveBusSettings(user, f);
       setRules({ ...rules, settings: st, form: Object.fromEntries(Object.entries(st).map(([a, b]) => [a, String(b)])) });
       Alert.alert(_t("Rules"), _t("Saved."));
@@ -79,7 +141,10 @@ export default function BusFleetScreen() {
   };
 
   const running = useMemo(() => (live?.trips ?? []).filter((t) => t.status === "running"), [live]);
-  const buses = useMemo(() => running.filter((t) => t.bus).map((t) => ({ id: String(t.trip_id), lat: t.bus.lat, lng: t.bus.lng, heading: t.bus.heading, live: t.bus.live, label: t.route_name })), [running]);
+  const buses = useMemo(() => [
+    ...running.filter((t) => t.bus).map((t) => ({ id: String(t.trip_id), lat: t.bus.lat, lng: t.bus.lng, heading: t.bus.heading, live: t.bus.live, label: t.route_name })),
+    ...(live?.parked ?? []).map((v) => ({ id: `v${v.vehicle_id}`, lat: v.lat, lng: v.lng, live: false, label: v.number })),
+  ], [running, live]);
   const loginOpts = useMemo(() => [{ value: "", label: _t("Same mobile number as the driver") }, ...((drivers?.logins ?? []).map((u) => ({ value: u.username, label: `${u.name} (${u.username})` })))], [drivers]);
 
   if (err) return <View style={{ flex: 1, backgroundColor: C.bg }}><Empty icon="lock" text={err} /></View>;
@@ -127,6 +192,11 @@ export default function BusFleetScreen() {
                 </Card>
               </TouchableOpacity>
             ))}
+            {!!live.parked?.length && (
+              <Card title={_t("Buses not on a trip")}>
+                {live.parked.map((v) => <Text key={v.vehicle_id} style={s.row}>{v.number}<Text style={s.meta}>{`  ${_t("seen {ago}", { ago: ageText(v.last_seen) })}`}</Text></Text>)}
+              </Card>
+            )}
             {!!live.not_running.length && (
               <Card title={_t("Not on a trip now")}>
                 {live.not_running.map((r) => <Text key={r.route_id} style={s.row}>{r.route_name}<Text style={s.meta}>{`  ${[r.vehicle_number, r.driver_name].filter(Boolean).join(" · ")}`}</Text></Text>)}
@@ -134,6 +204,57 @@ export default function BusFleetScreen() {
             )}
           </>
         )}
+
+        {tab === "buses" && (!fleet ? <ActivityIndicator color={C.brand} /> : (
+          <>
+            <Card>
+              <Text style={s.meta}>{_t("Choose how each bus shares its location. Driver's phone: the driver signs in and starts the trip. Bus phone: a phone that stays in the bus, paired once with a QR code – no login, trips start and end by themselves. GPS tracker: a tracker fitted in the bus sends its positions to the school.")}</Text>
+            </Card>
+            {!fleet.vehicles.length && <Card><Empty icon="truck" text={_t("No buses yet. Add them in Transport › Vehicles.")} /></Card>}
+            {fleet.vehicles.map((v) => (
+              <Card key={v.vehicle_id}>
+                <Text style={s.name}>{v.number}{v.name ? <Text style={s.meta}>{`  ${v.name}`}</Text> : null}</Text>
+                <Text style={s.meta}>{v.routes.length ? v.routes.join(", ") : _t("No route this school year")}</Text>
+                <Picker label={_t("Tracked by")} value={v.mode} options={MODE_OPTS()} onChange={(m) => changeMode(v, m)} disabled={!fleet.can?.edit} />
+                {v.mode === "phone" && (
+                  <>
+                    <Text style={[s.meta, { color: v.paired ? C.ok : C.warn, fontWeight: "700" }]}>
+                      {v.paired ? _t("Paired: {name} on {date}", { name: v.device_name ?? "—", date: v.paired_at ?? "" }) : _t("No phone paired yet.")}
+                    </Text>
+                    {v.last_seen != null && <Text style={s.meta}>{_t("Last position {ago}", { ago: ageText(v.last_seen) })}</Text>}
+                    {!!fleet.can?.edit && (
+                      <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+                        <Btn title={v.paired ? _t("Pair another phone") : _t("Pair a phone")} icon="smartphone" busy={busy} onPress={() => showPair(v)} style={{ flex: 1 }} />
+                        {v.paired && <Btn title={_t("Unpair")} icon="link-2" kind="ghost" onPress={() => unpairPhone(v)} style={{ flex: 1 }} />}
+                      </View>
+                    )}
+                  </>
+                )}
+                {v.mode === "gps" && (
+                  <>
+                    <Field label={_t("Tracker ID (IMEI or the unique ID in the tracking platform)")} value={trackerIds[v.vehicle_id] ?? ""} editable={!!fleet.can?.edit}
+                      autoCapitalize="none" autoCorrect={false} onChangeText={(x) => setTrackerIds({ ...trackerIds, [v.vehicle_id]: x.trim() })} />
+                    {v.last_seen != null && !v.pending && <Text style={s.meta}>{_t("Last position {ago}", { ago: ageText(v.last_seen) })}</Text>}
+                    {v.pending && <Text style={[s.meta, { color: C.warn, fontWeight: "700" }]}>{_t("Not saved yet – enter the tracker ID and save.")}</Text>}
+                    {!!fleet.can?.edit && <Btn title={_t("Save")} icon="check" busy={busy} onPress={() => saveTracker(v)} style={{ marginTop: 8 }} />}
+                  </>
+                )}
+              </Card>
+            ))}
+            {!!fleet.gps && fleet.vehicles.some((v) => v.mode === "gps") && (
+              <Card title={_t("GPS tracker set-up")}>
+                <Text style={s.meta}>{_t("Your trackers usually report to a tracking platform (for example Traccar). Set that platform to forward every position to this address, as JSON. In Traccar: forward.enable = true, forward.json = true, forward.url = the address below.")}</Text>
+                <Text selectable style={s.url}>{gpsUrl(fleet.gps.path)}</Text>
+                <Text style={s.meta}>{_t("Trackers that send OsmAnd requests can use the same address directly: ?id=TRACKER_ID&lat=…&lon=…")}</Text>
+                <Text style={[s.meta, { color: C.warn }]}>{_t("Keep this address secret – anyone with it can send positions for your buses.")}</Text>
+                <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+                  <Btn title={_t("Share")} icon="share-2" kind="ghost" onPress={() => shareGps(gpsUrl(fleet.gps.path))} style={{ flex: 1 }} />
+                  <Btn title={_t("New address")} icon="refresh-cw" kind="ghost" onPress={renewKey} style={{ flex: 1 }} />
+                </View>
+              </Card>
+            )}
+          </>
+        ))}
 
         {tab === "drivers" && (!drivers ? <ActivityIndicator color={C.brand} /> : (
           <>
@@ -164,6 +285,21 @@ export default function BusFleetScreen() {
               onChangeText={(v) => setRules({ ...rules, form: { ...rules.form, idle_minutes: v.replace(/\D/g, "") } })} />
             <Field label={_t("Keep the positions for (days, 7 – 365)")} value={rules.form.keep_days} keyboardType="number-pad" editable={canEdit}
               onChangeText={(v) => setRules({ ...rules, form: { ...rules.form, keep_days: v.replace(/\D/g, "") } })} />
+            <Toggle label={_t("Bus phones and GPS trackers start and end trips by themselves")} value={rules.form.auto_trips === "1"}
+              onChange={(v) => canEdit && setRules({ ...rules, form: { ...rules.form, auto_trips: v ? "1" : "0" } })} />
+            <Text style={s.meta}>{_t("A trip starts when the bus starts moving in one of these times, and ends at the last stop.")}</Text>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              {[["morning_from", _t("Pick-up from")], ["morning_to", _t("until")]].map(([k, l]) => (
+                <View key={k} style={{ flex: 1 }}><Field label={l} value={rules.form[k]} editable={canEdit} placeholder="07:00" maxLength={5}
+                  onChangeText={(v) => setRules({ ...rules, form: { ...rules.form, [k]: v.replace(/[^\d:]/g, "") } })} /></View>
+              ))}
+            </View>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              {[["afternoon_from", _t("Drop from")], ["afternoon_to", _t("until")]].map(([k, l]) => (
+                <View key={k} style={{ flex: 1 }}><Field label={l} value={rules.form[k]} editable={canEdit} placeholder="14:00" maxLength={5}
+                  onChangeText={(v) => setRules({ ...rules, form: { ...rules.form, [k]: v.replace(/[^\d:]/g, "") } })} /></View>
+              ))}
+            </View>
             {[["alert_start", _t("Tell families when the trip starts")], ["alert_near", _t("Tell families when the bus is near")], ["alert_arrived", _t("Tell families when the bus is at their stop")],
               ["alert_board", _t("Tell families when their child gets on / off")]].map(([k, label]) => (
               <Toggle key={k} label={label} value={rules.form[k] === "1"} onChange={(v) => canEdit && setRules({ ...rules, form: { ...rules.form, [k]: v ? "1" : "0" } })} />
@@ -172,6 +308,25 @@ export default function BusFleetScreen() {
           </Card>
         ))}
       </ScrollView>
+
+      <KeyboardSheet visible={!!pair} onClose={() => setPair(null)}>
+        {!!pair && (
+          <SheetScroll>
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+              <Text style={[s.big, { flex: 1 }]}>{_t("Pair the bus phone – {bus}", { bus: pair.vehicle?.number ?? "" })}</Text>
+              <TouchableOpacity onPress={() => setPair(null)} hitSlop={10}><Feather name="x" size={20} color={C.muted} /></TouchableOpacity>
+            </View>
+            <Text style={s.meta}>{_t("On the bus phone: install the app, tap \"School bus phone (no login)\" on the sign-in screen, then scan this code.")}</Text>
+            <View style={{ alignItems: "center", padding: 16, backgroundColor: "#fff", borderRadius: 12, marginVertical: 10 }}>
+              <QRCode value={pair.qr} size={220} backgroundColor="#ffffff" color="#0f172a" ecl="M" />
+            </View>
+            <Text style={s.meta}>{_t("Or type: school code {school}, pairing code", { school: pair.school })}</Text>
+            <Text selectable style={s.code}>{`${pair.code.slice(0, 4)} ${pair.code.slice(4)}`}</Text>
+            <Text style={s.meta}>{_t("Works once, until {time}.", { time: pair.valid_until })}</Text>
+            <Btn title={_t("Done")} icon="check" onPress={() => { setPair(null); loadFleet().catch(() => {}); }} style={{ marginTop: 12 }} />
+          </SheetScroll>
+        )}
+      </KeyboardSheet>
 
       <KeyboardSheet visible={!!detail} onClose={() => setDetail(null)}>
         {!!detail && (
@@ -213,5 +368,7 @@ const s = StyleSheet.create({
   big: { fontSize: 16, fontWeight: "800", color: C.ink },
   name: { fontSize: 14, fontWeight: "800", color: C.ink },
   meta: { fontSize: 12, color: C.muted, marginTop: 2, lineHeight: 17, fontWeight: "400" },
+  url: { fontSize: 12, color: C.ink, backgroundColor: "#f1f5f9", borderRadius: 8, padding: 8, marginVertical: 8, fontFamily: "monospace" },
+  code: { fontSize: 28, fontWeight: "800", color: C.ink, letterSpacing: 4, textAlign: "center", marginVertical: 6 },
   row: { fontSize: 13, color: C.ink, paddingVertical: 5, borderTopWidth: 1, borderColor: "#f1f5f9" },
 });

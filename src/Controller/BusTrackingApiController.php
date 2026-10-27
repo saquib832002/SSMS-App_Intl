@@ -15,6 +15,9 @@ use App\Service\BusTracking;
  * Office (Roles › Transport):
  *   GET  live                  GET  trip?id                             GET settings   POST saveSettings {...}
  *   GET  drivers               POST linkDriver {driver_id, username}
+ *   GET  vehicles              POST setVehicleMode {vehicle_id, mode, tracker_id}   POST pairCode {vehicle_id}   POST unpair {vehicle_id}
+ *   POST newGpsKey
+ * Bus phones and GPS trackers (no login) use /hooks/bus/… (BusDeviceController).
  * Parents / students:
  *   GET  myBus?enrollment_id   POST setMyAlert {key, on}
  */
@@ -175,6 +178,53 @@ class BusTrackingApiController extends AppController
         return $this->writing(function () {
             $r = BusTracking::linkDriver($this->acc(), (int)$this->d('driver_id'), $this->d('username'));
             $this->audit('transport.driver_login', 'Driver app login set: driver ' . $this->d('driver_id') . ' → ' . ($this->d('username') ?: '(none)'), (int)$this->d('driver_id'));
+
+            return $r;
+        });
+    }
+
+    // ── Buses: driver's phone / bus phone / GPS tracker ────────────────────
+
+    public function vehicles()
+    {
+        return $this->reading(fn() => BusTracking::vehicles($this->acc()));
+    }
+
+    public function setVehicleMode()
+    {
+        return $this->writing(function () {
+            $r = BusTracking::setVehicleMode($this->acc(), (int)$this->d('vehicle_id'), $this->d('mode'), $this->d('tracker_id'));
+            $this->audit('transport.tracking_mode', 'Bus ' . $r['vehicle']['number'] . ' tracked by: ' . $r['vehicle']['mode'], (int)$this->d('vehicle_id'));
+
+            return $r;
+        });
+    }
+
+    public function pairCode()
+    {
+        return $this->writing(function () {
+            $r = BusTracking::pairCode($this->acc(), (int)$this->d('vehicle_id'));
+            $this->audit('transport.pair_code', 'Pairing code made for bus ' . $r['vehicle']['number'], (int)$this->d('vehicle_id'));
+
+            return $r;
+        });
+    }
+
+    public function unpair()
+    {
+        return $this->writing(function () {
+            $r = BusTracking::unpair($this->acc(), (int)$this->d('vehicle_id'));
+            $this->audit('transport.unpair', 'Bus phone unpaired from bus ' . $r['vehicle']['number'], (int)$this->d('vehicle_id'));
+
+            return $r;
+        });
+    }
+
+    public function newGpsKey()
+    {
+        return $this->writing(function () {
+            $r = BusTracking::newGpsKey($this->acc());
+            $this->audit('transport.gps_key', 'New GPS forwarding address', $this->_client());
 
             return $r;
         });
