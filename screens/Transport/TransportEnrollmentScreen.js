@@ -15,7 +15,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+// the app's own OpenStreetMap view: react-native-maps with Google needs a Google Maps API key (the app closes without one)
+import BusMap from "../../components/BusMap";
 import { AuthContext } from "../../context/AuthContext";
 import { fetchSessions } from "../../services/SetupServiceApi";
 import { fetchBranches, fetchClasses } from "../../services/StudentServiceApi";
@@ -253,6 +254,14 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
     };
   }, [stopsWithCoords]);
 
+  const mapStops = useMemo(() => stopsWithCoords.map((st, idx) => {
+    const isSelected = [stopId, pickupStopId, dropoffStopId].some(x => x && String(st.stop_id) === String(x));
+    return {
+      id: st.stop_id, name: _tx(st.stop_name), lat: parseFloat(st.latitude), lng: parseFloat(st.longitude), mine: isSelected,
+      color: isSelected ? "#f59e0b" : idx === 0 ? "#22c55e" : idx === stopsWithCoords.length - 1 ? "#ef4444" : "#2563eb",
+    };
+  }).filter(st => Number.isFinite(st.lat) && Number.isFinite(st.lng)), [stopsWithCoords, stopId, pickupStopId, dropoffStopId]);
+
   const selectedStop    = stops.find(s => String(s.stop_id) === String(stopId));
   const selectedRoute   = routes.find(r => String(r.route_id) === String(routeId));
 
@@ -484,44 +493,7 @@ export default function TransportEnrollmentScreen({ route: navRoute, navigation 
         {mapRegion && (
           <View style={s.card}>
             <Text style={s.sectionTitle}>{_t("ROUTE MAP")}</Text>
-            <MapView
-              provider={PROVIDER_GOOGLE}
-              style={s.map}
-              region={mapRegion}
-              scrollEnabled={false}
-              zoomEnabled={false}>
-              {stopsWithCoords.map((st, idx) => {
-                const isSelected =
-                  String(st.stop_id) === String(stopId) ||
-                  String(st.stop_id) === String(pickupStopId) ||
-                  String(st.stop_id) === String(dropoffStopId);
-                return (
-                  <Marker
-                    key={st.stop_id}
-                    coordinate={{ latitude: parseFloat(st.latitude), longitude: parseFloat(st.longitude) }}
-                    title={_tx(st.stop_name)}
-                    description={st.pickup_time ? `🕐 ${_tx(st.pickup_time)}` : undefined}
-                    pinColor={
-                      isSelected ? "#f59e0b"
-                      : idx === 0 ? "#22c55e"
-                      : idx === stopsWithCoords.length - 1 ? "#ef4444"
-                      : "#2563eb"
-                    }
-                  />
-                );
-              })}
-              {stopsWithCoords.length > 1 && (
-                <Polyline
-                  coordinates={stopsWithCoords.map(st => ({
-                    latitude: parseFloat(st.latitude),
-                    longitude: parseFloat(st.longitude),
-                  }))}
-                  strokeColor="#0f766e"
-                  strokeWidth={3}
-                  lineDashPattern={[1]}
-                />
-              )}
-            </MapView>
+            <BusMap stops={mapStops} height={200} style={{ marginTop: 10, borderRadius: 10 }} />
             <View style={s.mapLegend}>
               <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: "#22c55e" }]} /><Text style={s.legendTxt}>{_t("Start")}</Text></View>
               <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: "#2563eb" }]} /><Text style={s.legendTxt}>{_t("Stop")}</Text></View>

@@ -14,7 +14,6 @@ export const ROUTE_FEATURES = {
   Attendance: "attendance", AttendanceReport: "attendance", MyAttendance: "attendance",
   StudentLeave: "attendance", ArrivalLog: "attendance", MyAbsences: "attendance",
   MyCheckIn: "attendance", StaffAttendance: "attendance", StaffAttendanceReport: "attendance", OfficeCode: "attendance",
-  VisitorDesk: "attendance", PickupDesk: "attendance", PickupPersons: "attendance", SafetySettings: "attendance", MyVisitors: "attendance", MyPickup: "attendance",
 
   // Notice board & events
   NoticeBoard: "notices", CalendarSync: "notices",
@@ -26,7 +25,7 @@ export const ROUTE_FEATURES = {
 
   // Exams & results
   QuickTestSetup: "exams", Exam: "exams", AddMarks: "exams", GenerateMarksheet: "exams",
-  ExamResultsRank: "exams", StudentMarks: "exams", ExamDatesheet: "exams", MyDatesheet: "exams", ExamLogistics: "exams", ExamHalls: "exams", SeatingPlan: "exams", Invigilation: "exams", AdmitCards: "exams", MyAdmitCard: "exams", MyExamDuties: "exams",
+  ExamResultsRank: "exams", StudentMarks: "exams", ExamDatesheet: "exams", MyDatesheet: "exams",
   MyMarksheet: "exams", SubjectMaxMarks: "exams",
   GradingScales: "exams", ReportCardSetup: "exams", ReportComments: "exams", ReportCards: "exams", MyReportCards: "exams",
 
@@ -57,6 +56,12 @@ export const ROUTE_FEATURES = {
   StudentIdCard: "communication", StudentIdCardV2: "communication", IdCardSettings: "communication",
   SchoolMemories: "communication", SchoolMemoriesAdmin: "communication",
   Meetings: "communication", MeetingSession: "communication", MeetingEdit: "communication", MyMeetings: "communication",
+
+  // Pro plan (2026-10-27)
+  Analytics: "analytics", AnalyticsSettings: "analytics",
+  ExamLogistics: "exam_logistics", ExamHalls: "exam_logistics", SeatingPlan: "exam_logistics", Invigilation: "exam_logistics",
+  AdmitCards: "exam_logistics", MyAdmitCard: "exam_logistics", MyExamDuties: "exam_logistics",
+  VisitorDesk: "safety", PickupDesk: "safety", PickupPersons: "safety", SafetySettings: "safety", MyVisitors: "safety", MyPickup: "safety",
 };
 
 export const FEATURE_LABELS = {
@@ -69,4 +74,7 @@ export const FEATURE_LABELS = {
   hostel:        "Hostel",
   transport:     "Transport",
   communication: "Chat, Gallery, Certificates & ID Cards",
+  analytics:      "School analytics",
+  exam_logistics: "Exam halls, seating & admit cards",
+  safety:         "Visitors & safe pick-up",
 };

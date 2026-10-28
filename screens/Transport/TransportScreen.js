@@ -15,7 +15,9 @@ import {
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+// Maps: the app's own OpenStreetMap view (BusMap). react-native-maps with Google needs a Google Maps API key in
+// app.config.js – without one the app closes as soon as a map is shown.
+import BusMap from "../../components/BusMap";
 import { useNavigation } from "@react-navigation/native";
 import { AuthContext } from "../../context/AuthContext";
 import { fetchSessions } from "../../services/SetupServiceApi";
@@ -354,7 +356,7 @@ function StopsModal({ visible, route, user, onClose }) {
   const dragIdxRef  = useRef(null);
   const startYRef   = useRef(0);
   const translateY  = useRef(new Animated.Value(0)).current;
-  const mapRef      = useRef(null);
+  const [mapCenter, setMapCenter] = useState(null);   // where to look when the route has no stop on the map yet
 
   // keep ref in sync
   useEffect(() => { stopsRef.current = stops; }, [stops]);
@@ -540,14 +542,33 @@ function StopsModal({ visible, route, user, onClose }) {
     } catch (e) { Alert.alert(_t("Location"), _tx(e.message)); } finally { setLocating(false); }
   };
 
-  const handleMapPress = (e) => {
+  const pickOnMap = (lat, lng) => {
     if (!formOpen) return;
-    const { latitude, longitude } = e.nativeEvent.coordinate;
-    setForm(p => ({ ...p,
-      latitude:  String(latitude.toFixed(6)),
-      longitude: String(longitude.toFixed(6)),
-    }));
+    setForm(p => ({ ...p, latitude: String(lat.toFixed(6)), longitude: String(lng.toFixed(6)) }));
   };
+
+  // no stop on the map yet: start the map at the phone's last known position (no prompt; "Use my location" asks)
+  useEffect(() => {
+    if (!formOpen || stopsWithCoords.length || mapCenter) return;
+    let alive = true;
+    (async () => {
+      try {
+        if ((await Location.getForegroundPermissionsAsync()).status !== "granted") return;
+        const p = await Location.getLastKnownPositionAsync();
+        if (alive && p?.coords) setMapCenter({ lat: p.coords.latitude, lng: p.coords.longitude, zoom: 14 });
+      } catch { /* no position: the map shows the world, the user can tap or use "Use my location" */ }
+    })();
+    return () => { alive = false; };
+  }, [formOpen, stopsWithCoords.length, mapCenter]);
+
+  const mapStops = useMemo(() => stopsWithCoords.map((st, idx) => ({
+    id: st.stop_id, name: _tx(st.stop_name), lat: parseFloat(st.latitude), lng: parseFloat(st.longitude),
+    color: idx === 0 ? "#22c55e" : idx === stopsWithCoords.length - 1 ? "#ef4444" : "#2563eb",
+  })).filter(st => Number.isFinite(st.lat) && Number.isFinite(st.lng)), [stopsWithCoords]);
+  const formLat = parseFloat(form.latitude);
+  const formLng = parseFloat(form.longitude);
+  const formPin = formOpen && Number.isFinite(formLat) && Number.isFinite(formLng) && Math.abs(formLat) <= 90 && Math.abs(formLng) <= 180
+    ? { lat: formLat, lng: formLng } : null;
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -573,62 +594,14 @@ function StopsModal({ visible, route, user, onClose }) {
 
         {/* Map — always shown when form is open so user can tap to pick coords */}
         {(mapRegion || formOpen) ? (
-          <MapView
-            ref={mapRef}
-            provider={PROVIDER_GOOGLE}
-            style={[sc.map, formOpen && { height: 220, borderBottomWidth: 2, borderBottomColor: "#2563eb" }]}
-            region={
-              // If form open and coords already typed/tapped, centre on them
-              formOpen && form.latitude && form.longitude
-                ? {
-                    latitude:      parseFloat(form.latitude),
-                    longitude:     parseFloat(form.longitude),
-                    latitudeDelta:  0.01,
-                    longitudeDelta: 0.01,
-                  }
-                // Otherwise use existing stops region, or a default world view
-                : mapRegion ?? {
-                    latitude:  20.5937,   // centre of India — replace with your school coords
-                    longitude: 78.9629,
-                    latitudeDelta:  20,
-                    longitudeDelta: 20,
-                  }
-            }
-            onPress={handleMapPress}
-            showsUserLocation
-            showsMyLocationButton>
-
-            {/* Existing stop markers */}
-            {stopsWithCoords.map((stop, idx) => (
-              <Marker
-                key={stop.stop_id}
-                coordinate={{ latitude: parseFloat(stop.latitude), longitude: parseFloat(stop.longitude) }}
-                title={_tx(stop.stop_name)}
-                description={_t("Stop {v}{v2}", { v: idx + 1, v2: stop.pickup_time ? " · " + stop.pickup_time : "" })}
-                pinColor={idx === 0 ? "#22c55e" : idx === stopsWithCoords.length - 1 ? "#ef4444" : "#2563eb"}
-              />
-            ))}
-
-            {/* Route polyline */}
-            {stopsWithCoords.length > 1 && (
-              <Polyline
-                coordinates={stopsWithCoords.map(s => ({
-                  latitude: parseFloat(s.latitude), longitude: parseFloat(s.longitude),
-                }))}
-                strokeColor="#2563eb" strokeWidth={3} lineDashPattern={[1]}
-              />
-            )}
-
-            {/* New/edit stop pin */}
-            {formOpen && form.latitude && form.longitude && (
-              <Marker
-                coordinate={{ latitude: parseFloat(form.latitude), longitude: parseFloat(form.longitude) }}
-                pinColor="#f59e0b"
-                title={editStop ? "📍 " + editStop.stop_name : _t("📍 New stop")}
-                description={_t("Tap anywhere on map to move")}
-              />
-            )}
-          </MapView>
+          <BusMap
+            stops={mapStops}
+            pin={formPin}
+            center={mapCenter}
+            onPick={formOpen ? pickOnMap : null}
+            height={formOpen ? 220 : 240}
+            style={[{ borderRadius: 0 }, formOpen && { borderBottomWidth: 2, borderBottomColor: "#2563eb" }]}
+          />
         ) : (
           <View style={sc.mapPlaceholder}>
             <Feather name="map" size={32} color="#cbd5e1" />

@@ -1438,7 +1438,7 @@
  "Exam hall not found.": "Aula de examen no encontrada.",
  "Exam halls": "Aulas de examen",
  "Exam halls & seating": "Aulas de examen y asientos",
- "Exam halls, seating & admit cards": "Aulas de examen, asientos y tarjetas de examen",
+ "Exam halls, seating & admit cards": "Salas de examen, asientos y credenciales de examen",
  "Exam is in preparation — not shown in student portal": "El examen está en preparación: no se muestra en el portal del estudiante",
  "Exam name is required.": "El nombre del examen es obligatorio.",
  "Exam not found.": "Examen no encontrado.",
@@ -3924,7 +3924,7 @@
  "School Timings": "Horario del colegio",
  "School User": "Usuario del centro",
  "School address is required": "La dirección del colegio es obligatoria",
- "School analytics": "Analíticas del centro",
+ "School analytics": "Análisis escolar",
  "School code must be 2–5 characters (e.g. ABC)": "El código del colegio debe tener 2–5 caracteres (p. ej. ABC)",
  "School code must be 2–5 characters (letters/numbers).": "El código del colegio debe tener 2–5 caracteres (letras/números).",
  "School code must be 3–5 characters.": "El código del colegio debe tener 3–5 caracteres.",
@@ -6994,5 +6994,7 @@
  "This school account has expired.": "Esta cuenta del colegio ha caducado.",
  "Still marked on the bus: {names}. Check the bus – the office can end the trip.": "Aún marcados en el autobús: {names}. Revise el autobús – la oficina puede finalizar el viaje.",
  "The driver is running this trip in the app. The driver or the office ends it.": "El conductor gestiona este viaje en la aplicación. Lo finaliza el conductor o la oficina.",
- "Paired. Now allow location for this app (\"All the time\") in the phone's settings, then open this screen again.": "Vinculado. Ahora permita la ubicación para esta aplicación («Todo el tiempo») en los ajustes del teléfono y vuelva a abrir esta pantalla."
+ "Paired. Now allow location for this app (\"All the time\") in the phone's settings, then open this screen again.": "Vinculado. Ahora permita la ubicación para esta aplicación («Todo el tiempo») en los ajustes del teléfono y vuelva a abrir esta pantalla.",
+ "Attendance and absence notes, staff check-in, notice board and calendar sync, fees with online payments, exams and report cards": "Asistencia y justificantes de ausencia, registro del personal, tablón de anuncios y sincronización del calendario, cuotas con pago en línea, exámenes y boletines",
+ "Everything in Basic + school analytics, exam halls / seating / admit cards, visitors and safe pick-up, timetable, homework, teacher cover, question bank, test series, hostel, transport with live bus tracking, chat, gallery, certificates and parent-teacher meetings": "Todo lo de Basic + análisis escolar, salas de examen / asientos / credenciales, visitantes y recogida segura, horario, tareas, suplencias, banco de preguntas, series de pruebas, residencia, transporte con seguimiento del autobús en directo, chat, galería, certificados y reuniones de padres y profesores"
 }

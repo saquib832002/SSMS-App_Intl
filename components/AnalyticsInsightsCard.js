@@ -14,11 +14,11 @@ import { STATUS, INK } from "./Charts";
 import { _t, _tx } from "../services/i18n";
 
 export default function AnalyticsInsightsCard({ navigation }) {
-  const { user, can } = useContext(AuthContext);
+  const { user, can, hasFeature } = useContext(AuthContext);
   const [d, setD] = useState(null);
   const last = useRef(0);
   const role = (user?.ssmsUserRole ?? "").toLowerCase();
-  const allowed = !!user?.token && !["parent", "student"].includes(role) && can("analytics", "view");
+  const allowed = !!user?.token && !["parent", "student"].includes(role) && can("analytics", "view") && hasFeature("analytics");   // Pro plan: no call (and no "upgrade" pop-up) on Basic
 
   useFocusEffect(useCallback(() => {
     if (!allowed || Date.now() - last.current < 120000) return undefined;   // at most every 2 minutes

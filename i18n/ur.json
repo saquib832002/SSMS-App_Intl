@@ -1443,7 +1443,7 @@
  "Exam hall not found.": "امتحانی ہال نہیں ملا۔",
  "Exam halls": "امتحانی ہال",
  "Exam halls & seating": "امتحانی ہال اور نشستیں",
- "Exam halls, seating & admit cards": "امتحانی ہال، نشستیں اور ایڈمٹ کارڈز",
+ "Exam halls, seating & admit cards": "امتحانی ہال، نشستیں اور ایڈمٹ کارڈ",
  "Exam is in preparation — not shown in student portal": "امتحان کی تیاری جاری ہے — طلبہ پورٹل میں نہیں دکھایا جاتا",
  "Exam name is required.": "امتحان کا نام لازمی ہے۔",
  "Exam not found.": "امتحان نہیں ملا۔",
@@ -7106,5 +7106,7 @@
  "This school account has expired.": "اس اسکول اکاؤنٹ کی میعاد ختم ہو چکی ہے۔",
  "Still marked on the bus: {names}. Check the bus – the office can end the trip.": "ابھی بھی بس میں درج ہیں: {names}۔ بس چیک کریں – دفتر سفر ختم کر سکتا ہے۔",
  "The driver is running this trip in the app. The driver or the office ends it.": "ڈرائیور یہ سفر ایپ میں چلا رہا ہے۔ اسے ڈرائیور یا دفتر ختم کرے گا۔",
- "Paired. Now allow location for this app (\"All the time\") in the phone's settings, then open this screen again.": "جوڑ دیا گیا۔ اب فون کی سیٹنگز میں اس ایپ کو لوکیشن کی اجازت دیں (\"ہر وقت\")، پھر یہ اسکرین دوبارہ کھولیں۔"
+ "Paired. Now allow location for this app (\"All the time\") in the phone's settings, then open this screen again.": "جوڑ دیا گیا۔ اب فون کی سیٹنگز میں اس ایپ کو لوکیشن کی اجازت دیں (\"ہر وقت\")، پھر یہ اسکرین دوبارہ کھولیں۔",
+ "Attendance and absence notes, staff check-in, notice board and calendar sync, fees with online payments, exams and report cards": "حاضری اور غیر حاضری کے نوٹس، عملے کا چیک اِن، نوٹس بورڈ اور کیلنڈر سنک، آن لائن ادائیگی کے ساتھ فیس، امتحانات اور رپورٹ کارڈ",
+ "Everything in Basic + school analytics, exam halls / seating / admit cards, visitors and safe pick-up, timetable, homework, teacher cover, question bank, test series, hostel, transport with live bus tracking, chat, gallery, certificates and parent-teacher meetings": "Basic کی ہر چیز + اسکول اینالیٹکس، امتحانی ہال / نشستیں / ایڈمٹ کارڈ، ملاقاتی اور محفوظ پک اپ، ٹائم ٹیبل، ہوم ورک، استاد کی جگہ متبادل، سوالات کا بینک، ٹیسٹ سیریز، ہاسٹل، لائیو بس ٹریکنگ کے ساتھ ٹرانسپورٹ، چیٹ، گیلری، سرٹیفکیٹس اور والدین-اساتذہ ملاقاتیں"
 }

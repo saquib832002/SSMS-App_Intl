@@ -1445,7 +1445,7 @@
  "Exam hall not found.": "परीक्षा हॉल नहीं मिला।",
  "Exam halls": "परीक्षा हॉल",
  "Exam halls & seating": "परीक्षा हॉल और बैठक व्यवस्था",
- "Exam halls, seating & admit cards": "परीक्षा हॉल, बैठक व्यवस्था और एडमिट कार्ड",
+ "Exam halls, seating & admit cards": "परीक्षा हॉल, सीटिंग और एडमिट कार्ड",
  "Exam is in preparation — not shown in student portal": "परीक्षा तैयारी में है — छात्र पोर्टल में नहीं दिखाई जाती",
  "Exam name is required.": "परीक्षा का नाम आवश्यक है।",
  "Exam not found.": "परीक्षा नहीं मिली।",
@@ -7109,5 +7109,7 @@
  "This school account has expired.": "इस स्कूल अकाउंट की अवधि ख़त्म हो गई है।",
  "Still marked on the bus: {names}. Check the bus – the office can end the trip.": "अभी भी बस में दर्ज हैं: {names}। बस जाँच लें – ऑफ़िस ट्रिप समाप्त कर सकता है।",
  "The driver is running this trip in the app. The driver or the office ends it.": "ड्राइवर यह ट्रिप ऐप में चला रहा है। इसे ड्राइवर या ऑफ़िस समाप्त करेगा।",
- "Paired. Now allow location for this app (\"All the time\") in the phone's settings, then open this screen again.": "जुड़ गया। अब फ़ोन की सेटिंग में इस ऐप को लोकेशन की अनुमति दें (\"हर समय\"), फिर यह स्क्रीन दोबारा खोलें।"
+ "Paired. Now allow location for this app (\"All the time\") in the phone's settings, then open this screen again.": "जुड़ गया। अब फ़ोन की सेटिंग में इस ऐप को लोकेशन की अनुमति दें (\"हर समय\"), फिर यह स्क्रीन दोबारा खोलें।",
+ "Attendance and absence notes, staff check-in, notice board and calendar sync, fees with online payments, exams and report cards": "हाज़िरी और अनुपस्थिति नोट, स्टाफ़ चेक-इन, नोटिस बोर्ड और कैलेंडर सिंक, ऑनलाइन भुगतान के साथ फीस, परीक्षाएँ और रिपोर्ट कार्ड",
+ "Everything in Basic + school analytics, exam halls / seating / admit cards, visitors and safe pick-up, timetable, homework, teacher cover, question bank, test series, hostel, transport with live bus tracking, chat, gallery, certificates and parent-teacher meetings": "Basic की सभी सुविधाएँ + स्कूल एनालिटिक्स, परीक्षा हॉल / सीटिंग / एडमिट कार्ड, आगंतुक और सुरक्षित पिक-अप, टाइमटेबल, होमवर्क, शिक्षक कवर, प्रश्न बैंक, टेस्ट सीरीज़, हॉस्टल, लाइव बस ट्रैकिंग के साथ ट्रांसपोर्ट, चैट, गैलरी, प्रमाणपत्र और अभिभावक-शिक्षक बैठकें"
 }

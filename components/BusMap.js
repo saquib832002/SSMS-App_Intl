@@ -9,6 +9,10 @@
  *   me:     { lat, lng } | null   this phone (driver)
  *   follow: id of a bus to keep in view (or "me")
  *   height: number (default 260)
+ *   pin:    { lat, lng } | null   a point being chosen (amber), e.g. a new stop
+ *   center: { lat, lng, zoom? }   where to look when there is nothing on the map yet
+ *   onPick: (lat, lng) => void    tap on the map to choose a point
+ *   stops[].color: a fixed colour for that stop (start / end / selected)
  * The page is loaded once; new positions are sent into it, so the map does not flash.
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -24,6 +28,7 @@ const HTML = `<!doctype html><html><head><meta name="viewport" content="width=de
 .bus{width:34px;height:34px;border-radius:17px;background:#5b21b6;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center}
 .bus.old{background:#94a3b8}.bus svg{width:18px;height:18px}
 .arrow{position:absolute;left:12px;top:-9px;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #5b21b6}
+.pin{width:18px;height:18px;border-radius:9px;background:#f59e0b;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)}
 .me{width:16px;height:16px;border-radius:8px;background:#2563eb;border:3px solid #fff;box-shadow:0 0 0 6px rgba(37,99,235,.25)}
 .lbl{background:#fff;border-radius:6px;padding:1px 5px;font:600 11px sans-serif;color:#0f172a;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.3)}
 #err{position:absolute;top:40%;width:100%;text-align:center;font:14px sans-serif;color:#475569;display:none}</style></head>
@@ -36,9 +41,10 @@ else{
 var map=L.map('m',{zoomControl:true,attributionControl:true}).setView([20,0],2);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
 var esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
-var layer=L.layerGroup().addTo(map),line=null,path=null,busM={},meM=null,fitted=false,state={};
+var layer=L.layerGroup().addTo(map),line=null,path=null,busM={},meM=null,pinM=null,lastPin='',centered=false,fitted=false,state={};
+map.on('click',function(e){if(state.pick)post({t:'pick',lat:e.latlng.lat,lng:e.latlng.lng})});
 var busSvg='<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="4" y="3" width="16" height="15" rx="2"/><path d="M4 11h16M8 18v2M16 18v2"/></svg>';
-function stopColor(s){return s.mine?'#dc2626':(s.status==='arrived'?'#15803d':(s.status==='left'||s.status==='passed')?'#94a3b8':'#2563eb')}
+function stopColor(s){if(s.color)return s.color;return s.mine?'#dc2626':(s.status==='arrived'?'#15803d':(s.status==='left'||s.status==='passed')?'#94a3b8':'#2563eb')}
 function draw(d){
   state=d;layer.clearLayers();
   var pts=[],stops=d.stops||[];
@@ -58,6 +64,14 @@ function draw(d){
   if(d.me&&d.me.lat!=null){var mi=L.divIcon({html:'<div class="me"></div>',className:'',iconSize:[16,16],iconAnchor:[8,8]});
     if(meM){meM.setLatLng([d.me.lat,d.me.lng])}else{meM=L.marker([d.me.lat,d.me.lng],{icon:mi}).addTo(map)}pts.push([d.me.lat,d.me.lng]);}
   else if(meM){map.removeLayer(meM);meM=null}
+  var pk=d.pin&&d.pin.lat!=null?d.pin.lat+','+d.pin.lng:'';
+  if(pk){var pi=L.divIcon({html:'<div class="pin"></div>',className:'',iconSize:[18,18],iconAnchor:[9,9]});
+    if(pinM){pinM.setLatLng([d.pin.lat,d.pin.lng])}else{pinM=L.marker([d.pin.lat,d.pin.lng],{icon:pi,zIndexOffset:2000}).addTo(map)}
+    if(pk!==lastPin&&fitted&&!map.getBounds().pad(-0.1).contains(pinM.getLatLng()))map.setView(pinM.getLatLng(),Math.max(map.getZoom(),15));
+    pts.push([d.pin.lat,d.pin.lng]);}
+  else if(pinM){map.removeLayer(pinM);pinM=null}
+  lastPin=pk;
+  if(!pts.length&&!centered&&d.center&&d.center.lat!=null){centered=true;map.setView([d.center.lat,d.center.lng],d.center.zoom||5);}
   if(!fitted&&pts.length){fitted=true;if(pts.length===1)map.setView(pts[0],15);else map.fitBounds(pts,{padding:[30,30],maxZoom:16});}
   else if(d.follow){var f=d.follow==='me'?(meM&&meM.getLatLng()):(busM[d.follow]&&busM[d.follow].getLatLng());if(f&&!map.getBounds().pad(-0.15).contains(f))map.panTo(f);}
 }
@@ -70,11 +84,14 @@ post({t:'ready'});
 }
 </script></body></html>`;
 
-export default function BusMap({ stops = [], buses = [], path = null, me = null, follow = null, height = 260, style }) {
+export default function BusMap({ stops = [], buses = [], path = null, me = null, follow = null, height = 260, style, pin = null, center = null, onPick = null }) {
   const ref = useRef(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
-  const payload = useMemo(() => JSON.stringify({ stops, buses, path, me, follow }), [stops, buses, path, me, follow]);
+  const pickRef = useRef(onPick);
+  pickRef.current = onPick;
+  const pick = !!onPick;
+  const payload = useMemo(() => JSON.stringify({ stops, buses, path, me, follow, pin, center, pick }), [stops, buses, path, me, follow, pin, center, pick]);
 
   useEffect(() => {
     if (ready) ref.current?.injectJavaScript(`window.mmaUpdate && window.mmaUpdate(${payload}); true;`);
@@ -97,6 +114,7 @@ export default function BusMap({ stops = [], buses = [], path = null, me = null,
           try { m = JSON.parse(e.nativeEvent.data); } catch { m = null; }
           if (m?.t === "ready") { setReady(true); setFailed(false); }
           if (m?.t === "error" && !ready) setFailed(true);
+          if (m?.t === "pick" && Number.isFinite(m.lat) && Number.isFinite(m.lng)) pickRef.current?.(m.lat, m.lng);
         }}
         onError={() => setFailed(true)}
         style={{ backgroundColor: "transparent" }}

@@ -1450,7 +1450,7 @@
  "Exam hall not found.": "لم يتم العثور على قاعة الامتحان.",
  "Exam halls": "قاعات الامتحان",
  "Exam halls & seating": "قاعات الامتحان والجلوس",
- "Exam halls, seating & admit cards": "قاعات الامتحان والجلوس وبطاقات الدخول",
+ "Exam halls, seating & admit cards": "قاعات الامتحان والمقاعد وبطاقات الدخول",
  "Exam is in preparation — not shown in student portal": "الامتحان قيد الإعداد — غير معروض في بوابة الطالب",
  "Exam name is required.": "اسم الامتحان مطلوب.",
  "Exam not found.": "لم يتم العثور على الامتحان.",
@@ -7132,5 +7132,7 @@
  "This school account has expired.": "انتهت صلاحية حساب المدرسة هذا.",
  "Still marked on the bus: {names}. Check the bus – the office can end the trip.": "لا يزال مسجّلاً في الحافلة: {names}. تحقّق من الحافلة – يمكن للإدارة إنهاء الرحلة.",
  "The driver is running this trip in the app. The driver or the office ends it.": "السائق يدير هذه الرحلة في التطبيق. ينهيها السائق أو الإدارة.",
- "Paired. Now allow location for this app (\"All the time\") in the phone's settings, then open this screen again.": "تم الربط. اسمح الآن لهذا التطبيق بالوصول إلى الموقع (\"طوال الوقت\") في إعدادات الهاتف، ثم افتح هذه الشاشة مرة أخرى."
+ "Paired. Now allow location for this app (\"All the time\") in the phone's settings, then open this screen again.": "تم الربط. اسمح الآن لهذا التطبيق بالوصول إلى الموقع (\"طوال الوقت\") في إعدادات الهاتف، ثم افتح هذه الشاشة مرة أخرى.",
+ "Attendance and absence notes, staff check-in, notice board and calendar sync, fees with online payments, exams and report cards": "الحضور وإشعارات الغياب، تسجيل حضور الموظفين، لوحة الإعلانات ومزامنة التقويم، الرسوم مع الدفع الإلكتروني، الامتحانات والشهادات المدرسية",
+ "Everything in Basic + school analytics, exam halls / seating / admit cards, visitors and safe pick-up, timetable, homework, teacher cover, question bank, test series, hostel, transport with live bus tracking, chat, gallery, certificates and parent-teacher meetings": "كل ما في الخطة الأساسية + تحليلات المدرسة، قاعات الامتحان والمقاعد وبطاقات الدخول، الزوار والاستلام الآمن، الجدول الدراسي، الواجبات، تغطية المعلمين، بنك الأسئلة، سلاسل الاختبارات، السكن، النقل مع تتبع الحافلات المباشر، الدردشة، المعرض، الشهادات واجتماعات أولياء الأمور والمعلمين"
 }

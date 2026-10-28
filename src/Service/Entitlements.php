@@ -40,6 +40,7 @@ final class Entitlements
     public const PAID_MODULES = [
         'attendance', 'notices', 'fees', 'exams', 'academics',
         'assessments', 'hostel', 'transport', 'communication',
+        'analytics', 'exam_logistics', 'safety',   // Pro (2026-10-27): school analytics, exam halls / seating / admit cards, visitors & pick-up
     ];
 
     /** Fallback only – the real trial length is Trials::defaultDays() (platform setting). */
@@ -74,7 +75,7 @@ final class Entitlements
         'MeetingApi'               => 'communication',   // parent–teacher meeting booking
         'LocaleApi'                => 'core',   // region & formats (currency, dates, time zone)
         'NotifyApi'                => 'core',   // automatic notifications, inbox, notice read receipts
-        'AnalyticsApi'             => 'core',   // school dashboard: attendance, at-risk, fees vs target, class performance
+        'AnalyticsApi'             => 'analytics',   // Pro: school dashboard – attendance, at-risk, fees vs target, class performance
         'OnlinePayApi'             => 'fees',   // phase 7 – online fee payments
 
         // ── Paid ─────────────────────────────────────────────────────────────
@@ -86,12 +87,12 @@ final class Entitlements
         'StudentLeaveApi'          => 'attendance', // absence notes, student leave, late/early
         'StaffAttendanceApi'       => 'attendance', // staff check-in, monthly staff attendance
         'DatesheetApi'             => 'exams',
-        'ExamLogisticsApi'         => 'exams',   // exam halls, seating plans, invigilation, admit cards
+        'ExamLogisticsApi'         => 'exam_logistics',   // Pro: exam halls, seating plans, invigilation, admit cards
         'TimeTableServiceApi'      => 'academics',
         'CoverApi'                 => 'academics',   // teacher cover & substitution
         'CalendarApi'              => 'notices',     // calendar sync links (events, exams, meetings …)
         'BusTrackingApi'           => 'transport',   // live bus tracking
-        'SafetyApi'                => 'attendance',  // visitors & authorised pick-up (with the late / early log)
+        'SafetyApi'                => 'safety',      // Pro: visitors & authorised pick-up (the late / early log stays in StudentLeaveApi – attendance)
         'HomeworkApi'              => 'academics',
         'LeaveApi'                 => 'academics',
         'QuestionBankApi'          => 'assessments',
@@ -258,6 +259,9 @@ final class Entitlements
             'hostel'        => 'Hostel',
             'transport'     => 'Transport',
             'communication' => 'Chat, Gallery, Certificates & ID Cards',
+            'analytics'     => 'School analytics',
+            'exam_logistics' => 'Exam halls, seating & admit cards',
+            'safety'        => 'Visitors & safe pick-up',
             'finance'       => 'Finance',
             'library'       => 'Library',
             'messaging'     => 'SMS & WhatsApp messages',   // paid add-on (feature_key / module_key 'messaging')
