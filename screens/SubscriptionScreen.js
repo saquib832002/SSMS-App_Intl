@@ -3,7 +3,9 @@
  *
  * For subscription (international) schools:
  *   • current status (free trial / plan / renews or ends on / payment problem)
- *   • plans with Google Play prices and a Subscribe button (owner/admin only)
+ *   • plans with Google Play prices and a Subscribe button (owner/admin only) – Android only.
+ *     iOS ("School plan"): only the current plan and what it includes – no prices, buttons or store links
+ *     (see constants/Store.js – App Review 3.1.3(c)).
  *   • Restore purchases, Manage in Google Play
  * After a purchase the server is asked to re-read the Play subscription,
  * then the app refreshes its features – locked screens open straight away.
@@ -17,10 +19,12 @@ import { Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AuthContext } from "../context/AuthContext";
 import { FEATURE_LABELS } from "../constants/RouteFeatures";
+import { PLANS_SOLD_IN_APP } from "../constants/Store";
 import { fetchSubscriptionStatus, fetchPlans, syncPlayPurchase } from "../services/SubscriptionServiceApi";
 import {
   initPlayBilling, getPlayPackages, buyPackage, restorePlayPurchases,
   playBillingUnavailableReason, baseProductId, MANAGE_SUBSCRIPTIONS_URL,
+  hasActiveSubscription, storeErrorKind,
 } from "../services/PlayBilling";
 import { _t, _tx } from "../services/i18n";
 import { fmtDate as fmtLocalDate } from "../services/Locale";
@@ -105,6 +109,28 @@ export default function SubscriptionScreen({ navigation }) {
     }
   }, [user, refreshEntitlements]);
 
+  const doRestore = useCallback(async () => {
+    setBusy("restore");
+    try {
+      await initPlayBilling(user?.ssmsClientCode);
+      const info = await restorePlayPurchases();
+      if (info && !hasActiveSubscription(info)) {
+        Alert.alert(_t("Nothing to restore"), _t("No active subscription was found for this school on the Google account signed in to the Play Store on this phone."));
+        await refreshEntitlements();
+        return;
+      }
+      await afterStoreChange(_t("Your school's subscription has been restored."));
+    } catch (e) {
+      if (storeErrorKind(e) === "other_school") {
+        Alert.alert(_t("Subscription for another school"), _t("This Google account's subscription belongs to another school, so it stays with that school. Log in to that school to manage it, or subscribe for this school with a different Google account."));
+      } else {
+        Alert.alert(_t("Restore failed"), _tx(e?.message) || _t("Could not restore purchases."));
+      }
+    } finally {
+      setBusy(null);
+    }
+  }, [user?.ssmsClientCode, afterStoreChange, refreshEntitlements]);
+
   const onSubscribe = useCallback(async (plan) => {
     const pkg = pkgFor(plan);
     if (!pkg) { Alert.alert(_t("Not available"), _t("This plan is not available in Google Play yet.")); return; }
@@ -113,24 +139,36 @@ export default function SubscriptionScreen({ navigation }) {
       const res = await buyPackage(pkg, playSub?.status !== "expired" ? playSub?.storeProductId ?? null : null);
       if (res.ok) await afterStoreChange(_t("{name} is now active for your school.", { name: plan.name }));
     } catch (e) {
-      Alert.alert(_t("Purchase failed"), _tx(e?.message) || _t("The purchase could not be completed."));
+      const kind = storeErrorKind(e);
+      if (kind === "other_school") {
+        // one Google account can pay for one school's plan: Google refuses a second one of the same plan
+        Alert.alert(_t("Subscription for another school"), _t("The Google account on this phone already pays for a school's subscription. To subscribe for this school, switch to a different Google account in the Play Store (tap your picture there), then try again."));
+      } else if (kind === "already_owned") {
+        // may be this school's own purchase that the server has not seen yet – or another school's
+        Alert.alert(_t("Already subscribed"), _t("The Google account on this phone already has this plan. If it was bought for this school, tap Restore. If it pays for another school, switch to a different Google account in the Play Store and try again."),
+          [{ text: _t("Cancel"), style: "cancel" }, { text: _t("Restore"), onPress: doRestore }]);
+      } else {
+        Alert.alert(_t("Purchase failed"), _tx(e?.message) || _t("The purchase could not be completed."));
+      }
     } finally {
       setBusy(null);
     }
-  }, [pkgFor, playSub, afterStoreChange]);
+  }, [pkgFor, playSub, afterStoreChange, doRestore]);
 
-  const onRestore = useCallback(async () => {
-    setBusy("restore");
-    try {
-      await initPlayBilling(user?.ssmsClientCode);
-      await restorePlayPurchases();
-      await afterStoreChange("Your school's subscription has been restored.");
-    } catch (e) {
-      Alert.alert(_t("Restore failed"), _tx(e?.message) || _t("Could not restore purchases."));
-    } finally {
-      setBusy(null);
-    }
-  }, [user?.ssmsClientCode, afterStoreChange]);
+  // ask first: a restore uses the Play Store's Google account, which may pay for another school
+  const onRestore = useCallback(() => {
+    Alert.alert(
+      _t("Restore the subscription?"),
+      _t("This uses the Google account signed in to the Play Store on this phone. Only restore a subscription that was bought for this school ({school}).", { school: user?.ssmsClientCode ?? "" }),
+      [{ text: _t("Cancel"), style: "cancel" }, { text: _t("Restore"), onPress: doRestore }],
+    );
+  }, [user?.ssmsClientCode, doRestore]);
+
+  // iOS: the features the school has now (from the sign-in / entitlement refresh)
+  const includedFeatures = useMemo(
+    () => (Array.isArray(user?.activeFeatures) ? user.activeFeatures : []).filter(f => f && f !== "core" && FEATURE_LABELS[f]),
+    [user?.activeFeatures]
+  );
 
   // ── Status card text ───────────────────────────────────────────────────
   const statusCard = useMemo(() => {
@@ -144,7 +182,9 @@ export default function SubscriptionScreen({ navigation }) {
         icon: sub.status === "past_due" ? "alert-triangle" : "award",
         title: _t("{v} plan", { v: sub.planName ?? sub.planCode }),
         line: `${ends} ${fmtDate(sub.currentPeriodEnd)}`,
-        warn: sub.status === "past_due" ? "Google Play couldn't charge the last payment. Update the payment method in Google Play to keep access." : null,
+        warn: sub.status === "past_due"
+          ? (PLANS_SOLD_IN_APP ? "Google Play couldn't charge the last payment. Update the payment method in Google Play to keep access." : _t("The school's last payment didn't go through."))
+          : null,
       };
     }
     if (status.trialEndsAt) {
@@ -152,7 +192,7 @@ export default function SubscriptionScreen({ navigation }) {
       const leftTxt = left === null ? "" : left === 0 ? " · last day" : ` · ${left} day${left === 1 ? "" : "s"} left`;
       return { icon: "gift", title: _t("Free trial"), line: _t("All features until {trialEndsAt}{leftTxt}", { trialEndsAt: fmtDate(status.trialEndsAt), leftTxt }) };
     }
-    return { icon: "lock", title: _t("Free plan"), line: "Student registration and setup are free. Choose a plan to unlock more features." };
+    return { icon: "lock", title: _t("Free plan"), line: PLANS_SOLD_IN_APP ? "Student registration and setup are free. Choose a plan to unlock more features." : _t("Student registration and setup are included.") };
   }, [status, sub, hasActive]);
 
   if (loading) {
@@ -165,7 +205,7 @@ export default function SubscriptionScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.back}>
           <Feather name="arrow-left" size={20} color="#0f172a" />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>{_t("Plan & Billing")}</Text>
+        <Text style={s.headerTitle}>{PLANS_SOLD_IN_APP ? _t("Plan & Billing") : _t("School plan")}</Text>
         <View style={{ width: 36 }} />
       </View>
 
@@ -183,7 +223,7 @@ export default function SubscriptionScreen({ navigation }) {
               </View>
             </View>
             {!!statusCard.warn && <Text style={s.warn}>{_tx(statusCard.warn)}</Text>}
-            {!!playSub && isAdmin && (
+            {!!playSub && isAdmin && PLANS_SOLD_IN_APP && (
               <TouchableOpacity style={s.linkBtn} onPress={() => Linking.openURL(MANAGE_SUBSCRIPTIONS_URL)}>
                 <Feather name="external-link" size={14} color="#1e40af" />
                 <Text style={s.linkTxt}>{_t("Manage or cancel in Google Play")}</Text>
@@ -192,7 +232,19 @@ export default function SubscriptionScreen({ navigation }) {
           </View>
         )}
 
-        {status?.billingModel === "subscription" && (
+        {status?.billingModel === "subscription" && !PLANS_SOLD_IN_APP && (
+          // iOS: what the school's plan includes – nothing to buy or change here
+          <>
+            <Text style={s.section}>{_t("Included in your school's plan")}</Text>
+            <View style={s.card}>
+              <Text style={s.feature}>{_t("✓ Student registration & setup (always free)")}</Text>
+              {includedFeatures.map(m => <Text key={m} style={s.feature}>✓ {_tx(FEATURE_LABELS[m]) ?? _tx(m)}</Text>)}
+            </View>
+            <Text style={s.small}>{_t("Your school's plan is managed by your school's account. It can't be changed in this app.")}</Text>
+          </>
+        )}
+
+        {status?.billingModel === "subscription" && PLANS_SOLD_IN_APP && (
           <>
             <Text style={s.section}>{_t("Plans")}</Text>
             {!isAdmin && <Text style={s.note}>{_t("Only the school owner or admin can change the plan.")}</Text>}

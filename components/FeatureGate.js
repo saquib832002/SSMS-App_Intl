@@ -16,6 +16,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { AuthContext } from "../context/AuthContext";
 import { ROUTE_FEATURES, FEATURE_LABELS } from "../constants/RouteFeatures";
+import { PLANS_SOLD_IN_APP } from "../constants/Store";
 import { ROUTE_MODULES, ROUTE_KIND } from "../constants/RouteModules";
 import { _t, _tx } from "../services/i18n";
 
@@ -66,11 +67,14 @@ export function LockedFeature({ feature, navigation }) {
       <Text style={s.title}>{_tx(label)}</Text>
       <Text style={s.msg}>{_t("This feature isn't included in your school's current plan, or the free trial has ended.")}</Text>
       <Text style={s.hint}>
-        {isOwner
-          ? _t("Choose a plan to unlock it for your whole school.")
-          : _t("Please ask your school administrator to upgrade the plan.")}
+        {!PLANS_SOLD_IN_APP
+          ? (isOwner ? _t("Your school's plan is managed by your school's account. It can't be changed in this app.")
+                     : _t("Please ask your school administrator about the school's plan."))
+          : isOwner
+            ? _t("Choose a plan to unlock it for your whole school.")
+            : _t("Please ask your school administrator to upgrade the plan.")}
       </Text>
-      {isOwner && (
+      {isOwner && PLANS_SOLD_IN_APP && (
         <TouchableOpacity style={[s.btn, { marginBottom: 10 }]} onPress={() => navigation?.navigate?.("Subscription")} activeOpacity={0.8}>
           <Feather name="credit-card" size={16} color="#fff" />
           <Text style={s.btnTxt}>{_t("View plans")}</Text>

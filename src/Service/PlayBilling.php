@@ -31,6 +31,9 @@ final class PlayBilling
 {
     private const API_BASE = 'https://api.revenuecat.com/v1/';
 
+    /** Tests: fn(string $clientCode): array – the RevenueCat "subscriber" object instead of the REST call. */
+    public static $subscriberFor = null;
+
     /** Extra access after the paid-until date (Play's own grace period comes on top). */
     public const GRACE_HOURS = 24;
 
@@ -104,6 +107,9 @@ final class PlayBilling
             throw new \DomainException('In-app subscriptions are only available for schools on a subscription plan.');
         }
 
+        if ($subscriber === null && self::$subscriberFor !== null) {
+            $subscriber = (self::$subscriberFor)($clientCode);
+        }
         if ($subscriber === null) {
             $data       = self::request('subscribers/' . rawurlencode(self::appUserId($clientCode)));
             $subscriber = $data['subscriber'] ?? [];
@@ -189,6 +195,15 @@ final class PlayBilling
                 );
             }
 
+            if ($state === null) {
+                // RevenueCat has no Play subscription for this school any more (e.g. it was moved to another
+                // school): the Google Play record must not keep saying "active / renews on …". Stripe rows untouched.
+                $conn->execute(
+                    "UPDATE ssms_subscriptions SET status = 'expired', cancel_at_period_end = 0
+                      WHERE ssms_client_code = ? AND provider = 'google_play' AND status IN ('active', 'trialing', 'past_due')",
+                    [$clientCode]
+                );
+            }
             if ($state !== null) {
                 $status = !$state['active'] ? 'expired'
                     : ($state['billingErr'] ? 'past_due' : ($state['trial'] ? 'trialing' : 'active'));
@@ -232,22 +247,30 @@ final class PlayBilling
             return 'test';
         }
 
-        // Find the school among all ids RevenueCat sends for this customer.
+        // Every school this event is about. A TRANSFER (a Google account's purchase restored while logged in
+        // to another school) moves the subscription from one school to another: both must be re-read, or the
+        // school it moved away from would keep the features until its next check.
         $ids = array_merge(
             [$event['app_user_id'] ?? null, $event['original_app_user_id'] ?? null],
             (array)($event['aliases'] ?? []),
-            (array)($event['transferred_to'] ?? [])
+            (array)($event['transferred_to'] ?? []),
+            (array)($event['transferred_from'] ?? [])
         );
-        $client = null;
+        $clients = [];
         foreach ($ids as $candidate) {
-            $client = self::clientFromAppUserId(is_string($candidate) ? $candidate : null);
-            if ($client !== null) {
-                break;
+            $code = self::clientFromAppUserId(is_string($candidate) ? $candidate : null);
+            if ($code !== null && !in_array($code, $clients, true)) {
+                $clients[] = $code;
             }
         }
-        if ($client === null) {
+        if (!$clients) {
             Log::warning("RevenueCat webhook {$type} {$id}: no school_<code> app user id – ignored");
             return 'ignored';
+        }
+        $client = $clients[0];
+        if ($type === 'TRANSFER') {
+            Log::info('RevenueCat TRANSFER ' . $id . ': ' . implode(', ', array_map(fn($x) => (string)$x, (array)($event['transferred_from'] ?? [])))
+                . ' → ' . implode(', ', array_map(fn($x) => (string)$x, (array)($event['transferred_to'] ?? []))));
         }
 
         $conn    = ConnectionManager::get('default');
@@ -266,29 +289,32 @@ final class PlayBilling
             );
         }
 
-        try {
-            self::sync($client);
-            $conn->execute(
-                'UPDATE ssms_billing_events SET processed_at = NOW(), error = NULL WHERE stripe_event_id = ?',
-                [$eventId]
-            );
-
-            return 'processed:' . $client;
-        } catch (\DomainException $e) {
-            // e.g. a legacy (Indian) school – nothing to do, don't make RevenueCat retry
-            $conn->execute(
-                'UPDATE ssms_billing_events SET processed_at = NOW(), error = ? WHERE stripe_event_id = ?',
-                [$e->getMessage(), $eventId]
-            );
-
-            return 'skipped:' . $client;
-        } catch (\Throwable $e) {
+        $done    = [];
+        $skipped = [];
+        $failed  = null;
+        foreach ($clients as $code) {
+            try {
+                self::sync($code);
+                $done[] = $code;
+            } catch (\DomainException $e) {
+                $skipped[$code] = $e->getMessage();   // e.g. a legacy (Indian) school – nothing to do
+            } catch (\Throwable $e) {
+                $failed ??= $e;                       // try the other schools first, then let RevenueCat retry
+            }
+        }
+        if ($failed !== null) {
             $conn->execute(
                 'UPDATE ssms_billing_events SET error = ? WHERE stripe_event_id = ?',
-                [mb_substr($e->getMessage(), 0, 2000), $eventId]
+                [mb_substr($failed->getMessage(), 0, 2000), $eventId]
             );
-            throw $e;
+            throw $failed;
         }
+        $conn->execute(
+            'UPDATE ssms_billing_events SET processed_at = NOW(), error = ? WHERE stripe_event_id = ?',
+            [$skipped ? mb_substr(implode(' | ', array_map(fn($c, $m) => "{$c}: {$m}", array_keys($skipped), $skipped)), 0, 2000) : null, $eventId]
+        );
+
+        return $done ? 'processed:' . implode(',', $done) : 'skipped:' . implode(',', array_keys($skipped));
     }
 
     /** "ssms_basic:monthly" or "ssms_basic" → BASIC */

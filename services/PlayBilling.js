@@ -24,7 +24,7 @@ let configuredFor = null;
 
 /** Why purchases are unavailable, or null when they are available. */
 export function playBillingUnavailableReason() {
-  if (Platform.OS !== "android") return "Subscriptions can be purchased from the Android app.";
+  if (Platform.OS !== "android") return "The school's plan can't be changed in this app.";   // iOS: no pointer to buying elsewhere (App Review 3.1.1)
   if (IS_EXPO_GO)               return "In-app purchases don't work in Expo Go. Use the development build.";
   // The development app (com.sawera.ssms.dev) is not the app registered in
   // Google Play / RevenueCat, so purchases can't work there – skip RevenueCat.
@@ -79,6 +79,26 @@ export async function buyPackage(pkg, currentStoreProductId = null) {
   }
 }
 
+/** Restore this Google account's purchases for the school; returns RevenueCat's CustomerInfo. */
 export async function restorePlayPurchases() {
-  await Purchases.restorePurchases();
+  return Purchases.restorePurchases();
+}
+
+/** Does this RevenueCat CustomerInfo hold an active subscription (for the school now logged in)? */
+export const hasActiveSubscription = (info) =>
+  Array.isArray(info?.activeSubscriptions) ? info.activeSubscriptions.length > 0 : Object.keys(info?.entitlements?.active ?? {}).length > 0;
+
+/**
+ * What a store error means for a school:
+ *  "other_school"  – this Google account's purchase belongs to another school (RevenueCat keeps it there)
+ *  "already_owned" – Google says this Google account already has the subscription
+ *  null            – something else
+ */
+export function storeErrorKind(e) {
+  const C = Purchases.PURCHASES_ERROR_CODE ?? {};
+  const code = String(e?.code ?? "");
+  const is = (name, fallback) => code === String(C[name] ?? fallback);
+  if (is("RECEIPT_ALREADY_IN_USE_ERROR", "7") || is("RECEIPT_IN_USE_BY_OTHER_SUBSCRIBER_ERROR", "13")) return "other_school";
+  if (is("PRODUCT_ALREADY_PURCHASED_ERROR", "6")) return "already_owned";
+  return null;
 }

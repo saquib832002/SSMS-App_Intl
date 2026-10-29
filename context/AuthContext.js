@@ -4,6 +4,7 @@ import { Alert, AppState } from 'react-native';
 import { setExpiredHandler, setLockedHandler, setLoggedOut } from '../services/apiInterceptor';
 import { fetchUserProfile, fetchEntitlements } from '../services/UserServiceApi';
 import { FEATURE_LABELS } from '../constants/RouteFeatures';
+import { PLANS_SOLD_IN_APP } from '../constants/Store';
 import { serverLogout } from '../services/SecurityApi';
 import * as BusTracker from '../services/BusTracker';
 import { _t } from "../services/i18n";
@@ -254,6 +255,17 @@ export function AuthProvider({ children }) {
     const openPlans = () => {
       try { navigationRef.current?.navigate('Subscription'); } catch { /* ignore */ }
     };
+    if (!PLANS_SOLD_IN_APP) {
+      // iOS: the plan can't be bought or changed in this app – say so neutrally (no "upgrade", no plans button)
+      Alert.alert(
+        _t("🔒 {label} is locked", { label }),
+        _t("This feature isn't included in your school's current plan, or the free trial has ended.") + "\n\n"
+          + (isOwner ? _t("Your school's plan is managed by your school's account. It can't be changed in this app.")
+                     : _t("Please ask your school administrator about the school's plan.")),
+        [{ text: _t("OK") }]
+      );
+      return;
+    }
     Alert.alert(
       _t("🔒 {label} is locked", { label }),
       _t("Your school's subscription or free trial has expired, or this feature isn't included in your current plan.\n\n{v}", { v: isOwner

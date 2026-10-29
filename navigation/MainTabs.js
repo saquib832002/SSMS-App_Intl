@@ -219,9 +219,9 @@ function MoreDrawer({ visible, onClose, navigation }) {
     { label: _t("My language"),     icon: "globe",     onPress: () => { onClose(); navigation.navigate("MyLanguage");   } },
     { label: _t("My notifications"), icon: "bell",     onPress: () => { onClose(); navigation.navigate("MyNotifications"); } },
     { label: _t("Notice Board"),    icon: "bell",      screen: "NoticeBoard", onPress: () => { onClose(); navigation.navigate("NoticeBoard"); } },
-    // International (subscription) schools only – plan status, trial, Google Play subscribe
+    // International (subscription) schools only – plan status, trial, Google Play subscribe (iOS: the plan only)
     ...(isSubscription ? [{
-      label: _t("Plan & Billing"), icon: "credit-card",
+      label: Platform.OS === "ios" ? _t("School plan") : _t("Plan & Billing"), icon: Platform.OS === "ios" ? "award" : "credit-card",
       onPress: () => { onClose(); navigation.navigate("Subscription"); },
     }] : []),
     {

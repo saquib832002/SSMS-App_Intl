@@ -1035,7 +1035,9 @@ export default function TrialRegistrationScreen({ navigation, route }) {
                 {!!school.country_code && !isIndia && (
                   <View style={ts.trialNote}>
                     <Feather name="gift" size={14} color="#1d4ed8" />
-                    <Text style={ts.trialNoteTxt}>{_t("Includes a {trialDays}-day free trial of all features. After the trial, student registration and setup stay free; other modules need a yearly subscription.", { trialDays })}</Text>
+                    <Text style={ts.trialNoteTxt}>{Platform.OS === "ios"
+                      ? _t("All features are included for the first {trialDays} days. Student registration and setup are always included.", { trialDays })
+                      : _t("Includes a {trialDays}-day free trial of all features. After the trial, student registration and setup stay free; other modules need a yearly subscription.", { trialDays })}</Text>
                   </View>
                 )}
                 <InputField
